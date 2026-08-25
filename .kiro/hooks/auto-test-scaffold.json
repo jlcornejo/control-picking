@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Scaffold test file for new services",
+      "description": "Create corresponding test file when a new service or controller is created",
+      "trigger": "PostFileCreate",
+      "matcher": "\\.(service|controller)\\.(ts|tsx)$",
+      "action": {
+        "type": "agent",
+        "prompt": "A new service or controller file was created. Create a corresponding test file in __tests__/ with the naming convention {module}.service.spec.ts or {module}.controller.spec.ts. Include: describe block, one happy-path test, one edge-case test for domain validation."
+      }
+    }
+  ]
+}

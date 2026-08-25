@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 140 10% 98%;
+    --foreground: 160 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 160 10% 8%;
+    --primary: 152 60% 28%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 30% 96%;
+    --secondary-foreground: 152 50% 20%;
+    --muted: 140 10% 96%;
+    --muted-foreground: 160 5% 45%;
+    --accent: 152 40% 94%;
+    --accent-foreground: 152 60% 20%;
+    --border: 140 10% 91%;
+    --ring: 152 60% 28%;
+    --radius: 1rem;
+    --glow: 152 80% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Gooey-inspired glow on hover */
+  .glow-card {
+    @apply relative overflow-hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .glow-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px -8px hsl(var(--glow) / 0.15),
+                0 0 0 1px hsl(var(--glow) / 0.05);
+  }
+  .glow-card::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500 rounded-[inherit] pointer-events-none;
+    background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), hsl(var(--glow) / 0.06), transparent 40%);
+  }
+  .glow-card:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Aura gradient backgrounds */
+  .aura-bg {
+    background: 
+      radial-gradient(ellipse 80% 50% at 20% 40%, hsl(152 60% 50% / 0.08), transparent),
+      radial-gradient(ellipse 60% 80% at 80% 20%, hsl(180 50% 60% / 0.06), transparent),
+      radial-gradient(ellipse 50% 60% at 50% 80%, hsl(140 40% 40% / 0.04), transparent);
+  }
+
+  /* Mono micro-chart containers */
+  .micro-chart {
+    @apply inline-flex items-end gap-[2px] h-8;
+  }
+  .micro-chart .bar {
+    @apply w-1 bg-primary/30 rounded-full transition-all duration-500;
+  }
+  .micro-chart .bar.active {
+    @apply bg-primary;
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/60;
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.04),
+                0 0 0 1px rgba(0, 0, 0, 0.02);
+  }
+}
+
+/* Smooth page transitions */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}

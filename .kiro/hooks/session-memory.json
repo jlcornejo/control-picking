@@ -1,0 +1,23 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Inject previous session context",
+      "description": "Load relevant context from previous sessions when a new session starts",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "agent",
+        "prompt": "A new session has started. Check if the Total Recall MCP server is available. If so, use the get_context tool to retrieve previous session context for this project. Use this context to understand where we left off and any decisions previously made."
+      }
+    },
+    {
+      "name": "Save session summary on stop",
+      "description": "Persist session summary to Total Recall when session ends",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "The session is ending. If Total Recall MCP is available, use save_memory to store a structured summary of what was accomplished in this session: files changed, decisions made, and next steps. This ensures continuity in the next session."
+      }
+    }
+  ]
+}

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Sistema de Control de Picking — Documento de Requerimientos</title>
+<style>
+  @page {
+    size: A4;
+    margin: 2.5cm 2cm;
+    @bottom-center {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 9px;
+      color: #666;
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a1a;
+    max-width: 100%;
+  }
+  h1 {
+    font-size: 22pt;
+    color: #1b5e20;
+    border-bottom: 3px solid #4caf50;
+    padding-bottom: 10px;
+    margin-top: 0;
+  }
+  h2 {
+    font-size: 16pt;
+    color: #2e7d32;
+    border-bottom: 1px solid #c8e6c9;
+    padding-bottom: 6px;
+    margin-top: 30px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 13pt;
+    color: #388e3c;
+    margin-top: 20px;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 11pt;
+    color: #43a047;
+    margin-top: 15px;
+  }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 25px; }
+  li { margin: 4px 0; }
+  strong { color: #1b5e20; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 10pt;
+  }
+  th {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+    padding: 8px 10px;
+    text-align: left;
+    border: 1px solid #c8e6c9;
+    font-weight: 600;
+  }
+  td {
+    padding: 7px 10px;
+    border: 1px solid #e0e0e0;
+  }
+  tr:nth-child(even) td {
+    background-color: #fafafa;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 25px 0;
+  }
+  .cover {
+    text-align: center;
+    padding: 80px 0 60px 0;
+    page-break-after: always;
+  }
+  .cover h1 {
+    font-size: 28pt;
+    border: none;
+    margin-bottom: 10px;
+  }
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #555;
+    margin-bottom: 40px;
+  }
+  .cover .meta {
+    font-size: 11pt;
+    color: #777;
+    margin-top: 60px;
+  }
+  .badge {
+    display: inline-block;
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9pt;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Sistema de Control de Picking</h1>
+  <p class="subtitle">Documento de Requerimientos de Negocio</p>
+  <p class="subtitle">Gestión Integral de Operaciones de Cosecha Agrícola</p>
+  <div class="meta">
+    <p><strong>Versión:</strong> 1.0</p>
+    <p><strong>Fecha:</strong> Agosto 2026</p>
+    <p><strong>Estado:</strong> <span class="badge">En Revisión</span></p>
+    <p><strong>Clasificación:</strong> Confidencial</p>
+  </div>
+</div>
+
+<h1>Documento de Requerimientos</h1>
+
+<h2>1. Introducción</h2>
+
+<p>El presente documento describe los requerimientos de negocio para un sistema de gestión integral de operaciones de cosecha agrícola. El sistema resuelve la falta de visibilidad, trazabilidad y control sobre la producción en campo, el rendimiento de los trabajadores y la liquidación de pagos por unidad recolectada (caja/kilo).</p>
+
+<h3>1.1 Problema que Resuelve</h3>
+
+<p>Los fundos agrícolas que operan bajo esquema de pago por pieza (piece-rate) enfrentan:</p>
+
+<ul>
+  <li><strong>Registro manual propenso a errores:</strong> Cuadernos y planillas generan discrepancias en el conteo de cajas, pérdida de datos y conflictos con trabajadores.</li>
+  <li><strong>Falta de visibilidad en tiempo real:</strong> Los supervisores no conocen el avance de la jornada hasta el cierre del día.</li>
+  <li><strong>Liquidaciones lentas y opacas:</strong> Los trabajadores desconfían del cálculo de pagos cuando no pueden verificar sus propios registros.</li>
+  <li><strong>Nula trazabilidad por paño/cuartel:</strong> No se sabe qué zonas rinden más ni dónde concentrar esfuerzos.</li>
+  <li><strong>Imposibilidad de escalar:</strong> Al crecer la operación, los mecanismos manuales colapsan.</li>
+</ul>
+
+<h3>1.2 Propuesta de Valor</h3>
+
+<p>El sistema entrega control completo de la cadena operativa — desde la estructura de campos hasta la liquidación final — en una plataforma digital accesible desde dispositivos móviles, con identificación por QR y métricas en tiempo real.</p>
+
+<h2>2. Glosario</h2>
+
+<table>
+  <tr><th>Término</th><th>Definición</th></tr>
+  <tr><td><strong>Sistema</strong></td><td>La plataforma de gestión de campo y control de picking descrita en este documento.</td></tr>
+  <tr><td><strong>Campo</strong></td><td>Unidad productiva principal (fundo, predio o estancia) que contiene uno o más Paños.</td></tr>
+  <tr><td><strong>Paño</strong></td><td>Subdivisión operativa de un Campo (también llamado cuartel o bloque), asociada a un producto específico.</td></tr>
+  <tr><td><strong>Producto</strong></td><td>Tipo de fruta o cultivo que se cosecha (arándano, cereza, frambuesa, etc.).</td></tr>
+  <tr><td><strong>Tarifa</strong></td><td>Valor monetario configurable que se paga por cada unidad recolectada (caja o kilo) de un Producto determinado.</td></tr>
+  <tr><td><strong>Trabajador</strong></td><td>Persona que realiza la recolección de fruta en campo.</td></tr>
+  <tr><td><strong>Supervisor</strong></td><td>Persona responsable de registrar la producción de un grupo de Trabajadores y supervisar la operación diaria.</td></tr>
+  <tr><td><strong>Administrador</strong></td><td>Persona con acceso completo al Sistema para configuración, reportes y gestión financiera.</td></tr>
+  <tr><td><strong>Jornada</strong></td><td>Período operativo de un día calendario en el que se registra producción.</td></tr>
+  <tr><td><strong>Registro de Picking</strong></td><td>Entrada que asocia un Trabajador, una cantidad de unidades recolectadas, un Paño y una Jornada.</td></tr>
+  <tr><td><strong>Liquidación</strong></td><td>Cálculo del monto a pagar a un Trabajador basado en sus registros de picking y las Tarifas vigentes.</td></tr>
+  <tr><td><strong>Badge QR</strong></td><td>Identificador visual único asignado a cada Trabajador para su identificación rápida en campo.</td></tr>
+  <tr><td><strong>Dashboard</strong></td><td>Panel de indicadores que muestra métricas consolidadas de producción, rendimiento y costos.</td></tr>
+</table>
+
+<h2>3. Requerimientos</h2>
+
+<h3>3.1 Gestión de Estructura de Campos</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero definir y organizar la estructura de mis campos productivos (fundos, paños, hectáreas y productos asociados), para tener un catastro digital actualizado de mi operación.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema permitirá al Administrador crear, modificar y desactivar Campos con nombre, ubicación y superficie total en hectáreas.</li>
+  <li>El Sistema permitirá al Administrador crear, modificar y desactivar Paños dentro de un Campo, con nombre, superficie en hectáreas y Producto asociado.</li>
+  <li>Cuando un Administrador asocia un Producto a un Paño, el Sistema registrará la asociación y la hará visible para Supervisores y el Dashboard.</li>
+  <li>El Sistema mantendrá un catálogo de Productos con nombre y unidad de medida (caja o kilo).</li>
+  <li>Si un Administrador intenta desactivar un Campo o Paño con registros de picking activos en la Jornada actual, el Sistema advertirá y solicitará confirmación antes de proceder.</li>
+</ol>
+
+<h3>3.2 Gestión de Trabajadores</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero registrar y gestionar a los trabajadores de la operación con sus datos esenciales y un identificador QR, para tener un padrón confiable y facilitar la identificación en campo.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema permitirá al Administrador crear, modificar y desactivar Trabajadores con nombre completo, RUT o identificador nacional, teléfono de contacto y rol asignado.</li>
+  <li>Cuando un Trabajador es creado, el Sistema generará automáticamente un Badge QR único vinculado a ese Trabajador.</li>
+  <li>El Sistema permitirá al Administrador regenerar el Badge QR de un Trabajador en caso de pérdida o deterioro.</li>
+  <li>El Sistema soportará la asignación de roles: Administrador, Supervisor y Trabajador.</li>
+  <li>Si un Administrador intenta desactivar un Trabajador con Liquidaciones pendientes de pago, el Sistema notificará la deuda pendiente y requerirá resolución antes de desactivar.</li>
+</ol>
+
+<h3>3.3 Configuración de Tarifas por Producto</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero configurar el valor a pagar por cada unidad recolectada según el tipo de producto, para que las liquidaciones se calculen de forma automática y precisa.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema permitirá al Administrador definir y modificar la Tarifa (valor monetario por unidad) para cada Producto.</li>
+  <li>Cuando un Administrador modifica una Tarifa, el Sistema aplicará la nueva Tarifa únicamente a los registros creados a partir de la fecha de modificación.</li>
+  <li>El Sistema conservará el historial de Tarifas con fecha de vigencia para garantizar la trazabilidad de pagos históricos.</li>
+  <li>Si un Administrador intenta guardar una Tarifa con valor cero o negativo, el Sistema rechazará la operación y mostrará un mensaje descriptivo.</li>
+</ol>
+
+<h3>3.4 Registro de Picking en Campo</h3>
+
+<p><strong>User Story:</strong> Como Supervisor, quiero registrar de forma rápida y confiable las cajas o kilos recolectados por cada trabajador en cada paño durante la jornada, para que la producción diaria quede documentada sin errores.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>Cuando un Supervisor escanea el Badge QR de un Trabajador, el Sistema identificará al Trabajador y presentará el formulario de registro de picking.</li>
+  <li>El Sistema permitirá al Supervisor registrar la cantidad de unidades recolectadas, el Paño de origen y la fecha/hora del registro.</li>
+  <li>Cuando un Registro de Picking es guardado, el Sistema lo asociará automáticamente a la Jornada vigente.</li>
+  <li>El Sistema permitirá al Supervisor corregir un Registro de Picking dentro de la misma Jornada, conservando el registro original como auditoría.</li>
+  <li>Si el Supervisor intenta registrar picking para un Trabajador desactivado, el Sistema rechazará el registro.</li>
+  <li>Si el Supervisor intenta registrar picking en un Paño desactivado, el Sistema rechazará el registro.</li>
+</ol>
+
+<h3>3.5 Consulta de Producción por Trabajador</h3>
+
+<p><strong>User Story:</strong> Como Trabajador, quiero ver cuántas cajas o kilos he recolectado durante el día y en períodos anteriores, para conocer mi avance y verificar que mis registros son correctos.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema mostrará al Trabajador autenticado su total de unidades recolectadas en la Jornada actual.</li>
+  <li>El Sistema mostrará al Trabajador un historial de producción por Jornada con detalle de Paño y cantidad.</li>
+  <li>El Sistema mostrará al Trabajador el monto estimado a percibir en la Jornada actual basado en las Tarifas vigentes.</li>
+  <li>Mientras un Trabajador consulta sus registros, el Sistema presentará únicamente los datos pertenecientes a ese Trabajador.</li>
+</ol>
+
+<h3>3.6 Liquidación y Pagos</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero que el sistema calcule automáticamente lo que se le debe a cada trabajador según sus registros de producción y las tarifas vigentes, para agilizar el proceso de pago y eliminar errores de cálculo manual.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>Cuando un Administrador solicita generar una Liquidación para un período determinado, el Sistema calculará el monto total multiplicando las unidades registradas por la Tarifa vigente al momento de cada registro.</li>
+  <li>El Sistema presentará el detalle de la Liquidación desglosado por Jornada, Paño y Producto para cada Trabajador.</li>
+  <li>Cuando un Administrador marca una Liquidación como pagada, el Sistema registrará la fecha de pago y el monto abonado.</li>
+  <li>El Sistema mantendrá un saldo de deuda pendiente por cada Trabajador (total liquidado menos total pagado).</li>
+  <li>Si el monto abonado excede el saldo pendiente de un Trabajador, el Sistema rechazará la operación.</li>
+</ol>
+
+<h3>3.7 Métricas y Dashboard de Producción</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero visualizar indicadores clave de la operación (rendimiento por trabajador, producción por paño, costos por hectárea y rankings), para tomar decisiones informadas y optimizar la eficiencia de la cosecha.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema presentará en el Dashboard la producción total del día (unidades y monto) con actualización durante la Jornada.</li>
+  <li>El Sistema mostrará un ranking de Trabajadores ordenado por unidades recolectadas en un período seleccionable.</li>
+  <li>El Sistema mostrará la producción acumulada por Paño y por Campo en un período seleccionable.</li>
+  <li>El Sistema calculará y presentará el costo por hectárea como el total de pagos dividido por la superficie cosechada.</li>
+  <li>El Sistema permitirá al Administrador filtrar las métricas por Campo, Paño, Producto, Trabajador y rango de fechas.</li>
+  <li>Cuando un Supervisor accede al Dashboard, el Sistema mostrará únicamente las métricas correspondientes a los Trabajadores y Paños bajo su supervisión.</li>
+</ol>
+
+<h3>3.8 Control de Acceso Basado en Roles</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero que cada usuario vea y haga solo lo que corresponde a su rol, para proteger la información sensible y mantener la integridad operativa.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema restringirá el acceso a funcionalidades según el rol del usuario autenticado: Administrador, Supervisor o Trabajador.</li>
+  <li>El Administrador tendrá acceso completo a todas las funcionalidades del Sistema.</li>
+  <li>El Supervisor tendrá acceso al registro de picking, consulta de producción de su equipo y métricas de su supervisión.</li>
+  <li>El Trabajador tendrá acceso exclusivamente a la consulta de su propia producción y sus propias liquidaciones.</li>
+  <li>Si un usuario intenta acceder a una funcionalidad no autorizada, el Sistema denegará el acceso.</li>
+</ol>
+
+<h3>3.9 Asignación de Supervisión</h3>
+
+<p><strong>User Story:</strong> Como Administrador, quiero asignar trabajadores a supervisores y supervisores a paños, para que cada supervisor tenga responsabilidad clara sobre su equipo y zona de trabajo.</p>
+
+<h4>Criterios de Aceptación</h4>
+<ol>
+  <li>El Sistema permitirá al Administrador asignar uno o más Trabajadores a un Supervisor.</li>
+  <li>El Sistema permitirá al Administrador asignar uno o más Paños a un Supervisor.</li>
+  <li>Cuando un Supervisor accede al registro de picking, el Sistema mostrará únicamente los Trabajadores y Paños asignados a ese Supervisor.</li>
+  <li>Si un Supervisor intenta registrar picking para un Trabajador no asignado a su supervisión, el Sistema rechazará la operación.</li>
+</ol>
+
+<h2>4. Roadmap por Fases</h2>
+
+<h3>Fase 1 — Fundación Operativa (MVP)</h3>
+<ul>
+  <li>Gestión de Campos, Paños y Productos (Req. 3.1)</li>
+  <li>Gestión de Trabajadores con Badge QR (Req. 3.2)</li>
+  <li>Configuración de Tarifas (Req. 3.3)</li>
+  <li>Registro de Picking en campo (Req. 3.4)</li>
+  <li>Consulta de producción por Trabajador (Req. 3.5)</li>
+  <li>Control de acceso básico por roles (Req. 3.8)</li>
+</ul>
+
+<h3>Fase 2 — Gestión Financiera</h3>
+<ul>
+  <li>Liquidación y Pagos automáticos (Req. 3.6)</li>
+  <li>Asignación de supervisión (Req. 3.9)</li>
+</ul>
+
+<h3>Fase 3 — Inteligencia Operativa</h3>
+<ul>
+  <li>Dashboard y métricas avanzadas (Req. 3.7)</li>
+  <li>Rankings y reportes exportables</li>
+  <li>Alertas de rendimiento anormal</li>
+</ul>
+
+<h3>Fase 4 — Escalamiento (Futuro)</h3>
+<ul>
+  <li>Soporte multi-fundo con consolidación central</li>
+  <li>Modo offline con sincronización</li>
+  <li>Integraciones con sistemas contables y de RRHH</li>
+  <li>App móvil nativa para trabajadores</li>
+</ul>
+
+<h2>5. Criterios de Éxito / KPIs</h2>
+
+<table>
+  <tr><th>Indicador</th><th>Meta</th><th>Medición</th></tr>
+  <tr><td>Reducción de errores en conteo de cajas</td><td>≥ 90% vs. proceso manual</td><td>Discrepancias reportadas por mes</td></tr>
+  <tr><td>Tiempo de liquidación de pagos</td><td>≤ 1 hora desde cierre de período</td><td>Tiempo promedio de generación</td></tr>
+  <tr><td>Adopción por trabajadores</td><td>≥ 80% consultan producción diariamente</td><td>Accesos únicos diarios</td></tr>
+  <tr><td>Visibilidad en tiempo real</td><td>Datos con ≤ 5 min de retraso</td><td>Latencia registro → dashboard</td></tr>
+  <tr><td>Satisfacción de supervisores</td><td>≥ 4/5 en usabilidad</td><td>Encuesta trimestral</td></tr>
+  <tr><td>Trazabilidad completa</td><td>100% registros con Trabajador + Paño + Jornada</td><td>Registros sin campos vacíos / total</td></tr>
+</table>
+
+<h2>6. Restricciones de Negocio</h2>
+
+<ol>
+  <li>El Sistema debe ser operable desde dispositivos móviles en campo (smartphones/tablets).</li>
+  <li>La interfaz del Trabajador debe ser simple y comprensible para personas con bajo nivel de alfabetización digital.</li>
+  <li>El registro de picking debe completarse en menos de 10 segundos por operación para no retrasar la cosecha.</li>
+  <li>Los datos financieros (tarifas, liquidaciones, pagos) son visibles únicamente para el rol Administrador.</li>
+  <li>El Sistema debe soportar operación con conectividad intermitente en zonas rurales (Fase 4).</li>
+</ol>
+
+</body>
+</html>

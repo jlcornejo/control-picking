@@ -1,0 +1,24 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Check task prerequisites",
+      "description": "Verify dependent tasks are completed and approach aligns with roadmap phase",
+      "trigger": "PreTaskExec",
+      "action": {
+        "type": "agent",
+        "prompt": "Before starting this task: 1) Verify prerequisite tasks from the dependency graph are completed. 2) Confirm this task belongs to the current roadmap phase. 3) Review coding-standards.md for approach alignment. Proceed with implementation."
+      }
+    },
+    {
+      "name": "Run tests after task completion",
+      "description": "Execute test suite after each spec task completes",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "command",
+        "command": "npm run test -- --run 2>/dev/null || echo 'Tests not configured yet'"
+      },
+      "timeout": 120
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Validate domain invariants",
+      "description": "Verify code respects domain rules before writing TypeScript files",
+      "trigger": "PreToolUse",
+      "matcher": "fs_write|str_replace",
+      "action": {
+        "type": "agent",
+        "prompt": "Before writing, verify this change does not violate domain invariants: picking quantity > 0, rates > 0, settlements immutable when paid, RBAC enforced, correct entity naming (fields, blocks, products, rates, workers, picking_records, settlements, payments). Fix violations before proceeding."
+      }
+    },
+    {
+      "name": "Lint TypeScript on save",
+      "description": "Run ESLint on saved TypeScript files",
+      "trigger": "PostFileSave",
+      "matcher": "\\.(ts|tsx)$",
+      "action": {
+        "type": "command",
+        "command": "npx eslint --fix --quiet --no-error-on-unmatched-pattern"
+      },
+      "timeout": 30
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+# Product Overview — Sistema de Control de Picking
+
+## Purpose
+
+Plataforma digital para gestión integral de operaciones de cosecha agrícola, enfocada en el control de picking (recolección de frutas) y liquidación de pagos por pieza a trabajadores de campo.
+
+## Target Users
+
+- **Administrador de fundo**: Configura campos, tarifas, trabajadores. Visualiza métricas y gestiona pagos.
+- **Supervisor de campo**: Registra la producción de su equipo en terreno usando escaneo QR.
+- **Trabajador recolector**: Consulta su producción diaria y pagos desde su celular.
+
+## Key Features
+
+1. Gestión de estructura productiva (campos, paños, productos)
+2. Registro rápido de picking con Badge QR (< 10 segundos)
+3. Configuración de tarifas por producto con historial
+4. Cálculo automático de liquidaciones y pagos
+5. Dashboard de métricas en tiempo real
+6. RBAC (cada rol solo ve/hace lo que le corresponde)
+7. Consulta de producción y pagos por trabajador
+
+## Business Context
+
+- Industria: Agricultura / Fruticultura (Chile)
+- Modelo de pago: Piece-rate (por caja o kilo recolectado)
+- Cultivos iniciales: Arándanos (expandible a otros berries y frutales)
+- Operación en zonas rurales con conectividad intermitente
+- Trabajadores con bajo nivel de alfabetización digital
+
+## Roadmap
+
+- Fase 1 (MVP): Campos, Trabajadores, Tarifas, Picking, Consulta, RBAC
+- Fase 2: Liquidaciones automáticas, Pagos, Asignación de supervisión
+- Fase 3: Dashboard de métricas, Rankings, Reportes, Alertas
+- Fase 4: Multi-fundo, Offline sync, Integraciones contables, App nativa
+
+## Success Metrics
+
+- Reducción ≥ 90% en errores de conteo vs. proceso manual
+- Liquidación generada en ≤ 1 hora desde cierre de período
+- Adopción ≥ 80% de trabajadores consultando producción diariamente
+- Latencia ≤ 5 minutos entre registro y visualización en dashboard
