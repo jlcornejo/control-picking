@@ -7,12 +7,17 @@ import { localDate } from '../../src/utils/date';
 import { formatMoney, formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MetricsSkeleton } from '../../src/components/Skeleton';
+import { EmptyState } from '../../src/components/EmptyState';
+import { AnimatedNumber } from '../../src/components/AnimatedNumber';
 
 export default function MetricsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [drilldown, setDrilldown] = useState<{ title: string; data: any[] } | null>(null);
   const router = useRouter();
-  const today = localDate(0);  const { data: metrics, refetch } = useQuery({
+  const today = localDate(0);
+  const { data: metrics, isLoading: metricsLoading, refetch } = useQuery({
     queryKey: ['mobile-metrics', today],
     queryFn: async () => {
       const { data: records } = await supabase
@@ -68,14 +73,18 @@ export default function MetricsScreen() {
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      {metricsLoading ? (
+        <MetricsSkeleton />
+      ) : (
+      <>
       {/* KPI Cards */}
       <View style={s.kpiRow}>
-        <KpiMini icon="cube-outline" value={formatNumber(metrics?.totalUnits || 0)} label="Producción" bg={colors.primaryBg} iconColor={colors.primary} />
-        <KpiMini icon="cash-outline" value={formatMoney(metrics?.totalAmount || 0)} label="Jornada" bg={colors.blueBg} iconColor={colors.blue} />
+        <KpiMini icon="cube-outline" value={formatNumber(metrics?.totalUnits || 0)} label="Producción" bg={colors.primaryBg} iconColor={colors.primary} numericValue={metrics?.totalUnits || 0} />
+        <KpiMini icon="cash-outline" value={formatMoney(metrics?.totalAmount || 0)} label="Jornada" bg={colors.blueBg} iconColor={colors.blue} numericValue={metrics?.totalAmount || 0} />
       </View>
       <View style={s.kpiRow}>
-        <KpiMini icon="people-outline" value={String(metrics?.activeWorkers || 0)} label="Trabajadores" bg={colors.violetBg} iconColor={colors.violet} />
-        <KpiMini icon="grid-outline" value={String(metrics?.activeBlocks || 0)} label="Paños" bg={colors.amberBg} iconColor={colors.amber} />
+        <KpiMini icon="people-outline" value={String(metrics?.activeWorkers || 0)} label="Trabajadores" bg={colors.violetBg} iconColor={colors.violet} numericValue={metrics?.activeWorkers || 0} />
+        <KpiMini icon="grid-outline" value={String(metrics?.activeBlocks || 0)} label="Paños" bg={colors.amberBg} iconColor={colors.amber} numericValue={metrics?.activeBlocks || 0} />
       </View>
 
       {/* Pending alert — navigates to payments */}
@@ -93,7 +102,12 @@ export default function MetricsScreen() {
       {/* Ranking */}
       <Text style={s.sectionTitle}>Top del día</Text>
       {(metrics?.ranking || []).length === 0 ? (
-        <View style={s.emptyCard}><Text style={s.emptyText}>Sin producción registrada hoy</Text></View>
+        <EmptyState
+          icon="trophy-outline"
+          title="Sin producción hoy"
+          message="El ranking del día aparecerá cuando los trabajadores registren su cosecha."
+          iconColor={colors.amber}
+        />
       ) : (
         <View style={s.rankCard}>
           {(metrics?.ranking || []).map((w, i) => (
@@ -115,6 +129,8 @@ export default function MetricsScreen() {
       )}
 
       <View style={{ height: 32 }} />
+      </>
+      )}
 
       {/* Drilldown Modal */}
       <RNModal visible={!!drilldown} animationType="slide" transparent>
@@ -199,12 +215,29 @@ export default function MetricsScreen() {
   }
 }
 
-function KpiMini({ icon, value, label, bg, iconColor }: { icon: string; value: string; label: string; bg: string; iconColor: string }) {
+function KpiMini({ icon, value, label, bg, iconColor, numericValue }: { icon: string; value: string; label: string; bg: string; iconColor: string; numericValue?: number }) {
   return (
-    <View style={[s.kpiCard, { backgroundColor: bg }]}>
-      <Ionicons name={icon as any} size={22} color={iconColor} style={{ marginBottom: spacing.sm }} />
-      <Text style={s.kpiValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
-      <Text style={s.kpiLabel}>{label}</Text>
+    <View style={s.kpiCard}>
+      <LinearGradient
+        colors={[bg, `${bg}88`, 'rgba(255,255,255,0.9)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={s.kpiGradient}
+      >
+        <View style={[s.kpiIconCircle, { backgroundColor: `${iconColor}18` }]}>
+          <Ionicons name={icon as any} size={20} color={iconColor} />
+        </View>
+        {numericValue !== undefined ? (
+          <AnimatedNumber
+            value={numericValue}
+            prefix={value.startsWith('$') ? '$' : ''}
+            style={s.kpiValue}
+          />
+        ) : (
+          <Text style={s.kpiValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+        )}
+        <Text style={s.kpiLabel}>{label}</Text>
+      </LinearGradient>
     </View>
   );
 }
@@ -213,7 +246,9 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: 100 },
   kpiRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
-  kpiCard: { flex: 1, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder },
+  kpiCard: { flex: 1, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.cardBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
+  kpiGradient: { padding: spacing.lg },
+  kpiIconCircle: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
   kpiValue: { fontSize: 20, fontWeight: font.extrabold, color: colors.text },
   kpiLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   alertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.amberBg, borderWidth: 1, borderColor: '#fde68a', borderRadius: radius.xl, padding: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.lg, gap: spacing.md },

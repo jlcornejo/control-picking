@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -7,6 +7,11 @@ import { localDate } from '../../src/utils/date';
 import { formatMoney, formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ListSkeleton, ProductionHeaderSkeleton } from '../../src/components/Skeleton';
+import { EmptyState } from '../../src/components/EmptyState';
+import { AnimatedCard } from '../../src/components/AnimatedCard';
 
 export default function ProductionScreen() {
   const { worker } = useAuth();
@@ -70,12 +75,30 @@ export default function ProductionScreen() {
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await refetch(); setRefreshing(false); }, [refetch]);
 
+  // Swipe gesture for day navigation
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 30,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 50) {
+          // Swipe right → previous day
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setDayOffset(prev => prev - 1);
+        } else if (gestureState.dx < -50 && dayOffset < 0) {
+          // Swipe left → next day (only if not today)
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setDayOffset(prev => Math.min(0, prev + 1));
+        }
+      },
+    })
+  ).current;
+
   const unitLabel = data?.hasBoxes && data?.hasKg ? 'unidades' : data?.hasKg ? 'kilos' : 'cajas';
 
   return (
     <View style={s.container}>
       {/* Summary header */}
-      <View style={s.header}>
+      <LinearGradient colors={['#047857', '#059669', '#10b981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.header}>
         <View style={s.headerTop}>
           <View style={s.headerStat}>
             <Text style={s.headerValue}>{formatNumber(data?.totalUnits || 0)}</Text>
@@ -87,18 +110,18 @@ export default function ProductionScreen() {
             <Text style={s.headerUnit}>estimado</Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Day navigation */}
-      <View style={s.dayNav}>
-        <TouchableOpacity onPress={() => setDayOffset(dayOffset - 1)} style={s.dayBtn} activeOpacity={0.7}>
+      <View style={s.dayNav} {...panResponder.panHandlers}>
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDayOffset(dayOffset - 1); }} style={s.dayBtn} activeOpacity={0.7}>
           <Text style={s.dayBtnText}>‹ Ayer</Text>
         </TouchableOpacity>
         <View style={s.dayCenter}>
           <Text style={s.dayDate}>{isToday ? 'Hoy' : selectedDate}</Text>
           {isToday && <View style={s.liveDot} />}
         </View>
-        <TouchableOpacity onPress={() => setDayOffset(Math.min(0, dayOffset + 1))} disabled={isToday} style={[s.dayBtn, isToday && { opacity: 0.3 }]} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDayOffset(Math.min(0, dayOffset + 1)); }} disabled={isToday} style={[s.dayBtn, isToday && { opacity: 0.3 }]} activeOpacity={0.7}>
           <Text style={s.dayBtnText}>Mañana ›</Text>
         </TouchableOpacity>
       </View>
@@ -115,8 +138,8 @@ export default function ProductionScreen() {
             <Text style={s.listCount}>{data?.records.length || 0}</Text>
           </View>
         }
-        renderItem={({ item }: { item: any }) => (
-          <View style={s.card}>
+        renderItem={({ item, index }: { item: any; index: number }) => (
+          <AnimatedCard index={index} style={s.card}>
             <View style={{ flex: 1 }}>
               {item.worker_name ? <Text style={s.cardWorker}>{item.worker_name}</Text> : null}
               <Text style={s.cardBlock}>{item.block_name}</Text>
@@ -127,13 +150,19 @@ export default function ProductionScreen() {
               <Text style={s.cardUnit}>{item.unit === 'kg' ? 'kg' : 'cj'}</Text>
               <Text style={s.cardEarn}>{formatMoney(Number(item.quantity) * Number(item.rate_amount_snapshot))}</Text>
             </View>
-          </View>
+          </AnimatedCard>
         )}
         ListEmptyComponent={
-          <View style={s.empty}>
-            <Ionicons name="cube-outline" size={40} color={colors.textMuted} />
-            <Text style={s.emptyText}>{isLoading ? 'Cargando...' : 'Sin registros'}</Text>
-          </View>
+          isLoading ? (
+            <ListSkeleton count={4} />
+          ) : (
+            <EmptyState
+              icon="cube-outline"
+              title="Sin registros"
+              message={`No hay producción registrada ${isToday ? 'hoy' : 'este día'}. Los registros aparecerán aquí cuando se escaneen badges.`}
+              iconColor={colors.primary}
+            />
+          )
         }
       />
     </View>
@@ -142,7 +171,7 @@ export default function ProductionScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { backgroundColor: colors.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl },
+  header: { paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl, paddingTop: 56, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   headerStat: { alignItems: 'center' },
   headerValue: { fontSize: 36, fontWeight: font.extrabold, color: colors.textWhite },

@@ -6,6 +6,7 @@ import { supabase } from '../../src/lib/supabase';
 import { localDate } from '../../src/utils/date';
 import { formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
+import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function ProfileScreen() {
@@ -24,21 +25,44 @@ export default function ProfileScreen() {
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['worker-stats', worker?.id],
+    queryKey: ['worker-stats', worker?.id, worker?.role],
     enabled: !!worker?.id,
     queryFn: async () => {
       const today = localDate(0);
       const weekAgo = localDate(-7);
+      const isManager = worker?.role === 'admin' || worker?.role === 'supervisor';
+
+      if (isManager) {
+        // Admin/Supervisor: show team-level stats
+        const { data: todayRec } = await supabase.from('picking_records').select('quantity, worker_id').eq('work_day', today).is('original_record_id', null);
+        const { data: weekRec } = await supabase.from('picking_records').select('quantity, work_day').gte('work_day', weekAgo).is('original_record_id', null);
+        const { data: pendingSettlements } = await supabase.from('settlements').select('id').in('status', ['pending', 'partial']);
+
+        const todayTotal = (todayRec || []).reduce((s, r) => s + Number(r.quantity), 0);
+        const todayWorkers = new Set((todayRec || []).map(r => r.worker_id)).size;
+        const weekTotal = (weekRec || []).reduce((s, r) => s + Number(r.quantity), 0);
+
+        return {
+          isManager: true,
+          todayTotal,
+          todayWorkers,
+          weekTotal,
+          pendingCount: (pendingSettlements || []).length,
+        };
+      }
+
+      // Worker: personal stats
       const { data: todayRec } = await supabase.from('picking_records').select('quantity').eq('worker_id', worker!.id).eq('work_day', today).is('original_record_id', null);
       const { data: weekRec } = await supabase.from('picking_records').select('quantity, work_day').eq('worker_id', worker!.id).gte('work_day', weekAgo).is('original_record_id', null);
       const todayTotal = (todayRec || []).reduce((s, r) => s + Number(r.quantity), 0);
       const weekTotal = (weekRec || []).reduce((s, r) => s + Number(r.quantity), 0);
       const daysWorked = new Set((weekRec || []).map(r => r.work_day)).size;
-      return { todayTotal, weekTotal, avgPerDay: daysWorked > 0 ? Math.round(weekTotal / daysWorked) : 0 };
+      return { isManager: false, todayTotal, weekTotal, avgPerDay: daysWorked > 0 ? Math.round(weekTotal / daysWorked) : 0 };
     },
   });
 
   async function handleLogout() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Cerrar sesión', '¿Desea salir de la aplicación?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar sesión', style: 'destructive', onPress: async () => { await signOut(); router.replace('/login'); } },
@@ -60,7 +84,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* Stats */}
-      {stats && (
+      {stats && !stats.isManager && (
         <View style={s.statsRow}>
           <View style={s.statCard}>
             <Text style={s.statValue}>{formatNumber(stats.todayTotal)}</Text>
@@ -73,6 +97,22 @@ export default function ProfileScreen() {
           <View style={s.statCard}>
             <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
             <Text style={s.statLabel}>Prom/día</Text>
+          </View>
+        </View>
+      )}
+      {stats && stats.isManager && (
+        <View style={s.statsRow}>
+          <View style={s.statCard}>
+            <Text style={s.statValue}>{formatNumber(stats.todayTotal)}</Text>
+            <Text style={s.statLabel}>Cajas hoy</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: colors.blue }]}>{stats.todayWorkers}</Text>
+            <Text style={s.statLabel}>Activos</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: stats.pendingCount > 0 ? colors.amber : colors.primary }]}>{stats.pendingCount}</Text>
+            <Text style={s.statLabel}>Pendientes</Text>
           </View>
         </View>
       )}

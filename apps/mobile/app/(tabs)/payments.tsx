@@ -1,16 +1,36 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Alert, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 import { formatMoney, formatNumber } from '../../src/utils/format';
+import { PaymentsSkeleton } from '../../src/components/Skeleton';
+import { EmptyState } from '../../src/components/EmptyState';
+import { PaymentToast } from '../../src/components/PaymentToast';
 
 export default function PaymentsScreen() {
   const { worker } = useAuth();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+
+  // Check for recent payments (last 24h) for workers
+  const { data: recentCount } = useQuery({
+    queryKey: ['recent-payments-toast', worker?.id],
+    enabled: !!worker?.id && worker?.role === 'worker',
+    queryFn: async () => {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data } = await supabase.from('payments').select('id').eq('worker_id', worker!.id).gte('paid_at', dayAgo);
+      return data?.length || 0;
+    },
+    refetchInterval: 60000,
+  });
+
+  useEffect(() => {
+    if (recentCount && recentCount > 0) setShowToast(true);
+  }, [recentCount]);
 
   const { data: balance, refetch: refetchBalance } = useQuery({
     queryKey: ['my-balance', worker?.id],
@@ -33,7 +53,7 @@ export default function PaymentsScreen() {
     },
   });
 
-  const { data: settlements, refetch: refetchSettlements } = useQuery({
+  const { data: settlements, isLoading: settlementsLoading, refetch: refetchSettlements } = useQuery({
     queryKey: ['my-settlements', worker?.id],
     enabled: !!worker?.id,
     queryFn: async () => {
@@ -115,6 +135,12 @@ export default function PaymentsScreen() {
   const statusColor: Record<string, string> = { pending: '#f59e0b', partial: '#f97316', paid: '#22c55e' };
 
   return <>
+    <PaymentToast
+      visible={showToast}
+      count={recentCount || 0}
+      onPress={() => setShowToast(false)}
+      onDismiss={() => setShowToast(false)}
+    />
     <FlatList
       style={s.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1b5e20" />}
@@ -199,10 +225,16 @@ export default function PaymentsScreen() {
         </TouchableOpacity>
       )}
       ListEmptyComponent={
-        <View style={s.empty}>
-          <Text style={{ fontSize: 48 }}>💰</Text>
-          <Text style={s.emptyText}>Sin liquidaciones aún</Text>
-        </View>
+        settlementsLoading ? (
+          <PaymentsSkeleton />
+        ) : (
+          <EmptyState
+            icon="wallet-outline"
+            title="Sin liquidaciones"
+            message={worker?.role === 'worker' ? 'Cuando se genere una liquidación de tu producción, aparecerá aquí.' : 'No hay liquidaciones pendientes ni pagadas aún.'}
+            iconColor="#059669"
+          />
+        )
       }
     />
 

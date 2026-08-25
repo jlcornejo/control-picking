@@ -20,6 +20,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.picking.control"
     },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       "expo-router",
       [

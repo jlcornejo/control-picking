@@ -2,10 +2,11 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../src/hooks/useAuth';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
+import { AnimatedSplash } from '../src/components/AnimatedSplash';
 
-// Keep splash visible while loading
+// Keep native splash visible while loading
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -16,11 +17,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (loading) return;
 
-    // Hide splash once auth state is known
+    // Hide native splash, show our animated one
     SplashScreen.hideAsync();
 
     const inAuth = segments[0] === 'login';
@@ -34,7 +36,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (loading) return null;
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
+    </>
+  );
 }
 
 export default function RootLayout() {

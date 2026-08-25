@@ -8,6 +8,7 @@ import { localDate } from '../../src/utils/date';
 import { formatMoney } from '../../src/utils/format';
 import * as Haptics from 'expo-haptics';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
+import { SuccessOverlay } from '../../src/components/SuccessOverlay';
 
 type Step = 'scan' | 'select-block' | 'quantity';
 
@@ -20,6 +21,7 @@ export default function RegisterScreen() {
   const [selectedWorker, setSelectedWorker] = useState<{ id: string; full_name: string } | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; product_name?: string } | null>(null);
   const [quantity, setQuantity] = useState('');
+  const [successData, setSuccessData] = useState<{ title: string; subtitle: string } | null>(null);
 
   const { data: blocks } = useQuery({
     queryKey: ['my-blocks'],
@@ -64,14 +66,10 @@ export default function RegisterScreen() {
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ['production'] });
-      Alert.alert(
-        '✅ Registrado',
-        `${data.workerName}\n${data.qty} unidades → ${formatMoney(data.total)}\n\nPaño: ${selectedBlock?.name}`,
-        [
-          { text: 'Mismo paño', onPress: resetForSameBlock },
-          { text: 'Cambiar paño', onPress: resetForm },
-        ]
-      );
+      setSuccessData({
+        title: `${data.qty} unidades registradas`,
+        subtitle: `${data.workerName} → ${formatMoney(data.total)}`,
+      });
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
   });
@@ -81,9 +79,19 @@ export default function RegisterScreen() {
 
   if (showScanner) return <QRScanner onScan={handleQRScanned} onClose={() => setShowScanner(false)} />;
 
+  const successOverlay = (
+    <SuccessOverlay
+      visible={!!successData}
+      title={successData?.title || ''}
+      subtitle={successData?.subtitle}
+      onFinish={() => { setSuccessData(null); resetForSameBlock(); }}
+    />
+  );
+
   if (step === 'scan') {
     return (
       <View style={s.container}>
+        {successOverlay}
         {/* Step indicator */}
         <View style={s.stepBar}>
           <View style={[s.stepDot, s.stepActive]} /><View style={s.stepLine} /><View style={s.stepDot} /><View style={s.stepLine} /><View style={s.stepDot} />
@@ -122,6 +130,7 @@ export default function RegisterScreen() {
   if (step === 'select-block') {
     return (
       <View style={s.container}>
+        {successOverlay}
         <View style={s.stepBar}>
           <View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepActive]} /><View style={s.stepLine} /><View style={s.stepDot} />
         </View>
@@ -153,6 +162,7 @@ export default function RegisterScreen() {
   // QUANTITY
   return (
     <View style={s.container}>
+        {successOverlay}
       <View style={s.stepBar}>
         <View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepActive]} />
       </View>

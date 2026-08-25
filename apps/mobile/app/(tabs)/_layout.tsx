@@ -66,7 +66,9 @@ export default function TabsLayout() {
           title: 'Dashboard',
           headerTitle: 'Dashboard',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} size={22} color={color} />
+            <View style={{ alignItems: 'center', justifyContent: 'center', height: 24, marginTop: 2 }}>
+              <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} size={21} color={color} />
+            </View>
           ),
           href: isAdmin ? '/(tabs)/metrics' : null,
         }}

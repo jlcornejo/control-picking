@@ -119,12 +119,45 @@ export default function SupervisorsPage() {
 
 function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate: () => void }) {
   const supabase = createClient();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [tab, setTab] = useState<'workers' | 'blocks'>('workers');
 
+  // Fetch current assignments (local query that refreshes independently)
+  const { data: assignments, refetch: refetchAssignments } = useQuery({
+    queryKey: ['supervisor-assignments', supervisor.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('supervisor_assignments')
+        .select('id, worker_id, block_id')
+        .eq('supervisor_id', supervisor.id);
+
+      const rows = data || [];
+      const workerIds = rows.filter(a => a.worker_id).map(a => a.worker_id!);
+      const blockIds = rows.filter(a => a.block_id).map(a => a.block_id!);
+
+      let workerMap: Record<string, string> = {};
+      let blockMap: Record<string, { name: string; field: string }> = {};
+
+      if (workerIds.length > 0) {
+        const { data: workers } = await supabase.from('workers').select('id, full_name').in('id', workerIds);
+        workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
+      }
+      if (blockIds.length > 0) {
+        const { data: blocks } = await supabase.from('blocks').select('id, name, fields(name)').in('id', blockIds);
+        blockMap = Object.fromEntries((blocks || []).map((b: any) => [b.id, { name: b.name, field: b.fields?.name || '' }]));
+      }
+
+      const workerAssignments = rows.filter(a => a.worker_id).map(a => ({ id: a.id, worker_id: a.worker_id, name: workerMap[a.worker_id!] || '—' }));
+      const blockAssignments = rows.filter(a => a.block_id).map(a => ({ id: a.id, block_id: a.block_id, name: blockMap[a.block_id!]?.name || '—', field_name: blockMap[a.block_id!]?.field || '' }));
+      return { workerAssignments, blockAssignments };
+    },
+  });
+
   // Available workers (not yet assigned to this supervisor)
   const { data: availableWorkers } = useQuery({
-    queryKey: ['available-workers', supervisor.id],
+    queryKey: ['available-workers', supervisor.id, assignments?.workerAssignments],
+    enabled: !!assignments,
     queryFn: async () => {
       const { data } = await supabase
         .from('workers')
@@ -132,21 +165,22 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
         .eq('role', 'worker')
         .eq('status', 'active')
         .order('full_name');
-      const assignedIds = supervisor.worker_assignments.map((a: any) => a.worker_id);
+      const assignedIds = (assignments?.workerAssignments || []).map((a: any) => a.worker_id);
       return (data || []).filter((w: any) => !assignedIds.includes(w.id));
     },
   });
 
   // Available blocks (not yet assigned to this supervisor)
   const { data: availableBlocks } = useQuery({
-    queryKey: ['available-blocks', supervisor.id],
+    queryKey: ['available-blocks', supervisor.id, assignments?.blockAssignments],
+    enabled: !!assignments,
     queryFn: async () => {
       const { data } = await supabase
         .from('blocks')
         .select('id, name, fields(name)')
         .eq('status', 'active')
         .order('name');
-      const assignedIds = supervisor.block_assignments.map((a: any) => a.block_id);
+      const assignedIds = (assignments?.blockAssignments || []).map((a: any) => a.block_id);
       return (data || []).filter((b: any) => !assignedIds.includes(b.id));
     },
   });
@@ -159,7 +193,7 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast('Trabajador asignado', 'success'); onUpdate(); },
+    onSuccess: () => { toast('Trabajador asignado', 'success'); refetchAssignments(); onUpdate(); },
     onError: () => toast('Error al asignar', 'error'),
   });
 
@@ -168,7 +202,7 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
       const { error } = await supabase.from('supervisor_assignments').delete().eq('id', assignmentId);
       if (error) throw error;
     },
-    onSuccess: () => { toast('Trabajador desasignado', 'success'); onUpdate(); },
+    onSuccess: () => { toast('Trabajador desasignado', 'success'); refetchAssignments(); onUpdate(); },
     onError: () => toast('Error al desasignar', 'error'),
   });
 
@@ -180,7 +214,7 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast('Paño asignado', 'success'); onUpdate(); },
+    onSuccess: () => { toast('Paño asignado', 'success'); refetchAssignments(); onUpdate(); },
     onError: () => toast('Error al asignar', 'error'),
   });
 
@@ -189,7 +223,7 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
       const { error } = await supabase.from('supervisor_assignments').delete().eq('id', assignmentId);
       if (error) throw error;
     },
-    onSuccess: () => { toast('Paño desasignado', 'success'); onUpdate(); },
+    onSuccess: () => { toast('Paño desasignado', 'success'); refetchAssignments(); onUpdate(); },
     onError: () => toast('Error al desasignar', 'error'),
   });
 
@@ -201,13 +235,13 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
           onClick={() => setTab('workers')}
           className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab === 'workers' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
         >
-          Trabajadores ({supervisor.worker_assignments.length})
+          Trabajadores ({assignments?.workerAssignments?.length || 0})
         </button>
         <button
           onClick={() => setTab('blocks')}
           className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab === 'blocks' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
         >
-          Paños ({supervisor.block_assignments.length})
+          Paños ({assignments?.blockAssignments?.length || 0})
         </button>
       </div>
 
@@ -216,11 +250,11 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
           {/* Current assignments */}
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Asignados</p>
-            {supervisor.worker_assignments.length === 0 ? (
+            {(assignments?.workerAssignments || []).length === 0 ? (
               <p className="text-sm text-muted-foreground italic">Ninguno</p>
             ) : (
               <div className="space-y-1">
-                {supervisor.worker_assignments.map((a: any) => (
+                {(assignments?.workerAssignments || []).map((a: any) => (
                   <div key={a.id} className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2">
                     <span className="text-sm text-violet-800 font-medium">{a.name}</span>
                     <button onClick={() => unassignWorker.mutate(a.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">
@@ -253,15 +287,15 @@ function AssignmentManager({ supervisor, onUpdate }: { supervisor: any; onUpdate
           {/* Current block assignments */}
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Asignados</p>
-            {supervisor.block_assignments.length === 0 ? (
+            {(assignments?.blockAssignments || []).length === 0 ? (
               <p className="text-sm text-muted-foreground italic">Ninguno</p>
             ) : (
               <div className="space-y-1">
-                {supervisor.block_assignments.map((a: any) => (
+                {(assignments?.blockAssignments || []).map((a: any) => (
                   <div key={a.id} className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
                     <div>
                       <span className="text-sm text-amber-800 font-medium">{a.name}</span>
-                      <span className="text-xs text-amber-600 ml-2">({a.field})</span>
+                      <span className="text-xs text-amber-600 ml-2">({a.field_name})</span>
                     </div>
                     <button onClick={() => unassignBlock.mutate(a.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">
                       Quitar
