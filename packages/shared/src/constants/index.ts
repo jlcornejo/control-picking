@@ -14,6 +14,10 @@ export const ERROR_CODES = {
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
+  // Multi-tenant
+  ORG_CONTEXT_REQUIRED: 'ORG_CONTEXT_REQUIRED',
+  CROSS_TENANT_FORBIDDEN: 'CROSS_TENANT_FORBIDDEN',
+  SUBSCRIPTION_INACTIVE: 'SUBSCRIPTION_INACTIVE',
 } as const;
 
 /** Pagination defaults */
@@ -21,4 +25,12 @@ export const PAGINATION = {
   DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 20,
   MAX_LIMIT: 100,
+} as const;
+
+/** Default branding applied when an organization has none configured */
+export const DEFAULT_BRANDING = {
+  name: 'Fundo360',
+  logo_url: null as string | null,
+  brand_primary_color: '#1b5e20',
+  brand_secondary_color: '#4caf50',
 } as const;

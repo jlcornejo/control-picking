@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -76,9 +76,14 @@ async function handlePost(req: Request, supabase: any) {
     return error('VALIDATION_ERROR', 'Unidad de medida debe ser "box" o "kg"', 422);
   }
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const { data, error: dbError } = await supabase
     .from('products')
     .insert({
+      organization_id: orgId,
       name: body.name.trim(),
       unit_measure: body.unit_measure,
     })

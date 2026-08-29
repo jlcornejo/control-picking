@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useBranding } from '@/hooks/useBranding';
 
 interface SidebarProps {
   workerName: string;
@@ -31,6 +32,7 @@ export function Sidebar({ workerName, role }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { branding } = useBranding();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -49,8 +51,8 @@ export function Sidebar({ workerName, role }: SidebarProps) {
           <Package size={18} />
         </div>
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Control de Picking</h2>
-          <p className="text-[11px] text-muted-foreground">Gestión de cosecha</p>
+          <h2 className="text-sm font-semibold text-foreground">{branding.name}</h2>
+          <p className="text-[11px] text-muted-foreground">Gestión integral de campo</p>
         </div>
       </div>
 

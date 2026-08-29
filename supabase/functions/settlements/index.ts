@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -120,6 +120,10 @@ async function handleGenerate(req: Request, supabase: any) {
     return error('VALIDATION_ERROR', 'period_start y period_end son requeridos', 422);
   }
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   // Get workers to generate for
   let workerIds: string[] = [];
   if (body.worker_id) {
@@ -165,6 +169,7 @@ async function handleGenerate(req: Request, supabase: any) {
     const { data: settlement, error: sErr } = await supabase
       .from('settlements')
       .insert({
+        organization_id: orgId,
         worker_id: workerId,
         period_start: body.period_start,
         period_end: body.period_end,

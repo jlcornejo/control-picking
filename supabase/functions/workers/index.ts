@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole, createServiceClient } from '../_shared/auth.ts';
+import { getUser, requireRole, createServiceClient, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -92,9 +92,14 @@ async function handlePost(req: Request, supabase: any) {
   // Generate QR badge UUID
   const qrUuid = crypto.randomUUID();
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const { data, error: dbError } = await supabase
     .from('workers')
     .insert({
+      organization_id: orgId,
       full_name: body.full_name.trim(),
       national_id: body.national_id || null,
       phone: body.phone || null,

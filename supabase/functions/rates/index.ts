@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -65,6 +65,10 @@ async function handlePost(req: Request, supabase: any) {
   if (!body.product_id) return error('VALIDATION_ERROR', 'product_id es requerido', 422);
   if (!body.amount || body.amount <= 0) return error('RATE_MUST_BE_POSITIVE', 'Tarifa debe ser mayor a 0', 422);
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   // Mark current rate as historical
   await supabase
     .from('rates')
@@ -76,6 +80,7 @@ async function handlePost(req: Request, supabase: any) {
   const { data, error: dbError } = await supabase
     .from('rates')
     .insert({
+      organization_id: orgId,
       product_id: body.product_id,
       amount: body.amount,
       effective_from: body.effective_from || new Date().toISOString(),

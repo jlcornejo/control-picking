@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -171,10 +171,15 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const payload = JSON.parse(atob(token.split('.')[1]!));
 
+  // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   // Create correction record pointing to original
   const { data, error: dbError } = await supabase
     .from('picking_records')
     .insert({
+      organization_id: orgId,
       worker_id: original.worker_id,
       block_id: original.block_id,
       quantity: body.quantity,
@@ -227,11 +232,16 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const payload = JSON.parse(atob(token.split('.')[1]!));
 
+  // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const today = new Date().toISOString().split('T')[0];
 
   const { data, error: dbError } = await supabase
     .from('picking_records')
     .insert({
+      organization_id: orgId,
       worker_id: workerId,
       block_id: blockId,
       quantity,

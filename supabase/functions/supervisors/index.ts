@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -80,9 +80,13 @@ async function handleAssignWorker(req: Request, supabase: any, supervisorId: str
   const body = await req.json();
   if (!body.worker_id) return error('VALIDATION_ERROR', 'worker_id es requerido', 422);
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const { data, error: dbError } = await supabase
     .from('supervisor_assignments')
-    .insert({ supervisor_id: supervisorId, worker_id: body.worker_id })
+    .insert({ organization_id: orgId, supervisor_id: supervisorId, worker_id: body.worker_id })
     .select()
     .single();
 
@@ -100,9 +104,13 @@ async function handleAssignBlock(req: Request, supabase: any, supervisorId: stri
   const body = await req.json();
   if (!body.block_id) return error('VALIDATION_ERROR', 'block_id es requerido', 422);
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const { data, error: dbError } = await supabase
     .from('supervisor_assignments')
-    .insert({ supervisor_id: supervisorId, block_id: body.block_id })
+    .insert({ organization_id: orgId, supervisor_id: supervisorId, block_id: body.block_id })
     .select()
     .single();
 
