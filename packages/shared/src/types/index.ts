@@ -1,7 +1,8 @@
-/** Worker roles in the system */
+/** Worker roles in the system (hierarchy: admin > supervisor > crew_lead > worker) */
 export enum WorkerRole {
   ADMIN = 'admin',
   SUPERVISOR = 'supervisor',
+  CREW_LEAD = 'crew_lead',
   WORKER = 'worker',
 }
 
@@ -80,6 +81,16 @@ export interface Field extends BaseEntity {
   name: string;
   location: string | null;
   total_area: number;
+  /** Crew mode override for this field. null = inherit organization default. */
+  crew_mode_enabled: boolean | null;
+  status: EntityStatus;
+}
+
+/** Crew (cuadrilla managed by a crew_lead) */
+export interface Crew extends BaseEntity {
+  organization_id: string;
+  crew_lead_id: string;
+  name: string;
   status: EntityStatus;
 }
 
@@ -102,7 +113,7 @@ export interface Rate extends BaseEntity {
   status: RateStatus;
 }
 
-/** Worker (picker, supervisor, or admin) */
+/** Worker (picker, supervisor, crew_lead, or admin) */
 export interface Worker extends BaseEntity {
   organization_id: string;
   full_name: string;
@@ -110,6 +121,8 @@ export interface Worker extends BaseEntity {
   phone: string | null;
   role: WorkerRole;
   qr_badge_url: string | null;
+  /** Crew the worker belongs to (crew mode). null if not applicable. */
+  crew_id: string | null;
   status: EntityStatus;
   auth_user_id: string | null;
 }

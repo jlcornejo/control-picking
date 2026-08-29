@@ -6,26 +6,16 @@ import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useBranding } from '@/hooks/useBranding';
+import { useOrgSettings } from '@/hooks/useOrgSettings';
 
 interface SidebarProps {
   workerName: string;
   role: string;
 }
 
-const navLinks = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/fields', label: 'Campos', icon: MapPin },
-  { href: '/products', label: 'Productos', icon: Package },
-  { href: '/workers', label: 'Trabajadores', icon: Users },
-  { href: '/records', label: 'Registros', icon: ClipboardList },
-  { href: '/settlements', label: 'Liquidaciones', icon: FileText },
-  { href: '/payments', label: 'Pagos', icon: Wallet },
-  { href: '/supervisors', label: 'Supervisores', icon: UserCog },
-];
-
 import {
   LayoutDashboard, MapPin, Package, Users, FileText,
-  ClipboardList, Wallet, UserCog, Menu, X
+  ClipboardList, Wallet, UserCog, Truck, Menu, X
 } from 'lucide-react';
 
 export function Sidebar({ workerName, role }: SidebarProps) {
@@ -33,6 +23,20 @@ export function Sidebar({ workerName, role }: SidebarProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { branding } = useBranding();
+  const { crewModeEnabled, roleLabel: orgRoleLabel } = useOrgSettings();
+
+  // "Cuadrillas" solo se muestra cuando el Modo Capataz está activo en la organización.
+  const navLinks = [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/fields', label: 'Campos', icon: MapPin },
+    { href: '/products', label: 'Productos', icon: Package },
+    { href: '/workers', label: 'Trabajadores', icon: Users },
+    ...(crewModeEnabled ? [{ href: '/crews', label: orgRoleLabel('crew_lead') + 's', icon: Truck }] : []),
+    { href: '/records', label: 'Registros', icon: ClipboardList },
+    { href: '/settlements', label: 'Liquidaciones', icon: FileText },
+    { href: '/payments', label: 'Pagos', icon: Wallet },
+    { href: '/supervisors', label: 'Supervisores', icon: UserCog },
+  ];
 
   async function handleLogout() {
     const supabase = createClient();
@@ -41,7 +45,7 @@ export function Sidebar({ workerName, role }: SidebarProps) {
     router.refresh();
   }
 
-  const roleLabel = role === 'admin' ? 'Administrador' : role === 'supervisor' ? 'Supervisor' : 'Trabajador';
+  const roleLabel = orgRoleLabel(role as 'admin' | 'supervisor' | 'crew_lead' | 'worker');
 
   const sidebar = (
     <div className="flex h-full flex-col">
