@@ -1,8 +1,8 @@
 {
-  "name": "control-picking",
+  "name": "fundo360",
   "version": "0.1.0",
   "private": true,
-  "description": "Sistema de gestión de campo y control de picking",
+  "description": "Fundo360 — gestión integral de campo, cosechas, trabajadores y pagos",
   "workspaces": [
     "apps/*",
     "packages/*"

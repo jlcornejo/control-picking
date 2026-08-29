@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform, Modal, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -8,10 +9,22 @@ import { formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import QRCode from 'react-native-qrcode-svg';
+
+type Period = 'today' | 'week' | 'month';
+const PERIODS: { key: Period; label: string }[] = [
+  { key: 'today', label: 'Hoy' },
+  { key: 'week', label: 'Semana' },
+  { key: 'month', label: 'Mes' },
+];
+
+const QR_SIZE = Math.min(Dimensions.get('window').width * 0.55, 220);
 
 export default function ProfileScreen() {
   const { worker, signOut } = useAuth();
   const router = useRouter();
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
+  const [showQR, setShowQR] = useState(false);
   const roleLabels: Record<string, string> = { admin: 'Administrador', supervisor: 'Supervisor', worker: 'Trabajador' };
   const roleColors: Record<string, string> = { admin: colors.violet, supervisor: colors.blue, worker: colors.primary };
 
@@ -19,50 +32,71 @@ export default function ProfileScreen() {
     queryKey: ['worker-detail', worker?.id],
     enabled: !!worker?.id,
     queryFn: async () => {
-      const { data } = await supabase.from('workers').select('phone, national_id, created_at').eq('id', worker!.id).single();
+      const { data } = await supabase.from('workers').select('phone, national_id, created_at, qr_badge_url').eq('id', worker!.id).single();
       return data;
     },
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['worker-stats', worker?.id, worker?.role],
+    queryKey: ['worker-stats', worker?.id, worker?.role, selectedPeriod],
     enabled: !!worker?.id,
     queryFn: async () => {
       const today = localDate(0);
-      const weekAgo = localDate(-7);
+      const periodOffset = selectedPeriod === 'today' ? 0 : selectedPeriod === 'week' ? -7 : -30;
+      const fromDate = selectedPeriod === 'today' ? today : localDate(periodOffset);
       const isManager = worker?.role === 'admin' || worker?.role === 'supervisor';
 
       if (isManager) {
-        // Admin/Supervisor: show team-level stats
-        const { data: todayRec } = await supabase.from('picking_records').select('quantity, worker_id').eq('work_day', today).is('original_record_id', null);
-        const { data: weekRec } = await supabase.from('picking_records').select('quantity, work_day').gte('work_day', weekAgo).is('original_record_id', null);
+        let query = supabase.from('picking_records').select('quantity, worker_id, work_day').is('original_record_id', null);
+        if (selectedPeriod === 'today') {
+          query = query.eq('work_day', today);
+        } else {
+          query = query.gte('work_day', fromDate).lte('work_day', today);
+        }
+        const { data: records } = await query;
         const { data: pendingSettlements } = await supabase.from('settlements').select('id').in('status', ['pending', 'partial']);
 
-        const todayTotal = (todayRec || []).reduce((s, r) => s + Number(r.quantity), 0);
-        const todayWorkers = new Set((todayRec || []).map(r => r.worker_id)).size;
-        const weekTotal = (weekRec || []).reduce((s, r) => s + Number(r.quantity), 0);
+        const totalUnits = (records || []).reduce((s, r) => s + Number(r.quantity), 0);
+        const activeWorkers = new Set((records || []).map(r => r.worker_id)).size;
+        const daysWorked = new Set((records || []).map(r => r.work_day)).size;
+        const avgPerDay = daysWorked > 0 ? Math.round(totalUnits / daysWorked) : 0;
 
         return {
           isManager: true,
-          todayTotal,
-          todayWorkers,
-          weekTotal,
+          totalUnits,
+          activeWorkers,
+          daysWorked,
+          avgPerDay,
           pendingCount: (pendingSettlements || []).length,
         };
       }
 
       // Worker: personal stats
-      const { data: todayRec } = await supabase.from('picking_records').select('quantity').eq('worker_id', worker!.id).eq('work_day', today).is('original_record_id', null);
-      const { data: weekRec } = await supabase.from('picking_records').select('quantity, work_day').eq('worker_id', worker!.id).gte('work_day', weekAgo).is('original_record_id', null);
-      const todayTotal = (todayRec || []).reduce((s, r) => s + Number(r.quantity), 0);
-      const weekTotal = (weekRec || []).reduce((s, r) => s + Number(r.quantity), 0);
-      const daysWorked = new Set((weekRec || []).map(r => r.work_day)).size;
-      return { isManager: false, todayTotal, weekTotal, avgPerDay: daysWorked > 0 ? Math.round(weekTotal / daysWorked) : 0 };
+      let query = supabase.from('picking_records').select('quantity, work_day').eq('worker_id', worker!.id).is('original_record_id', null);
+      if (selectedPeriod === 'today') {
+        query = query.eq('work_day', today);
+      } else {
+        query = query.gte('work_day', fromDate).lte('work_day', today);
+      }
+      const { data: records } = await query;
+      const totalUnits = (records || []).reduce((s, r) => s + Number(r.quantity), 0);
+      const daysWorked = new Set((records || []).map(r => r.work_day)).size;
+      const avgPerDay = daysWorked > 0 ? Math.round(totalUnits / daysWorked) : 0;
+      return { isManager: false, totalUnits, daysWorked, avgPerDay };
     },
   });
 
-  async function handleLogout() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  function handleLogout() {
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+
+    if (Platform.OS === 'web') {
+      const confirmed = (globalThis as unknown as { confirm: (msg: string) => boolean }).confirm('¿Desea salir de la aplicación?');
+      if (confirmed) {
+        signOut().then(() => router.replace('/login'));
+      }
+      return;
+    }
+
     Alert.alert('Cerrar sesión', '¿Desea salir de la aplicación?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar sesión', style: 'destructive', onPress: async () => { await signOut(); router.replace('/login'); } },
@@ -83,38 +117,54 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Stats */}
-      {stats && !stats.isManager && (
-        <View style={s.statsRow}>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{formatNumber(stats.todayTotal)}</Text>
-            <Text style={s.statLabel}>Hoy</Text>
+      {/* Period chips + Stats */}
+      {stats && (
+        <>
+          <View style={s.periodRow}>
+            {PERIODS.map(p => (
+              <TouchableOpacity
+                key={p.key}
+                style={[s.periodChip, selectedPeriod === p.key && s.periodChipActive]}
+                onPress={() => setSelectedPeriod(p.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]}>{p.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{formatNumber(stats.weekTotal)}</Text>
-            <Text style={s.statLabel}>Semana</Text>
-          </View>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
-            <Text style={s.statLabel}>Prom/día</Text>
-          </View>
-        </View>
-      )}
-      {stats && stats.isManager && (
-        <View style={s.statsRow}>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{formatNumber(stats.todayTotal)}</Text>
-            <Text style={s.statLabel}>Cajas hoy</Text>
-          </View>
-          <View style={s.statCard}>
-            <Text style={[s.statValue, { color: colors.blue }]}>{stats.todayWorkers}</Text>
-            <Text style={s.statLabel}>Activos</Text>
-          </View>
-          <View style={s.statCard}>
-            <Text style={[s.statValue, { color: stats.pendingCount > 0 ? colors.amber : colors.primary }]}>{stats.pendingCount}</Text>
-            <Text style={s.statLabel}>Pendientes</Text>
-          </View>
-        </View>
+
+          {stats.isManager ? (
+            <View style={s.statsRow}>
+              <View style={s.statCard}>
+                <Text style={s.statValue}>{formatNumber(stats.totalUnits)}</Text>
+                <Text style={s.statLabel}>Cajas</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={[s.statValue, { color: colors.blue }]}>{stats.activeWorkers}</Text>
+                <Text style={s.statLabel}>Trabajadores</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
+                <Text style={s.statLabel}>Prom/día</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={s.statsRow}>
+              <View style={s.statCard}>
+                <Text style={s.statValue}>{formatNumber(stats.totalUnits)}</Text>
+                <Text style={s.statLabel}>Cajas</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={[s.statValue, { color: colors.blue }]}>{stats.daysWorked}</Text>
+                <Text style={s.statLabel}>Días</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
+                <Text style={s.statLabel}>Prom/día</Text>
+              </View>
+            </View>
+          )}
+        </>
       )}
 
       {/* Info */}
@@ -125,12 +175,37 @@ export default function ProfileScreen() {
         <InfoRow label="Desde" value={detail?.created_at ? new Date(detail.created_at).toLocaleDateString('es-CL') : '—'} last />
       </View>
 
+      {/* QR Badge Button - only for workers */}
+      {worker?.role === 'worker' && detail?.qr_badge_url && (
+        <TouchableOpacity style={s.qrBtn} onPress={() => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {} setShowQR(true); }} activeOpacity={0.8}>
+          <Ionicons name="qr-code-outline" size={22} color={colors.primary} />
+          <Text style={s.qrBtnText}>Mi Badge QR</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* QR Modal */}
+      <Modal visible={showQR} animationType="fade" transparent statusBarTranslucent>
+        <View style={s.qrOverlay}>
+          <View style={s.qrCard}>
+            <Text style={s.qrTitle}>Mi Badge QR</Text>
+            <Text style={s.qrSubtitle}>{worker?.full_name}</Text>
+            <View style={s.qrContainer}>
+              <QRCode value={detail?.qr_badge_url || ''} size={QR_SIZE} backgroundColor="#fff" color={colors.text} />
+            </View>
+            <Text style={s.qrHint}>Presenta este código al supervisor para registrar tu producción</Text>
+            <TouchableOpacity style={s.qrCloseBtn} onPress={() => setShowQR(false)} activeOpacity={0.8}>
+              <Text style={s.qrCloseBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Logout */}
       <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={s.logoutText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
-      <Text style={s.version}>Control de Picking v0.1.0</Text>
+      <Text style={s.version}>Fundo360 v0.1.0</Text>
     </ScrollView>
   );
 }
@@ -164,7 +239,12 @@ const s = StyleSheet.create({
   rolePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.full, marginTop: 8 },
   roleDot: { width: 7, height: 7, borderRadius: 4 },
   roleText: { fontSize: 12, fontWeight: font.semibold },
-  statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  periodRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.xs },
+  periodChip: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center' },
+  periodChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  periodChipText: { fontSize: 12, fontWeight: font.semibold, color: colors.textSecondary },
+  periodChipTextActive: { color: '#fff' },
   statCard: { flex: 1, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: colors.cardBorder },
   statValue: { fontSize: 22, fontWeight: font.extrabold, color: colors.primary },
   statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
@@ -172,4 +252,14 @@ const s = StyleSheet.create({
   logoutBtn: { marginTop: spacing.xxl, backgroundColor: colors.redBg, borderWidth: 1, borderColor: '#fecaca', borderRadius: radius.lg, paddingVertical: 15, alignItems: 'center' },
   logoutText: { fontSize: 15, fontWeight: font.semibold, color: colors.red },
   version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: spacing.lg },
+  qrBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primaryMuted, borderRadius: radius.lg, paddingVertical: 16 },
+  qrBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary },
+  qrOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
+  qrCard: { backgroundColor: '#fff', borderRadius: radius.xxl, padding: spacing.xxxl, alignItems: 'center', width: '100%', maxWidth: 340 },
+  qrTitle: { fontSize: 18, fontWeight: font.bold, color: colors.text, marginBottom: 4 },
+  qrSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xl },
+  qrContainer: { padding: spacing.lg, backgroundColor: '#fff', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.cardBorder },
+  qrHint: { fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl, lineHeight: 18, paddingHorizontal: spacing.md },
+  qrCloseBtn: { marginTop: spacing.xl, backgroundColor: colors.surface, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 40 },
+  qrCloseBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.textSecondary },
 });

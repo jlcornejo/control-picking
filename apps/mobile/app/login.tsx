@@ -63,8 +63,8 @@ export default function LoginScreen() {
             <View style={s.logoCircle}>
               <Text style={s.logoEmoji}>🌿</Text>
             </View>
-            <Text style={s.title}>Control de Picking</Text>
-            <Text style={s.subtitle}>Gestión inteligente de cosecha</Text>
+            <Text style={s.title}>Fundo360</Text>
+            <Text style={s.subtitle}>Gestión integral de campo</Text>
           </Animated.View>
 
           {/* Form */}

@@ -4,7 +4,7 @@ name: domain-rules
 description: Domain invariants, business rules, entity naming conventions, and state machines for the picking control system. Use when writing or modifying TypeScript code, database migrations, or API logic.
 ---
 
-# Reglas de Dominio — Control de Picking
+# Reglas de Dominio — Fundo360
 
 ## Invariantes de Negocio (nunca deben violarse)
 

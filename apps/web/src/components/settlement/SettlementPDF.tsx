@@ -37,7 +37,7 @@ export function generateSettlementPDF(data: SettlementPDFData): void {
   doc.text('Liquidación de Producción', 14, 14);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Control de Picking — Sistema de Gestión de Cosecha', 14, 20);
+  doc.text('Fundo360 — Gestión Integral de Campo', 14, 20);
 
   // Worker info
   let y = 34;
@@ -187,7 +187,7 @@ export function generateSettlementPDF(data: SettlementPDFData): void {
   doc.setTextColor(150, 150, 150);
   doc.setFont('helvetica', 'normal');
   doc.text(
-    `Documento generado automáticamente — Control de Picking — ${new Date().toLocaleDateString('es-CL')}`,
+    `Documento generado automáticamente — Fundo360 — ${new Date().toLocaleDateString('es-CL')}`,
     105, 285, { align: 'center' }
   );
 
