@@ -1,0 +1,34 @@
+# Configuración de tbls — documentación automática del esquema de base de datos
+# https://github.com/k1LoW/tbls
+#
+# Genera la doc del esquema a partir de la base de datos LOCAL de Supabase.
+# Requiere: supabase start (DB en el puerto 54322) y tbls instalado.
+# Ejecutar con: npm run db:docs   (o: tbls doc --force)
+
+# DSN de la base de datos local de Supabase.
+# Puede sobreescribirse con la variable de entorno TBLS_DSN.
+dsn: ${TBLS_DSN:-postgres://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable}
+
+# Carpeta de salida (integrada en la navegación de MkDocs).
+docPath: docs/base-de-datos/schema
+
+# Formato de salida.
+format:
+  adjust: true
+  sortColumn: false
+
+# Documenta solo el esquema de negocio.
+include:
+  - public.*
+
+# Excluye artefactos internos de Supabase/Postgres que no aportan a la doc de negocio.
+exclude:
+  - public.schema_migrations
+  - public.supabase_migrations
+  - graphql.*
+  - graphql_public.*
+  - auth.*
+  - storage.*
+  - realtime.*
+  - vault.*
+  - extensions.*

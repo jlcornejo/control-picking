@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Regenerar doc de BD (tbls)",
+      "trigger": "PostFileSave",
+      "description": "Al guardar una migración SQL, regenera la documentación del esquema con tbls si la base de datos local de Supabase está corriendo y tbls está instalado. Falla silenciosamente si no se cumplen los requisitos.",
+      "matcher": "supabase/migrations/.*\\.sql$",
+      "action": {
+        "type": "command",
+        "command": "command -v tbls >/dev/null 2>&1 && pg_isready -h 127.0.0.1 -p 54322 >/dev/null 2>&1 && tbls doc --force || echo \"tbls o la DB local de Supabase no estan disponibles; se omite la regeneracion de docs\"",
+        "timeout": 120
+      }
+    }
+  ]
+}

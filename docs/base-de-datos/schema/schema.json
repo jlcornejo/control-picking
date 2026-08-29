@@ -1,0 +1,2908 @@
+{
+  "name": "postgres",
+  "tables": [
+    {
+      "name": "public.products",
+      "type": "BASE TABLE",
+      "comment": "Catalogue of harvestable products (fruit types)",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false
+        },
+        {
+          "name": "unit_measure",
+          "type": "unit_measure",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Tenant propietario. Filtro de aislamiento en RLS."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "products_pkey",
+          "def": "CREATE UNIQUE INDEX products_pkey ON public.products USING btree (id)",
+          "table": "public.products",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_products_status",
+          "def": "CREATE INDEX idx_products_status ON public.products USING btree (status)",
+          "table": "public.products",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_products_organization",
+          "def": "CREATE INDEX idx_products_organization ON public.products USING btree (organization_id)",
+          "table": "public.products",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_products_id_org",
+          "def": "CREATE UNIQUE INDEX uq_products_id_org ON public.products USING btree (id, organization_id)",
+          "table": "public.products",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "products_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.products",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "products_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.products",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_products_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.products",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_products_updated_at",
+          "def": "CREATE TRIGGER trg_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.fields",
+      "type": "BASE TABLE",
+      "comment": "Farm/fundo - top-level productive unit",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false
+        },
+        {
+          "name": "location",
+          "type": "varchar(200)",
+          "nullable": true
+        },
+        {
+          "name": "total_area",
+          "type": "numeric(10,2)",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "crew_mode_enabled",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Override del Modo Capataz para este campo. NULL hereda el default de la organización."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fields_pkey",
+          "def": "CREATE UNIQUE INDEX fields_pkey ON public.fields USING btree (id)",
+          "table": "public.fields",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_fields_status",
+          "def": "CREATE INDEX idx_fields_status ON public.fields USING btree (status)",
+          "table": "public.fields",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_fields_organization",
+          "def": "CREATE INDEX idx_fields_organization ON public.fields USING btree (organization_id)",
+          "table": "public.fields",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_fields_id_org",
+          "def": "CREATE UNIQUE INDEX uq_fields_id_org ON public.fields USING btree (id, organization_id)",
+          "table": "public.fields",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fields_total_area_check",
+          "type": "CHECK",
+          "def": "CHECK ((total_area \u003e (0)::numeric))",
+          "table": "public.fields",
+          "referenced_table": "",
+          "columns": [
+            "total_area"
+          ]
+        },
+        {
+          "name": "fields_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.fields",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fields_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.fields",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_fields_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.fields",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_fields_updated_at",
+          "def": "CREATE TRIGGER trg_fields_updated_at BEFORE UPDATE ON public.fields FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.blocks",
+      "type": "BASE TABLE",
+      "comment": "Block/paño - subdivision of a field, linked to a product",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "field_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "product_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false
+        },
+        {
+          "name": "area",
+          "type": "numeric(10,2)",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "blocks_pkey",
+          "def": "CREATE UNIQUE INDEX blocks_pkey ON public.blocks USING btree (id)",
+          "table": "public.blocks",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_blocks_field_id",
+          "def": "CREATE INDEX idx_blocks_field_id ON public.blocks USING btree (field_id)",
+          "table": "public.blocks",
+          "columns": [
+            "field_id"
+          ]
+        },
+        {
+          "name": "idx_blocks_product_id",
+          "def": "CREATE INDEX idx_blocks_product_id ON public.blocks USING btree (product_id)",
+          "table": "public.blocks",
+          "columns": [
+            "product_id"
+          ]
+        },
+        {
+          "name": "idx_blocks_status",
+          "def": "CREATE INDEX idx_blocks_status ON public.blocks USING btree (status)",
+          "table": "public.blocks",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_blocks_organization",
+          "def": "CREATE INDEX idx_blocks_organization ON public.blocks USING btree (organization_id)",
+          "table": "public.blocks",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_blocks_id_org",
+          "def": "CREATE UNIQUE INDEX uq_blocks_id_org ON public.blocks USING btree (id, organization_id)",
+          "table": "public.blocks",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "blocks_area_check",
+          "type": "CHECK",
+          "def": "CHECK ((area \u003e (0)::numeric))",
+          "table": "public.blocks",
+          "referenced_table": "",
+          "columns": [
+            "area"
+          ]
+        },
+        {
+          "name": "blocks_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.blocks",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "blocks_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.blocks",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_blocks_product_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.blocks",
+          "referenced_table": "public.products",
+          "columns": [
+            "product_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_blocks_field_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (field_id, organization_id) REFERENCES fields(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.blocks",
+          "referenced_table": "public.fields",
+          "columns": [
+            "field_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_blocks_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.blocks",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_blocks_updated_at",
+          "def": "CREATE TRIGGER trg_blocks_updated_at BEFORE UPDATE ON public.blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.rates",
+      "type": "BASE TABLE",
+      "comment": "Price rates per unit (box/kg) for each product. Only one current rate per product at any time.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "product_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "amount",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "comment": "Must be \u003e 0. Represents payment per unit (box or kg)."
+        },
+        {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "status",
+          "type": "rate_status",
+          "nullable": false,
+          "default": "'current'::rate_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "rates_pkey",
+          "def": "CREATE UNIQUE INDEX rates_pkey ON public.rates USING btree (id)",
+          "table": "public.rates",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_rates_product_status",
+          "def": "CREATE INDEX idx_rates_product_status ON public.rates USING btree (product_id, status)",
+          "table": "public.rates",
+          "columns": [
+            "product_id",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_rates_product_current",
+          "def": "CREATE UNIQUE INDEX idx_rates_product_current ON public.rates USING btree (product_id) WHERE (status = 'current'::rate_status)",
+          "table": "public.rates",
+          "columns": [
+            "product_id"
+          ]
+        },
+        {
+          "name": "idx_rates_organization",
+          "def": "CREATE INDEX idx_rates_organization ON public.rates USING btree (organization_id)",
+          "table": "public.rates",
+          "columns": [
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "rates_amount_check",
+          "type": "CHECK",
+          "def": "CHECK ((amount \u003e (0)::numeric))",
+          "table": "public.rates",
+          "referenced_table": "",
+          "columns": [
+            "amount"
+          ]
+        },
+        {
+          "name": "rates_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.rates",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "rates_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.rates",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_rates_product_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.rates",
+          "referenced_table": "public.products",
+          "columns": [
+            "product_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.workers",
+      "type": "BASE TABLE",
+      "comment": "Farm workers, supervisors, and admins. Linked to Supabase Auth.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "full_name",
+          "type": "varchar(150)",
+          "nullable": false
+        },
+        {
+          "name": "national_id",
+          "type": "varchar(20)",
+          "nullable": true,
+          "comment": "RUT or national ID. Encrypted at rest by Supabase."
+        },
+        {
+          "name": "phone",
+          "type": "varchar(20)",
+          "nullable": true
+        },
+        {
+          "name": "role",
+          "type": "worker_role",
+          "nullable": false,
+          "default": "'worker'::worker_role"
+        },
+        {
+          "name": "qr_badge_url",
+          "type": "text",
+          "nullable": true,
+          "comment": "URL to QR badge image in Supabase Storage."
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "auth_user_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Tenant propietario. Filtro de aislamiento en RLS."
+        },
+        {
+          "name": "crew_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Cuadrilla a la que pertenece el trabajador (Modo Capataz). NULL si no aplica."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "workers_pkey",
+          "def": "CREATE UNIQUE INDEX workers_pkey ON public.workers USING btree (id)",
+          "table": "public.workers",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "workers_auth_user_id_key",
+          "def": "CREATE UNIQUE INDEX workers_auth_user_id_key ON public.workers USING btree (auth_user_id)",
+          "table": "public.workers",
+          "columns": [
+            "auth_user_id"
+          ]
+        },
+        {
+          "name": "idx_workers_status",
+          "def": "CREATE INDEX idx_workers_status ON public.workers USING btree (status)",
+          "table": "public.workers",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_workers_role",
+          "def": "CREATE INDEX idx_workers_role ON public.workers USING btree (role)",
+          "table": "public.workers",
+          "columns": [
+            "role"
+          ]
+        },
+        {
+          "name": "idx_workers_auth_user_id",
+          "def": "CREATE INDEX idx_workers_auth_user_id ON public.workers USING btree (auth_user_id)",
+          "table": "public.workers",
+          "columns": [
+            "auth_user_id"
+          ]
+        },
+        {
+          "name": "idx_workers_organization",
+          "def": "CREATE INDEX idx_workers_organization ON public.workers USING btree (organization_id)",
+          "table": "public.workers",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_workers_id_org",
+          "def": "CREATE UNIQUE INDEX uq_workers_id_org ON public.workers USING btree (id, organization_id)",
+          "table": "public.workers",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_workers_crew",
+          "def": "CREATE INDEX idx_workers_crew ON public.workers USING btree (crew_id)",
+          "table": "public.workers",
+          "columns": [
+            "crew_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "workers_auth_user_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+          "table": "public.workers",
+          "referenced_table": "auth.users",
+          "columns": [
+            "auth_user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "workers_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.workers",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "workers_auth_user_id_key",
+          "type": "UNIQUE",
+          "def": "UNIQUE (auth_user_id)",
+          "table": "public.workers",
+          "referenced_table": "",
+          "columns": [
+            "auth_user_id"
+          ]
+        },
+        {
+          "name": "workers_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.workers",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_workers_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.workers",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_workers_crew_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE SET NULL",
+          "table": "public.workers",
+          "referenced_table": "public.crews",
+          "columns": [
+            "crew_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_workers_updated_at",
+          "def": "CREATE TRIGGER trg_workers_updated_at BEFORE UPDATE ON public.workers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.supervisor_assignments",
+      "type": "BASE TABLE",
+      "comment": "Maps supervisors to the workers and blocks they manage.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "supervisor_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "worker_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "block_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "assigned_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "supervisor_assignments_pkey",
+          "def": "CREATE UNIQUE INDEX supervisor_assignments_pkey ON public.supervisor_assignments USING btree (id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_supervisor_worker",
+          "def": "CREATE UNIQUE INDEX uq_supervisor_worker ON public.supervisor_assignments USING btree (supervisor_id, worker_id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "supervisor_id",
+            "worker_id"
+          ]
+        },
+        {
+          "name": "uq_supervisor_block",
+          "def": "CREATE UNIQUE INDEX uq_supervisor_block ON public.supervisor_assignments USING btree (supervisor_id, block_id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "supervisor_id",
+            "block_id"
+          ]
+        },
+        {
+          "name": "idx_supervisor_assignments_supervisor",
+          "def": "CREATE INDEX idx_supervisor_assignments_supervisor ON public.supervisor_assignments USING btree (supervisor_id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "supervisor_id"
+          ]
+        },
+        {
+          "name": "idx_supervisor_assignments_worker",
+          "def": "CREATE INDEX idx_supervisor_assignments_worker ON public.supervisor_assignments USING btree (worker_id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "worker_id"
+          ]
+        },
+        {
+          "name": "idx_supervisor_assignments_block",
+          "def": "CREATE INDEX idx_supervisor_assignments_block ON public.supervisor_assignments USING btree (block_id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "block_id"
+          ]
+        },
+        {
+          "name": "idx_supervisor_assignments_organization",
+          "def": "CREATE INDEX idx_supervisor_assignments_organization ON public.supervisor_assignments USING btree (organization_id)",
+          "table": "public.supervisor_assignments",
+          "columns": [
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_assignment_target",
+          "type": "CHECK",
+          "def": "CHECK (((worker_id IS NOT NULL) OR (block_id IS NOT NULL)))",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "",
+          "columns": [
+            "worker_id",
+            "block_id"
+          ]
+        },
+        {
+          "name": "supervisor_assignments_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_supervisor_worker",
+          "type": "UNIQUE",
+          "def": "UNIQUE (supervisor_id, worker_id)",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "",
+          "columns": [
+            "supervisor_id",
+            "worker_id"
+          ]
+        },
+        {
+          "name": "uq_supervisor_block",
+          "type": "UNIQUE",
+          "def": "UNIQUE (supervisor_id, block_id)",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "",
+          "columns": [
+            "supervisor_id",
+            "block_id"
+          ]
+        },
+        {
+          "name": "supervisor_assignments_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_assignment_block_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE CASCADE",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "public.blocks",
+          "columns": [
+            "block_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_assignment_supervisor_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (supervisor_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE CASCADE",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "public.workers",
+          "columns": [
+            "supervisor_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_assignment_worker_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE CASCADE",
+          "table": "public.supervisor_assignments",
+          "referenced_table": "public.workers",
+          "columns": [
+            "worker_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.picking_records",
+      "type": "BASE TABLE",
+      "comment": "Individual harvest entries. Each record = one delivery of boxes/kg by a worker.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "worker_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "block_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "quantity",
+          "type": "numeric(10,2)",
+          "nullable": false,
+          "comment": "Units harvested (boxes or kg). Must be \u003e 0."
+        },
+        {
+          "name": "rate_amount_snapshot",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "comment": "Rate frozen at time of recording for traceability."
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "work_day",
+          "type": "date",
+          "nullable": false,
+          "default": "CURRENT_DATE"
+        },
+        {
+          "name": "recorded_by",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Supervisor who registered this entry."
+        },
+        {
+          "name": "original_record_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "If this is a correction, points to the original record."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Tenant propietario. Debe coincidir con el de worker y block (FK compuesta)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "picking_records_pkey",
+          "def": "CREATE UNIQUE INDEX picking_records_pkey ON public.picking_records USING btree (id)",
+          "table": "public.picking_records",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_picking_records_worker_day",
+          "def": "CREATE INDEX idx_picking_records_worker_day ON public.picking_records USING btree (worker_id, work_day)",
+          "table": "public.picking_records",
+          "columns": [
+            "worker_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_picking_records_block_day",
+          "def": "CREATE INDEX idx_picking_records_block_day ON public.picking_records USING btree (block_id, work_day)",
+          "table": "public.picking_records",
+          "columns": [
+            "block_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_picking_records_work_day",
+          "def": "CREATE INDEX idx_picking_records_work_day ON public.picking_records USING btree (work_day)",
+          "table": "public.picking_records",
+          "columns": [
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_picking_records_recorded_by",
+          "def": "CREATE INDEX idx_picking_records_recorded_by ON public.picking_records USING btree (recorded_by)",
+          "table": "public.picking_records",
+          "columns": [
+            "recorded_by"
+          ]
+        },
+        {
+          "name": "idx_picking_records_organization",
+          "def": "CREATE INDEX idx_picking_records_organization ON public.picking_records USING btree (organization_id)",
+          "table": "public.picking_records",
+          "columns": [
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "picking_records_quantity_check",
+          "type": "CHECK",
+          "def": "CHECK ((quantity \u003e (0)::numeric))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "quantity"
+          ]
+        },
+        {
+          "name": "picking_records_rate_amount_snapshot_check",
+          "type": "CHECK",
+          "def": "CHECK ((rate_amount_snapshot \u003e (0)::numeric))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "rate_amount_snapshot"
+          ]
+        },
+        {
+          "name": "picking_records_original_record_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (original_record_id) REFERENCES picking_records(id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.picking_records",
+          "columns": [
+            "original_record_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "picking_records_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "picking_records_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_picking_block_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.blocks",
+          "columns": [
+            "block_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ],
+          "comment": "Garantiza que el picking_record y su block pertenecen a la misma organización."
+        },
+        {
+          "name": "fk_picking_recorded_by_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (recorded_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.workers",
+          "columns": [
+            "recorded_by",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_picking_worker_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.workers",
+          "columns": [
+            "worker_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.settlements",
+      "type": "BASE TABLE",
+      "comment": "Calculated payment due for a worker over a date range.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "worker_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "period_start",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "period_end",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "total_amount",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "comment": "Sum of (quantity * rate_snapshot) for all picking records in the period."
+        },
+        {
+          "name": "status",
+          "type": "settlement_status",
+          "nullable": false,
+          "default": "'pending'::settlement_status"
+        },
+        {
+          "name": "generated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "payee_type",
+          "type": "settlement_payee_type",
+          "nullable": false,
+          "default": "'worker'::settlement_payee_type",
+          "comment": "Sujeto de pago: worker (individual) o crew (cuadrilla, a nombre del encargado)."
+        },
+        {
+          "name": "crew_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Cuadrilla liquidada cuando payee_type=crew (nivel 1: cliente-\u003eencargado)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "settlements_pkey",
+          "def": "CREATE UNIQUE INDEX settlements_pkey ON public.settlements USING btree (id)",
+          "table": "public.settlements",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_settlements_worker",
+          "def": "CREATE INDEX idx_settlements_worker ON public.settlements USING btree (worker_id)",
+          "table": "public.settlements",
+          "columns": [
+            "worker_id"
+          ]
+        },
+        {
+          "name": "idx_settlements_status",
+          "def": "CREATE INDEX idx_settlements_status ON public.settlements USING btree (status)",
+          "table": "public.settlements",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_settlements_period",
+          "def": "CREATE INDEX idx_settlements_period ON public.settlements USING btree (period_start, period_end)",
+          "table": "public.settlements",
+          "columns": [
+            "period_start",
+            "period_end"
+          ]
+        },
+        {
+          "name": "idx_settlements_organization",
+          "def": "CREATE INDEX idx_settlements_organization ON public.settlements USING btree (organization_id)",
+          "table": "public.settlements",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_settlements_id_org",
+          "def": "CREATE UNIQUE INDEX uq_settlements_id_org ON public.settlements USING btree (id, organization_id)",
+          "table": "public.settlements",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_settlement_worker_period",
+          "def": "CREATE UNIQUE INDEX uq_settlement_worker_period ON public.settlements USING btree (worker_id, period_start, period_end) WHERE (payee_type = 'worker'::settlement_payee_type)",
+          "table": "public.settlements",
+          "columns": [
+            "worker_id",
+            "period_start",
+            "period_end"
+          ]
+        },
+        {
+          "name": "uq_settlement_crew_period",
+          "def": "CREATE UNIQUE INDEX uq_settlement_crew_period ON public.settlements USING btree (crew_id, period_start, period_end) WHERE (payee_type = 'crew'::settlement_payee_type)",
+          "table": "public.settlements",
+          "columns": [
+            "crew_id",
+            "period_start",
+            "period_end"
+          ]
+        },
+        {
+          "name": "idx_settlements_crew",
+          "def": "CREATE INDEX idx_settlements_crew ON public.settlements USING btree (crew_id)",
+          "table": "public.settlements",
+          "columns": [
+            "crew_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_settlement_payee",
+          "type": "CHECK",
+          "def": "CHECK ((((payee_type = 'worker'::settlement_payee_type) AND (worker_id IS NOT NULL) AND (crew_id IS NULL)) OR ((payee_type = 'crew'::settlement_payee_type) AND (crew_id IS NOT NULL) AND (worker_id IS NULL))))",
+          "table": "public.settlements",
+          "referenced_table": "",
+          "columns": [
+            "payee_type",
+            "worker_id",
+            "crew_id"
+          ]
+        },
+        {
+          "name": "chk_settlement_period",
+          "type": "CHECK",
+          "def": "CHECK ((period_end \u003e= period_start))",
+          "table": "public.settlements",
+          "referenced_table": "",
+          "columns": [
+            "period_end",
+            "period_start"
+          ]
+        },
+        {
+          "name": "settlements_total_amount_check",
+          "type": "CHECK",
+          "def": "CHECK ((total_amount \u003e= (0)::numeric))",
+          "table": "public.settlements",
+          "referenced_table": "",
+          "columns": [
+            "total_amount"
+          ]
+        },
+        {
+          "name": "settlements_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.settlements",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "settlements_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.settlements",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_settlements_worker_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.settlements",
+          "referenced_table": "public.workers",
+          "columns": [
+            "worker_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_settlements_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.settlements",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "settlements_crew_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_id) REFERENCES crews(id) ON DELETE RESTRICT",
+          "table": "public.settlements",
+          "referenced_table": "public.crews",
+          "columns": [
+            "crew_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_settlements_crew_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.settlements",
+          "referenced_table": "public.crews",
+          "columns": [
+            "crew_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_settlements_immutable_when_paid",
+          "def": "CREATE TRIGGER trg_settlements_immutable_when_paid BEFORE UPDATE ON public.settlements FOR EACH ROW EXECUTE FUNCTION prevent_paid_settlement_update()"
+        }
+      ]
+    },
+    {
+      "name": "public.payments",
+      "type": "BASE TABLE",
+      "comment": "Actual payments made against settlements.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "settlement_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "worker_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "amount",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "comment": "Must be \u003e 0 and total payments cannot exceed settlement total_amount."
+        },
+        {
+          "name": "paid_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "notes",
+          "type": "varchar(500)",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "payments_pkey",
+          "def": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)",
+          "table": "public.payments",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_payments_settlement",
+          "def": "CREATE INDEX idx_payments_settlement ON public.payments USING btree (settlement_id)",
+          "table": "public.payments",
+          "columns": [
+            "settlement_id"
+          ]
+        },
+        {
+          "name": "idx_payments_worker",
+          "def": "CREATE INDEX idx_payments_worker ON public.payments USING btree (worker_id)",
+          "table": "public.payments",
+          "columns": [
+            "worker_id"
+          ]
+        },
+        {
+          "name": "idx_payments_paid_at",
+          "def": "CREATE INDEX idx_payments_paid_at ON public.payments USING btree (paid_at)",
+          "table": "public.payments",
+          "columns": [
+            "paid_at"
+          ]
+        },
+        {
+          "name": "idx_payments_organization",
+          "def": "CREATE INDEX idx_payments_organization ON public.payments USING btree (organization_id)",
+          "table": "public.payments",
+          "columns": [
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "payments_amount_check",
+          "type": "CHECK",
+          "def": "CHECK ((amount \u003e (0)::numeric))",
+          "table": "public.payments",
+          "referenced_table": "",
+          "columns": [
+            "amount"
+          ]
+        },
+        {
+          "name": "payments_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.payments",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "payments_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.payments",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_payments_worker_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.payments",
+          "referenced_table": "public.workers",
+          "columns": [
+            "worker_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_payments_settlement_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (settlement_id, organization_id) REFERENCES settlements(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.payments",
+          "referenced_table": "public.settlements",
+          "columns": [
+            "settlement_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.organizations",
+      "type": "BASE TABLE",
+      "comment": "Cliente/tenant del SaaS. Unidad de aislamiento de datos.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "type": "varchar(150)",
+          "nullable": false
+        },
+        {
+          "name": "slug",
+          "type": "varchar(80)",
+          "nullable": false,
+          "comment": "Identificador url-safe único de la organización."
+        },
+        {
+          "name": "logo_url",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "brand_primary_color",
+          "type": "varchar(9)",
+          "nullable": true
+        },
+        {
+          "name": "brand_secondary_color",
+          "type": "varchar(9)",
+          "nullable": true
+        },
+        {
+          "name": "subscription_status",
+          "type": "subscription_status",
+          "nullable": false,
+          "default": "'trial'::subscription_status"
+        },
+        {
+          "name": "subscription_plan",
+          "type": "varchar(50)",
+          "nullable": true
+        },
+        {
+          "name": "crew_mode_enabled",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Default de Modo Capataz; cada campo puede sobreescribirlo."
+        },
+        {
+          "name": "role_labels",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "comment": "Etiquetas de rol configurables para la UI (no altera jerarquía ni seguridad)."
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "organizations_pkey",
+          "def": "CREATE UNIQUE INDEX organizations_pkey ON public.organizations USING btree (id)",
+          "table": "public.organizations",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_organizations_slug",
+          "def": "CREATE UNIQUE INDEX uq_organizations_slug ON public.organizations USING btree (slug)",
+          "table": "public.organizations",
+          "columns": [
+            "slug"
+          ]
+        },
+        {
+          "name": "idx_organizations_status",
+          "def": "CREATE INDEX idx_organizations_status ON public.organizations USING btree (status)",
+          "table": "public.organizations",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "idx_organizations_subscription_status",
+          "def": "CREATE INDEX idx_organizations_subscription_status ON public.organizations USING btree (subscription_status)",
+          "table": "public.organizations",
+          "columns": [
+            "subscription_status"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_organizations_role_labels",
+          "type": "CHECK",
+          "def": "CHECK ((jsonb_typeof(role_labels) = 'object'::text))",
+          "table": "public.organizations",
+          "referenced_table": "",
+          "columns": [
+            "role_labels"
+          ]
+        },
+        {
+          "name": "chk_organizations_slug",
+          "type": "CHECK",
+          "def": "CHECK (((slug)::text ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))",
+          "table": "public.organizations",
+          "referenced_table": "",
+          "columns": [
+            "slug"
+          ]
+        },
+        {
+          "name": "organizations_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.organizations",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_organizations_slug",
+          "type": "UNIQUE",
+          "def": "UNIQUE (slug)",
+          "table": "public.organizations",
+          "referenced_table": "",
+          "columns": [
+            "slug"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_organizations_updated_at",
+          "def": "CREATE TRIGGER trg_organizations_updated_at BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.platform_admins",
+      "type": "BASE TABLE",
+      "comment": "Administradores de plataforma (dueño/soporte del SaaS). Fuera del aislamiento de tenant.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "auth_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Vínculo con Supabase Auth. Usado por custom_access_token_hook para el claim is_platform_admin."
+        },
+        {
+          "name": "full_name",
+          "type": "varchar(150)",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "platform_admins_pkey",
+          "def": "CREATE UNIQUE INDEX platform_admins_pkey ON public.platform_admins USING btree (id)",
+          "table": "public.platform_admins",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "platform_admins_auth_user_id_key",
+          "def": "CREATE UNIQUE INDEX platform_admins_auth_user_id_key ON public.platform_admins USING btree (auth_user_id)",
+          "table": "public.platform_admins",
+          "columns": [
+            "auth_user_id"
+          ]
+        },
+        {
+          "name": "idx_platform_admins_status",
+          "def": "CREATE INDEX idx_platform_admins_status ON public.platform_admins USING btree (status)",
+          "table": "public.platform_admins",
+          "columns": [
+            "status"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "platform_admins_auth_user_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+          "table": "public.platform_admins",
+          "referenced_table": "auth.users",
+          "columns": [
+            "auth_user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "platform_admins_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.platform_admins",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "platform_admins_auth_user_id_key",
+          "type": "UNIQUE",
+          "def": "UNIQUE (auth_user_id)",
+          "table": "public.platform_admins",
+          "referenced_table": "",
+          "columns": [
+            "auth_user_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_platform_admins_updated_at",
+          "def": "CREATE TRIGGER trg_platform_admins_updated_at BEFORE UPDATE ON public.platform_admins FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.platform_audit_log",
+      "type": "BASE TABLE",
+      "comment": "Registro append-only de acciones de plataforma sobre datos de clientes.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "platform_admin_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "action",
+          "type": "varchar(80)",
+          "nullable": false,
+          "comment": "Acción realizada (impersonate, update_*, change_subscription, etc.)."
+        },
+        {
+          "name": "resource",
+          "type": "varchar(120)",
+          "nullable": true
+        },
+        {
+          "name": "detail",
+          "type": "jsonb",
+          "nullable": true,
+          "comment": "Contexto adicional en JSON (valores previos/nuevos, filtros, etc.)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "platform_audit_log_pkey",
+          "def": "CREATE UNIQUE INDEX platform_audit_log_pkey ON public.platform_audit_log USING btree (id)",
+          "table": "public.platform_audit_log",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_platform_audit_admin",
+          "def": "CREATE INDEX idx_platform_audit_admin ON public.platform_audit_log USING btree (platform_admin_id)",
+          "table": "public.platform_audit_log",
+          "columns": [
+            "platform_admin_id"
+          ]
+        },
+        {
+          "name": "idx_platform_audit_org",
+          "def": "CREATE INDEX idx_platform_audit_org ON public.platform_audit_log USING btree (organization_id)",
+          "table": "public.platform_audit_log",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_platform_audit_created_at",
+          "def": "CREATE INDEX idx_platform_audit_created_at ON public.platform_audit_log USING btree (created_at)",
+          "table": "public.platform_audit_log",
+          "columns": [
+            "created_at"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "platform_audit_log_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE SET NULL",
+          "table": "public.platform_audit_log",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "platform_audit_log_platform_admin_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (platform_admin_id) REFERENCES platform_admins(id) ON DELETE RESTRICT",
+          "table": "public.platform_audit_log",
+          "referenced_table": "public.platform_admins",
+          "columns": [
+            "platform_admin_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "platform_audit_log_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.platform_audit_log",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.crews",
+      "type": "BASE TABLE",
+      "comment": "Cuadrilla de trabajadores gestionada por un Encargado (crew_lead). Solo con Modo Capataz activo.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "crew_lead_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Worker con rol crew_lead responsable de la cuadrilla."
+        },
+        {
+          "name": "name",
+          "type": "varchar(120)",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "crews_pkey",
+          "def": "CREATE UNIQUE INDEX crews_pkey ON public.crews USING btree (id)",
+          "table": "public.crews",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_crews_organization",
+          "def": "CREATE INDEX idx_crews_organization ON public.crews USING btree (organization_id)",
+          "table": "public.crews",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_crews_lead",
+          "def": "CREATE INDEX idx_crews_lead ON public.crews USING btree (crew_lead_id)",
+          "table": "public.crews",
+          "columns": [
+            "crew_lead_id"
+          ]
+        },
+        {
+          "name": "uq_crews_id_org",
+          "def": "CREATE UNIQUE INDEX uq_crews_id_org ON public.crews USING btree (id, organization_id)",
+          "table": "public.crews",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "crews_crew_lead_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_lead_id) REFERENCES workers(id) ON DELETE RESTRICT",
+          "table": "public.crews",
+          "referenced_table": "public.workers",
+          "columns": [
+            "crew_lead_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "crews_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.crews",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_crews_lead_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_lead_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.crews",
+          "referenced_table": "public.workers",
+          "columns": [
+            "crew_lead_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "crews_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.crews",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_crews_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.crews",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_crews_updated_at",
+          "def": "CREATE TRIGGER trg_crews_updated_at BEFORE UPDATE ON public.crews FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "table": "public.products",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.fields",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.blocks",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.blocks",
+      "columns": [
+        "product_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.products",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.blocks",
+      "columns": [
+        "field_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.fields",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (field_id, organization_id) REFERENCES fields(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.rates",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.rates",
+      "columns": [
+        "product_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.products",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.workers",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.workers",
+      "columns": [
+        "crew_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.crews",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE SET NULL"
+    },
+    {
+      "table": "public.supervisor_assignments",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.supervisor_assignments",
+      "columns": [
+        "block_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.blocks",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.supervisor_assignments",
+      "columns": [
+        "supervisor_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (supervisor_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.supervisor_assignments",
+      "columns": [
+        "worker_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "original_record_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.picking_records",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (original_record_id) REFERENCES picking_records(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "block_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.blocks",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "recorded_by",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (recorded_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "worker_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.settlements",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.settlements",
+      "columns": [
+        "worker_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.settlements",
+      "columns": [
+        "crew_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.crews",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (crew_id) REFERENCES crews(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.settlements",
+      "columns": [
+        "crew_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.crews",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.payments",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.payments",
+      "columns": [
+        "worker_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.payments",
+      "columns": [
+        "settlement_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.settlements",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (settlement_id, organization_id) REFERENCES settlements(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.platform_audit_log",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "public.platform_audit_log",
+      "columns": [
+        "platform_admin_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.platform_admins",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (platform_admin_id) REFERENCES platform_admins(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.crews",
+      "columns": [
+        "crew_lead_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (crew_lead_id) REFERENCES workers(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.crews",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.crews",
+      "columns": [
+        "crew_lead_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (crew_lead_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    }
+  ],
+  "functions": [
+    {
+      "name": "public.update_updated_at_column",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.prevent_paid_settlement_update",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.get_worker_role",
+      "return_type": "worker_role",
+      "arguments": "user_id uuid",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.get_worker_id",
+      "return_type": "uuid",
+      "arguments": "user_id uuid",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.custom_access_token_hook",
+      "return_type": "jsonb",
+      "arguments": "event jsonb",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.is_admin",
+      "return_type": "bool",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.is_supervisor",
+      "return_type": "bool",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.is_worker",
+      "return_type": "bool",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.current_worker_id",
+      "return_type": "uuid",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.current_org_id",
+      "return_type": "uuid",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.is_platform_admin",
+      "return_type": "bool",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.is_crew_lead",
+      "return_type": "bool",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.current_crew_id",
+      "return_type": "uuid",
+      "arguments": "",
+      "type": "FUNCTION"
+    }
+  ],
+  "enums": [
+    {
+      "name": "auth.aal_level",
+      "values": [
+        "aal1",
+        "aal2",
+        "aal3"
+      ]
+    },
+    {
+      "name": "auth.code_challenge_method",
+      "values": [
+        "plain",
+        "s256"
+      ]
+    },
+    {
+      "name": "auth.factor_status",
+      "values": [
+        "unverified",
+        "verified"
+      ]
+    },
+    {
+      "name": "auth.factor_type",
+      "values": [
+        "phone",
+        "totp",
+        "webauthn"
+      ]
+    },
+    {
+      "name": "auth.oauth_authorization_status",
+      "values": [
+        "approved",
+        "denied",
+        "expired",
+        "pending"
+      ]
+    },
+    {
+      "name": "auth.oauth_client_type",
+      "values": [
+        "confidential",
+        "public"
+      ]
+    },
+    {
+      "name": "auth.oauth_registration_type",
+      "values": [
+        "dynamic",
+        "manual"
+      ]
+    },
+    {
+      "name": "auth.oauth_response_type",
+      "values": [
+        "code"
+      ]
+    },
+    {
+      "name": "auth.one_time_token_type",
+      "values": [
+        "confirmation_token",
+        "email_change_token_current",
+        "email_change_token_new",
+        "phone_change_token",
+        "reauthentication_token",
+        "recovery_token"
+      ]
+    },
+    {
+      "name": "net.request_status",
+      "values": [
+        "ERROR",
+        "PENDING",
+        "SUCCESS"
+      ]
+    },
+    {
+      "name": "public.entity_status",
+      "values": [
+        "active",
+        "inactive"
+      ]
+    },
+    {
+      "name": "public.rate_status",
+      "values": [
+        "current",
+        "historical"
+      ]
+    },
+    {
+      "name": "public.settlement_payee_type",
+      "values": [
+        "crew",
+        "worker"
+      ]
+    },
+    {
+      "name": "public.settlement_status",
+      "values": [
+        "paid",
+        "partial",
+        "pending"
+      ]
+    },
+    {
+      "name": "public.subscription_status",
+      "values": [
+        "active",
+        "cancelled",
+        "suspended",
+        "trial"
+      ]
+    },
+    {
+      "name": "public.unit_measure",
+      "values": [
+        "box",
+        "kg"
+      ]
+    },
+    {
+      "name": "public.worker_role",
+      "values": [
+        "admin",
+        "crew_lead",
+        "supervisor",
+        "worker"
+      ]
+    },
+    {
+      "name": "realtime.action",
+      "values": [
+        "DELETE",
+        "ERROR",
+        "INSERT",
+        "TRUNCATE",
+        "UPDATE"
+      ]
+    },
+    {
+      "name": "realtime.equality_op",
+      "values": [
+        "eq",
+        "gt",
+        "gte",
+        "ilike",
+        "imatch",
+        "in",
+        "is",
+        "isdistinct",
+        "like",
+        "lt",
+        "lte",
+        "match",
+        "neq"
+      ]
+    },
+    {
+      "name": "storage.buckettype",
+      "values": [
+        "ANALYTICS",
+        "STANDARD",
+        "VECTOR"
+      ]
+    }
+  ],
+  "driver": {
+    "name": "postgres",
+    "database_version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+    "meta": {
+      "current_schema": "public",
+      "search_paths": [
+        "\"\\$user\"",
+        "public",
+        "extensions"
+      ],
+      "dict": {
+        "Functions": "Stored procedures and functions"
+      }
+    }
+  }
+}

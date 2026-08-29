@@ -19,6 +19,9 @@
     "db:reset": "supabase db reset",
     "db:seed": "supabase db seed",
     "db:diff": "supabase db diff",
+    "db:docs": "tbls doc --force",
+    "docs:serve": "mkdocs serve",
+    "docs:build": "mkdocs build --strict",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {

@@ -1,0 +1,5 @@
+# Dependencias para construir la documentación (MkDocs Material)
+# Instalar con: pip install -r requirements-docs.txt
+mkdocs-material>=9.5,<10.0
+# Incluye automáticamente páginas generadas (p. ej. el esquema de tbls) sin listarlas en nav
+mkdocs-awesome-pages-plugin>=2.9,<3.0
