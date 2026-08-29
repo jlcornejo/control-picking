@@ -2,8 +2,9 @@ site_name: Fundo360
 site_description: Documentación de Fundo360 — plataforma de gestión agrícola (campos, cosecha, trabajadores y pagos)
 site_author: Fundo360
 docs_dir: docs
-# Ajusta site_url y el repo cuando publiques
-site_url: ""
+# URL de publicación en GitHub Pages (usuario/organización: jlcornejo, repo: control-picking).
+# Ajústala si cambias de repo o usas dominio propio.
+site_url: "https://jlcornejo.github.io/control-picking/"
 
 theme:
   name: material
