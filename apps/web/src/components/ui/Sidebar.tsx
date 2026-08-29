@@ -15,7 +15,7 @@ interface SidebarProps {
 
 import {
   LayoutDashboard, MapPin, Package, Users, FileText,
-  ClipboardList, Wallet, UserCog, Truck, Menu, X
+  ClipboardList, Wallet, UserCog, Truck, Settings, Menu, X
 } from 'lucide-react';
 
 export function Sidebar({ workerName, role }: SidebarProps) {
@@ -36,6 +36,7 @@ export function Sidebar({ workerName, role }: SidebarProps) {
     { href: '/settlements', label: 'Liquidaciones', icon: FileText },
     { href: '/payments', label: 'Pagos', icon: Wallet },
     { href: '/supervisors', label: 'Supervisores', icon: UserCog },
+    ...(role === 'admin' ? [{ href: '/settings', label: 'Configuración', icon: Settings }] : []),
   ];
 
   async function handleLogout() {
