@@ -18,9 +18,15 @@ Deno.serve(async (req) => {
     return await handleGetMy(supabase, url);
   }
 
-  // POST /settlements/generate (admin)
+  // POST /settlements/generate (admin) — nivel 1
   if (req.method === 'POST' && subResource === 'generate') {
     return await handleGenerate(req, supabase);
+  }
+
+  // POST /settlements/crew-generate (crew_lead) — nivel 2: liquidaciones a los
+  // trabajadores de su cuadrilla.
+  if (req.method === 'POST' && subResource === 'crew-generate') {
+    return await handleCrewGenerate(req, supabase);
   }
 
   switch (req.method) {
@@ -110,7 +116,18 @@ async function handleGetMy(supabase: any, url: URL) {
   return success(data);
 }
 
-/** POST /settlements/generate — calculate and create settlement (admin) */
+/**
+ * POST /settlements/generate — genera las liquidaciones de NIVEL 1 (admin).
+ *
+ * Opción A (modo por campo): cada picking_record se clasifica según el
+ * crew_mode efectivo de SU campo (field.crew_mode_enabled ?? org.crew_mode_enabled):
+ *   - Campo SIN modo capataz -> liquidación individual del trabajador (payee_type='worker').
+ *   - Campo CON modo capataz  -> se agrega a la liquidación de la CUADRILLA del
+ *     trabajador (payee_type='crew', a nombre del encargado). [nivel 1: cliente->encargado]
+ *
+ * El pago del encargado a sus trabajadores (nivel 2) NO se genera aquí; lo
+ * gestiona el propio encargado desde su cuenta.
+ */
 async function handleGenerate(req: Request, supabase: any) {
   const roleError = requireRole(req, ['admin']);
   if (roleError) return roleError;
@@ -120,65 +137,187 @@ async function handleGenerate(req: Request, supabase: any) {
     return error('VALIDATION_ERROR', 'period_start y period_end son requeridos', 422);
   }
 
-  // Tenant: el organization_id se toma del token (nunca del cliente)
   const orgId = getOrgId(req);
   if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
-  // Get workers to generate for
-  let workerIds: string[] = [];
-  if (body.worker_id) {
-    workerIds = [body.worker_id];
-  } else {
-    const { data: workers } = await supabase
-      .from('workers')
-      .select('id')
-      .eq('status', 'active')
-      .eq('role', 'worker');
-    workerIds = (workers || []).map((w: any) => w.id);
+  // Traer los registros del período con el contexto necesario para clasificar:
+  // - crew del trabajador (workers.crew_id)
+  // - crew_mode efectivo del campo del block (field override ?? org default)
+  const { data: records } = await supabase
+    .from('picking_records')
+    .select(`
+      quantity,
+      rate_amount_snapshot,
+      worker:workers!picking_records_worker_id_fkey(id, crew_id),
+      block:blocks(field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)))
+    `)
+    .gte('work_day', body.period_start)
+    .lte('work_day', body.period_end)
+    .is('original_record_id', null);
+
+  // Agregar montos por sujeto de pago
+  const workerTotals = new Map<string, number>();
+  const crewTotals = new Map<string, number>();
+
+  for (const r of records || []) {
+    const amount = Number(r.quantity) * Number(r.rate_amount_snapshot);
+    if (amount <= 0) continue;
+
+    const fieldMode = r.block?.field?.crew_mode_enabled;
+    const orgMode = r.block?.field?.organization?.crew_mode_enabled ?? false;
+    const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgMode : fieldMode;
+
+    const crewId = r.worker?.crew_id ?? null;
+
+    if (crewModeEffective && crewId) {
+      // Producción en campo con modo capataz y trabajador con cuadrilla -> nivel 1 (cuadrilla)
+      crewTotals.set(crewId, (crewTotals.get(crewId) ?? 0) + amount);
+    } else {
+      // Producción directa -> liquidación individual del trabajador
+      const wId = r.worker?.id;
+      if (wId) workerTotals.set(wId, (workerTotals.get(wId) ?? 0) + amount);
+    }
   }
 
   const results: any[] = [];
 
-  for (const workerId of workerIds) {
-    // Check for duplicates
+  // Liquidaciones individuales (payee_type='worker')
+  for (const [workerId, total] of workerTotals) {
+    if (total <= 0) continue;
     const { data: existing } = await supabase
       .from('settlements')
       .select('id')
       .eq('worker_id', workerId)
+      .eq('payee_type', 'worker')
       .eq('period_start', body.period_start)
       .eq('period_end', body.period_end)
       .maybeSingle();
-
-    if (existing) continue; // Skip duplicate
-
-    // Calculate total from picking records (exclude corrections - use latest)
-    const { data: records } = await supabase
-      .from('picking_records')
-      .select('quantity, rate_amount_snapshot')
-      .eq('worker_id', workerId)
-      .gte('work_day', body.period_start)
-      .lte('work_day', body.period_end)
-      .is('original_record_id', null); // Only originals, not corrections
-
-    const totalAmount = (records || []).reduce(
-      (sum: number, r: any) => sum + Number(r.quantity) * Number(r.rate_amount_snapshot), 0,
-    );
-
-    if (totalAmount <= 0) continue; // Skip workers with no production
+    if (existing) continue;
 
     const { data: settlement, error: sErr } = await supabase
       .from('settlements')
       .insert({
         organization_id: orgId,
+        payee_type: 'worker',
         worker_id: workerId,
         period_start: body.period_start,
         period_end: body.period_end,
-        total_amount: Math.round(totalAmount * 100) / 100,
+        total_amount: Math.round(total * 100) / 100,
         status: 'pending',
       })
       .select('*, workers(full_name)')
       .single();
+    if (!sErr && settlement) results.push(settlement);
+  }
 
+  // Liquidaciones de cuadrilla nivel 1 (payee_type='crew')
+  for (const [crewId, total] of crewTotals) {
+    if (total <= 0) continue;
+    const { data: existing } = await supabase
+      .from('settlements')
+      .select('id')
+      .eq('crew_id', crewId)
+      .eq('payee_type', 'crew')
+      .eq('period_start', body.period_start)
+      .eq('period_end', body.period_end)
+      .maybeSingle();
+    if (existing) continue;
+
+    const { data: settlement, error: sErr } = await supabase
+      .from('settlements')
+      .insert({
+        organization_id: orgId,
+        payee_type: 'crew',
+        crew_id: crewId,
+        period_start: body.period_start,
+        period_end: body.period_end,
+        total_amount: Math.round(total * 100) / 100,
+        status: 'pending',
+      })
+      .select('*, crews(name, crew_lead_id)')
+      .single();
+    if (!sErr && settlement) results.push(settlement);
+  }
+
+  return success(results, 201);
+}
+
+/**
+ * POST /settlements/crew-generate — NIVEL 2 (crew_lead).
+ *
+ * El Encargado genera las liquidaciones individuales de los trabajadores de SU
+ * cuadrilla, agregando la producción de cada uno en campos con modo capataz
+ * activo (la producción que él debe repartir). Estas liquidaciones son
+ * payee_type='worker'; RLS las restringe a los miembros de su cuadrilla.
+ */
+async function handleCrewGenerate(req: Request, supabase: any) {
+  const roleError = requireRole(req, ['crew_lead']);
+  if (roleError) return roleError;
+
+  const body = await req.json();
+  if (!body.period_start || !body.period_end) {
+    return error('VALIDATION_ERROR', 'period_start y period_end son requeridos', 422);
+  }
+
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
+  // Producción del período de los trabajadores de la cuadrilla del encargado.
+  // RLS (crew_lead_read_crew_picking) ya limita a la cuadrilla actual; se filtra
+  // además por campos con modo capataz efectivo, que es lo que el encargado reparte.
+  const { data: records } = await supabase
+    .from('picking_records')
+    .select(`
+      quantity,
+      rate_amount_snapshot,
+      worker:workers!picking_records_worker_id_fkey(id, crew_id),
+      block:blocks(field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)))
+    `)
+    .gte('work_day', body.period_start)
+    .lte('work_day', body.period_end)
+    .is('original_record_id', null);
+
+  const workerTotals = new Map<string, number>();
+  for (const r of records || []) {
+    const amount = Number(r.quantity) * Number(r.rate_amount_snapshot);
+    if (amount <= 0) continue;
+
+    const fieldMode = r.block?.field?.crew_mode_enabled;
+    const orgMode = r.block?.field?.organization?.crew_mode_enabled ?? false;
+    const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgMode : fieldMode;
+    if (!crewModeEffective) continue; // solo producción en modo capataz
+
+    const wId = r.worker?.id;
+    if (wId) workerTotals.set(wId, (workerTotals.get(wId) ?? 0) + amount);
+  }
+
+  const results: any[] = [];
+  for (const [workerId, total] of workerTotals) {
+    if (total <= 0) continue;
+    const { data: existing } = await supabase
+      .from('settlements')
+      .select('id')
+      .eq('worker_id', workerId)
+      .eq('payee_type', 'worker')
+      .eq('period_start', body.period_start)
+      .eq('period_end', body.period_end)
+      .maybeSingle();
+    if (existing) continue;
+
+    // RLS crew_lead_insert_member_settlements valida que el worker sea de su cuadrilla.
+    const { data: settlement, error: sErr } = await supabase
+      .from('settlements')
+      .insert({
+        organization_id: orgId,
+        payee_type: 'worker',
+        worker_id: workerId,
+        period_start: body.period_start,
+        period_end: body.period_end,
+        total_amount: Math.round(total * 100) / 100,
+        status: 'pending',
+      })
+      .select('*, workers(full_name)')
+      .single();
     if (!sErr && settlement) results.push(settlement);
   }
 

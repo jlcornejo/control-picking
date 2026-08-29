@@ -33,6 +33,12 @@ export enum SettlementStatus {
   PAID = 'paid',
 }
 
+/** Settlement payee: individual worker or a crew (paid to its crew_lead) */
+export enum SettlementPayeeType {
+  WORKER = 'worker',
+  CREW = 'crew',
+}
+
 /** Unit of measure for products */
 export enum UnitMeasure {
   BOX = 'box',
@@ -143,7 +149,12 @@ export interface PickingRecord extends BaseEntity {
 /** Settlement (payment calculation for a period) */
 export interface Settlement extends BaseEntity {
   organization_id: string;
-  worker_id: string;
+  /** Whether this settlement is for an individual worker or a crew. */
+  payee_type: SettlementPayeeType;
+  /** Set when payee_type = 'worker'; null for crew settlements. */
+  worker_id: string | null;
+  /** Set when payee_type = 'crew' (level 1: client -> crew_lead); null otherwise. */
+  crew_id: string | null;
   period_start: string;
   period_end: string;
   total_amount: number;
