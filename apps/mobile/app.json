@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Control de Picking",
-    "slug": "control-picking",
+    "name": "Fundo360",
+    "slug": "fundo360",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "picking",
+    "scheme": "fundo360",
     "splash": {
       "backgroundColor": "#1b5e20",
       "resizeMode": "contain"
@@ -14,11 +14,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#1b5e20"
       },
-      "package": "com.picking.control"
+      "package": "com.fundo360.app"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.picking.control"
+      "bundleIdentifier": "com.fundo360.app"
     },
     "web": {
       "bundler": "metro",

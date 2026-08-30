@@ -1,0 +1,65 @@
+site_name: Fundo360
+site_description: Documentación de Fundo360 — plataforma de gestión agrícola (campos, cosecha, trabajadores y pagos)
+site_author: Fundo360
+docs_dir: docs
+# URL de publicación en GitHub Pages (usuario/organización: jlcornejo, repo: control-picking).
+# Ajústala si cambias de repo o usas dominio propio.
+site_url: "https://jlcornejo.github.io/control-picking/"
+
+theme:
+  name: material
+  language: es
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/weather-night
+        name: Cambiar a modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/weather-sunny
+        name: Cambiar a modo claro
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/git-alt
+
+plugins:
+  - search:
+      lang: es
+  - awesome-pages
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# La navegación se construye automáticamente con el plugin awesome-pages
+# a partir de la estructura de carpetas y de los archivos `.pages`.
+# El orden de las secciones se controla en `docs/.pages`.

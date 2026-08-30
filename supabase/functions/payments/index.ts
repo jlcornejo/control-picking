@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -98,13 +98,18 @@ async function handleGetBalance(req: Request, supabase: any, url: URL) {
 
 /** POST /payments — register payment (admin) */
 async function handlePost(req: Request, supabase: any) {
-  const roleError = requireRole(req, ['admin']);
+  // admin registra pagos de nivel 1/directos; crew_lead registra pagos de nivel 2
+  // a los trabajadores de su cuadrilla (RLS acota a su cuadrilla).
+  const roleError = requireRole(req, ['admin', 'crew_lead']);
   if (roleError) return roleError;
 
   const body = await req.json();
   if (!body.settlement_id) return error('VALIDATION_ERROR', 'settlement_id es requerido', 422);
   if (!body.worker_id) return error('VALIDATION_ERROR', 'worker_id es requerido', 422);
   if (!body.amount || body.amount <= 0) return error('VALIDATION_ERROR', 'Monto debe ser mayor a 0', 422);
+
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
   // Get settlement and verify it's not already paid
   const { data: settlement, error: sErr } = await supabase
@@ -135,6 +140,7 @@ async function handlePost(req: Request, supabase: any) {
   const { data: payment, error: pErr } = await supabase
     .from('payments')
     .insert({
+      organization_id: orgId,
       settlement_id: body.settlement_id,
       worker_id: body.worker_id,
       amount: body.amount,

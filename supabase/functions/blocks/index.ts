@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -70,9 +70,13 @@ async function handlePost(req: Request, supabase: any, url: URL) {
   if (!body.product_id) return error('VALIDATION_ERROR', 'product_id es requerido', 422);
   if (!body.area || body.area <= 0) return error('VALIDATION_ERROR', 'Superficie debe ser mayor a 0', 422);
 
+  // Tenant: el organization_id se toma del token (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const { data, error: dbError } = await supabase
     .from('blocks')
-    .insert({ name: body.name.trim(), field_id: body.field_id, product_id: body.product_id, area: body.area })
+    .insert({ organization_id: orgId, name: body.name.trim(), field_id: body.field_id, product_id: body.product_id, area: body.area })
     .select('*, products(name, unit_measure), fields(name)')
     .single();
   if (dbError) return error('VALIDATION_ERROR', dbError.message, 400);

@@ -40,7 +40,7 @@ export function QRBadge({ badgeId, workerName, role }: QRBadgeProps) {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Control de Picking', W / 2, 38);
+    ctx.fillText('Fundo360', W / 2, 38);
 
     // QR Code (centered)
     const qrSize = 260;

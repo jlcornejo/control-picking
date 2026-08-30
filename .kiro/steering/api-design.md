@@ -4,7 +4,7 @@ name: api-design
 description: Complete REST API endpoint design with routes, request/response contracts, pagination, and filters. Use when implementing or modifying API endpoints, Edge Functions, or client-side API calls.
 ---
 
-# Diseño de API — Sistema de Control de Picking
+# Diseño de API — Fundo360
 
 ## Endpoints Planificados por Módulo
 

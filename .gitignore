@@ -39,6 +39,10 @@ coverage/
 # Supabase
 supabase/.temp/
 
+# Docs (MkDocs build output)
+site/
+.venv-docs/
+
 # Misc
 *.log
 local_cache/

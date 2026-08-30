@@ -1,8 +1,8 @@
-# Product Overview — Sistema de Control de Picking
+# Product Overview — Fundo360
 
 ## Purpose
 
-Plataforma digital para gestión integral de operaciones de cosecha agrícola, enfocada en el control de picking (recolección de frutas) y liquidación de pagos por pieza a trabajadores de campo.
+Fundo360 es una plataforma SaaS multi-cliente para la gestión integral de operaciones agrícolas: estructura de campos, trabajadores, control de cosecha (picking), rendimiento del campo y liquidación de pagos por pieza. Cada cliente (organización) opera en un ambiente aislado con su propia marca.
 
 ## Target Users
 

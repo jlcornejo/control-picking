@@ -86,8 +86,8 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
           transform: [{ translateY: textTranslate }],
         }}
       >
-        <Text style={styles.title}>Control de Picking</Text>
-        <Text style={styles.subtitle}>Gestión de cosecha</Text>
+        <Text style={styles.title}>Fundo360</Text>
+        <Text style={styles.subtitle}>Gestión integral de campo</Text>
       </Animated.View>
     </Animated.View>
   );

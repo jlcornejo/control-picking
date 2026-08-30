@@ -60,8 +60,8 @@ export default function LoginPage() {
           >
             <span className="text-3xl"><Leaf size={32} className="text-white" /></span>
           </motion.div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Control de Picking</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sistema de gestión de cosecha</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Fundo360</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Gestión integral de campo</p>
         </div>
 
         {/* Glass card */}
@@ -71,7 +71,7 @@ export default function LoginPage() {
               <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">Email</label>
               <input
                 id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-                placeholder="admin@picking.cl"
+                placeholder="admin@fundo360.cl"
                 className="block w-full rounded-xl border border-border/60 bg-white/80 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
               />
             </div>

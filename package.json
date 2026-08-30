@@ -1,8 +1,8 @@
 {
-  "name": "control-picking",
+  "name": "fundo360",
   "version": "0.1.0",
   "private": true,
-  "description": "Sistema de gestión de campo y control de picking",
+  "description": "Fundo360 — gestión integral de campo, cosechas, trabajadores y pagos",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -19,6 +19,9 @@
     "db:reset": "supabase db reset",
     "db:seed": "supabase db seed",
     "db:diff": "supabase db diff",
+    "db:docs": "tbls doc --force",
+    "docs:serve": "mkdocs serve",
+    "docs:build": "mkdocs build --strict",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {

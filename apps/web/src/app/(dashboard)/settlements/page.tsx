@@ -24,7 +24,7 @@ export default function SettlementsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('settlements')
-        .select('*, workers(full_name, national_id)')
+        .select('*, workers(full_name, national_id), crews(name, crew_lead:workers!crews_crew_lead_id_fkey(full_name))')
         .order('generated_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -93,8 +93,17 @@ export default function SettlementsPage() {
   }
 
   const columns = [
-    { key: 'workers', label: 'Trabajador', render: (row: any) => (
-      <span className="font-medium text-foreground">{row.workers?.full_name || '—'}</span>
+    { key: 'payee', label: 'Beneficiario', sortable: false, render: (row: any) => (
+      row.payee_type === 'crew'
+        ? (
+          <span className="font-medium text-foreground">
+            {row.crews?.name || 'Cuadrilla'}
+            <span className="ml-1.5 inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+              Cuadrilla · {row.crews?.crew_lead?.full_name || '—'}
+            </span>
+          </span>
+        )
+        : <span className="font-medium text-foreground">{row.workers?.full_name || '—'}</span>
     )},
     { key: 'period_start', label: 'Desde', render: (row: any) => (
       <span className="tabular-nums text-sm">{row.period_start}</span>
@@ -128,13 +137,17 @@ export default function SettlementsPage() {
         searchPlaceholder="Buscar por trabajador..."
         searchKeys={['workers']}
         actions={(row: any) => (
-          <button
-            onClick={() => handleExportPDF(row)}
-            disabled={exporting === row.id}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
-          >
-            {exporting === row.id ? '...' : '↓ PDF'}
-          </button>
+          row.payee_type === 'crew' ? (
+            <span className="text-xs text-muted-foreground">Liquidación de cuadrilla</span>
+          ) : (
+            <button
+              onClick={() => handleExportPDF(row)}
+              disabled={exporting === row.id}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
+            >
+              {exporting === row.id ? '...' : '↓ PDF'}
+            </button>
+          )
         )}
       />
 
@@ -159,34 +172,25 @@ function GenerateForm({ onSuccess }: { onSuccess: () => void }) {
     const periodStart = form.get('period_start') as string;
     const periodEnd = form.get('period_end') as string;
 
-    const { data: workers } = await supabase.from('workers').select('id').eq('status', 'active').eq('role', 'worker');
-
-    let generated = 0;
-    for (const worker of workers || []) {
-      const { data: records } = await supabase
-        .from('picking_records')
-        .select('quantity, rate_amount_snapshot')
-        .eq('worker_id', worker.id)
-        .gte('work_day', periodStart)
-        .lte('work_day', periodEnd)
-        .is('original_record_id', null);
-
-      const total = (records || []).reduce((s, r) => s + Number(r.quantity) * Number(r.rate_amount_snapshot), 0);
-      if (total <= 0) continue;
-
-      const { error } = await supabase.from('settlements').insert({
-        worker_id: worker.id, period_start: periodStart, period_end: periodEnd,
-        total_amount: Math.round(total * 100) / 100, status: 'pending',
-      });
-      if (!error) generated++;
-    }
+    // Delegamos en la Edge Function /settlements/generate, que clasifica la
+    // producción por el modo capataz efectivo del campo (Opción A) y setea
+    // payee_type (worker/crew). Evita duplicar/desincronizar esa lógica.
+    const { data, error } = await supabase.functions.invoke('settlements/generate', {
+      method: 'POST',
+      body: { period_start: periodStart, period_end: periodEnd },
+    });
 
     setLoading(false);
-    if (generated > 0) {
+
+    // La Edge Function responde { success, data: [...] }
+    const generated = Array.isArray(data?.data) ? data.data.length : 0;
+    if (!error && generated > 0) {
       toast(`${generated} liquidación(es) generada(s)`, 'success');
       setTimeout(onSuccess, 800);
-    } else {
+    } else if (!error) {
       setResult('No se encontró producción para el período seleccionado');
+    } else {
+      setResult('Error al generar las liquidaciones');
     }
   }
 

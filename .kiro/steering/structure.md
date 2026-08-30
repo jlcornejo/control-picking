@@ -3,7 +3,7 @@
 ## Monorepo Layout
 
 ```
-control-picking/
+fundo360/
 ├── apps/
 │   ├── web/                    # Next.js dashboard (admin)
 │   │   ├── src/
@@ -67,7 +67,7 @@ supabase/functions/{module-name}/
 
 ## Import Rules
 
-- `packages/shared` is imported as `@picking/shared`
+- `packages/shared` is imported as `@fundo360/shared`
 - Never import from `apps/web` into `apps/mobile` or vice versa
 - Edge Functions import shared types from `packages/shared`
 - Relative imports within a module, absolute across modules

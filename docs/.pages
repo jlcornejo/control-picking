@@ -1,0 +1,8 @@
+nav:
+  - index.md
+  - producto
+  - arquitectura
+  - dominio
+  - api
+  - base-de-datos
+  - contribuir

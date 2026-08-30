@@ -1,5 +1,5 @@
 {
-  "name": "@picking/web",
+  "name": "@fundo360/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,7 +11,7 @@
     "test:cov": "vitest --run --coverage"
   },
   "dependencies": {
-    "@picking/shared": "*",
+    "@fundo360/shared": "*",
     "@radix-ui/react-slot": "^1.3.3",
     "@supabase/ssr": "^0.6.0",
     "@supabase/supabase-js": "^2.49.0",

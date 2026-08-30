@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -171,10 +171,15 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const payload = JSON.parse(atob(token.split('.')[1]!));
 
+  // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   // Create correction record pointing to original
   const { data, error: dbError } = await supabase
     .from('picking_records')
     .insert({
+      organization_id: orgId,
       worker_id: original.worker_id,
       block_id: original.block_id,
       quantity: body.quantity,
@@ -205,14 +210,21 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
   if (wErr || !worker) return error('NOT_FOUND', 'Trabajador no encontrado', 404);
   if (worker.status !== 'active') return error('WORKER_NOT_ACTIVE', 'Trabajador no está activo', 409);
 
-  // Validate block is active and get product_id
+  // Validate block is active and get product_id + campo (para resolver crew_mode)
   const { data: block, error: bErr } = await supabase
     .from('blocks')
-    .select('id, status, product_id, name')
+    .select('id, status, product_id, name, field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled))')
     .eq('id', blockId)
     .single();
   if (bErr || !block) return error('NOT_FOUND', 'Paño no encontrado', 404);
   if (block.status !== 'active') return error('BLOCK_NOT_ACTIVE', 'Paño no está activo', 409);
+
+  // Modo Capataz efectivo del campo: override del campo, o default de la organización.
+  // Nota (Req. 8.5): el registro de producción NO cambia según crew_mode; este valor
+  // es informativo y se usa en la liquidación (Fase 3), sin duplicar el picking_record.
+  const fieldCrewMode = block.field?.crew_mode_enabled;
+  const orgCrewMode = block.field?.organization?.crew_mode_enabled ?? false;
+  const crewModeEffective = fieldCrewMode === null || fieldCrewMode === undefined ? orgCrewMode : fieldCrewMode;
 
   // Get current rate for the product
   const { data: rate, error: rErr } = await supabase
@@ -227,11 +239,16 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const payload = JSON.parse(atob(token.split('.')[1]!));
 
+  // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const today = new Date().toISOString().split('T')[0];
 
   const { data, error: dbError } = await supabase
     .from('picking_records')
     .insert({
+      organization_id: orgId,
       worker_id: workerId,
       block_id: blockId,
       quantity,
@@ -249,5 +266,6 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
     worker_name: worker.full_name || '',
     block_name: block.name || '',
     estimated_payment: Math.round(quantity * rate.amount * 100) / 100,
+    crew_mode_effective: crewModeEffective,
   }, 201);
 }
