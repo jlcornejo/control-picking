@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 import { FormField } from '@/components/ui/FormField';
 import { useFormValidation } from '@/hooks/useFormValidation';
+import { useOrgSettings } from '@/hooks/useOrgSettings';
 import { z } from 'zod';
 import { PageTransition } from '@/components/ui/animations';
 
@@ -125,6 +126,7 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
   const { toast } = useToast();
+  const { crewModeEnabled } = useOrgSettings();
 
   const fieldSchema = z.object({
     name: z.string().min(1, 'Nombre es requerido').max(100, 'Máximo 100 caracteres'),
@@ -133,6 +135,14 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
   });
 
   const { errors, validate, clearField } = useFormValidation({ schema: fieldSchema });
+
+  // Override de Modo Capataz por campo: '' = heredar org, 'on' = true, 'off' = false
+  function crewModeToValue(v: boolean | null | undefined): string {
+    return v === true ? 'on' : v === false ? 'off' : '';
+  }
+  function crewModeFromValue(s: string): boolean | null {
+    return s === 'on' ? true : s === 'off' ? false : null;
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -147,7 +157,14 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
     if (!result.success) return;
 
     setLoading(true);
-    const payload = { name: result.data.name, location: result.data.location || null, total_area: result.data.total_area };
+    const payload: Record<string, unknown> = {
+      name: result.data.name,
+      location: result.data.location || null,
+      total_area: result.data.total_area,
+    };
+    if (crewModeEnabled) {
+      payload.crew_mode_enabled = crewModeFromValue(form.get('crew_mode') as string);
+    }
 
     if (initial) {
       const { error } = await supabase.from('fields').update(payload).eq('id', initial.id);
@@ -177,6 +194,15 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
       <FormField label="Superficie (ha)" required error={errors.total_area}>
         <input name="total_area" type="number" step="0.01" defaultValue={initial?.total_area || ''} onChange={() => clearField('total_area')} className={inputClass('total_area')} />
       </FormField>
+      {crewModeEnabled && (
+        <FormField label="Modo Capataz en este campo">
+          <select name="crew_mode" defaultValue={crewModeToValue(initial?.crew_mode_enabled)} className={inputClass('crew_mode')}>
+            <option value="">Heredar de la organización</option>
+            <option value="on">Activado (usa cuadrillas)</option>
+            <option value="off">Desactivado (pago directo)</option>
+          </select>
+        </FormField>
+      )}
       <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-all">
         {loading ? 'Guardando...' : initial ? 'Guardar Cambios' : 'Crear Campo'}
       </button>
