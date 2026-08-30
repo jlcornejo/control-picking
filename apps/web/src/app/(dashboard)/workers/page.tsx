@@ -31,7 +31,7 @@ export default function WorkersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('workers')
-        .select('id, full_name, phone, role, status, qr_badge_url, created_at')
+        .select('id, full_name, national_id, phone, role, status, qr_badge_url, created_at')
         .order('full_name');
       if (error) throw error;
       return data;
@@ -52,10 +52,11 @@ export default function WorkersPage() {
     onError: () => toast('Error al actualizar estado', 'error'),
   });
 
-  const roleLabels: Record<string, string> = { admin: 'Administrador', supervisor: 'Supervisor', worker: 'Trabajador' };
+  const roleLabels: Record<string, string> = { admin: 'Administrador', supervisor: 'Supervisor', crew_lead: 'Encargado', worker: 'Trabajador' };
 
   const columns = [
     { key: 'full_name', label: 'Nombre' },
+    { key: 'national_id', label: 'RUT', render: (row: any) => row.national_id || '—' },
     { key: 'role', label: 'Rol', render: (row: any) => roleLabels[row.role] || row.role },
     { key: 'phone', label: 'Teléfono', render: (row: any) => row.phone || '—' },
     { key: 'qr_badge_url', label: 'Badge QR', render: (row: any) => row.qr_badge_url ? <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><Check size={14} /></span> : <span className="text-muted-foreground">—</span> },
@@ -79,8 +80,8 @@ export default function WorkersPage() {
         data={data || []}
         loading={isLoading}
         emptyMessage="No hay trabajadores registrados"
-        searchPlaceholder="Buscar por nombre, teléfono..."
-        searchKeys={['full_name', 'phone', 'role']}
+        searchPlaceholder="Buscar por nombre, RUT, teléfono..."
+        searchKeys={['full_name', 'national_id', 'phone', 'role']}
         actions={(row: any) => (
           <>
             <button onClick={() => setBadgeWorker(row)} className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Ver Badge QR">
