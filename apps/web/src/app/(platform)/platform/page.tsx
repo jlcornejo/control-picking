@@ -11,6 +11,7 @@ import { FormField } from '@/components/ui/FormField';
 import { useToast } from '@/components/ui/Toast';
 import { PageTransition } from '@/components/ui/animations';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 
 const SUBSCRIPTION = [
@@ -25,6 +26,7 @@ export default function PlatformPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [subOrg, setSubOrg] = useState<any | null>(null);
 
@@ -72,12 +74,20 @@ export default function PlatformPage() {
         searchPlaceholder="Buscar por nombre o slug..."
         searchKeys={['name', 'slug']}
         actions={(row: any) => (
-          <button
-            onClick={() => setSubOrg(row)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
-          >
-            Suscripción
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push(`/platform/${row.id}`)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-foreground bg-muted hover:bg-accent transition-colors"
+            >
+              Ver ambiente
+            </button>
+            <button
+              onClick={() => setSubOrg(row)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+            >
+              Suscripción
+            </button>
+          </div>
         )}
       />
 
