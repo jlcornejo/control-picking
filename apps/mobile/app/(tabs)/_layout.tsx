@@ -8,7 +8,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function TabsLayout() {
   const { worker } = useAuth();
-  const isAdmin = worker?.role === 'admin' || worker?.role === 'supervisor';
+  // Operadores de terreno (registran producción y ven dashboard): admin, supervisor y encargado.
+  const isAdmin = worker?.role === 'admin' || worker?.role === 'supervisor' || worker?.role === 'crew_lead';
 
   const { data: recentPayments } = useQuery({
     queryKey: ['recent-payments-badge', worker?.id],

@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 interface WorkerInfo {
   id: string;
   full_name: string;
-  role: 'admin' | 'supervisor' | 'worker';
+  role: 'admin' | 'supervisor' | 'crew_lead' | 'worker';
   status: string;
 }
 
