@@ -67,10 +67,59 @@ export function useBranding() {
   return { branding, loading };
 }
 
-/** Aplica los colores de marca como CSS custom properties. */
+/**
+ * Convierte un color hex (#RRGGBB / #RRGGBBAA) al formato "H S% L%" que usan
+ * las CSS variables del tema (consumidas por Tailwind como hsl(var(--x))).
+ * Devuelve null si el hex no es válido.
+ */
+function hexToHslParts(hex: string | null): string | null {
+  if (!hex) return null;
+  const m = /^#?([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?$/.exec(hex.trim());
+  if (!m) return null;
+  const int = parseInt(m[1], 16);
+  const r = ((int >> 16) & 255) / 255;
+  const g = ((int >> 8) & 255) / 255;
+  const b = (int & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  const d = max - min;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+/**
+ * Aplica los colores de marca sobreescribiendo las CSS variables reales del
+ * tema (las que consume Tailwind: --primary, --ring, --secondary). Sin esto,
+ * el branding se guardaba pero no se reflejaba en la UI.
+ */
 function applyCssVars(b: Branding) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  root.style.setProperty('--brand-primary', b.brand_primary_color);
-  root.style.setProperty('--brand-secondary', b.brand_secondary_color);
+
+  const primary = hexToHslParts(b.brand_primary_color);
+  if (primary) {
+    root.style.setProperty('--primary', primary);
+    root.style.setProperty('--ring', primary);
+  } else {
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--ring');
+  }
+
+  const secondary = hexToHslParts(b.brand_secondary_color);
+  if (secondary) {
+    root.style.setProperty('--glow', secondary);
+  } else {
+    root.style.removeProperty('--glow');
+  }
 }
