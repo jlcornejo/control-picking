@@ -41,6 +41,12 @@ Maps supervisors to the workers and blocks they manage.
 | idx_supervisor_assignments_block        | CREATE INDEX idx_supervisor_assignments_block ON public.supervisor_assignments USING btree (block_id)               |
 | idx_supervisor_assignments_organization | CREATE INDEX idx_supervisor_assignments_organization ON public.supervisor_assignments USING btree (organization_id) |
 
+## Triggers
+
+| Name                                  | Definition                                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| trg_set_org_id_supervisor_assignments | CREATE TRIGGER trg_set_org_id_supervisor_assignments BEFORE INSERT ON public.supervisor_assignments FOR EACH ROW EXECUTE FUNCTION set_organization_id() |
+
 ## Relations
 
 ![er](public.supervisor_assignments.svg)

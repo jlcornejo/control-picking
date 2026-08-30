@@ -48,9 +48,10 @@ INSERT INTO blocks (id, organization_id, field_id, product_id, name, area, statu
   ('ee0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'dd0000ff-0000-0000-0000-000000000001', 'bb0000ff-0000-0000-0000-000000000001', 'Paño F1 - Frutillas', 9.0, 'active')
 ON CONFLICT (id) DO NOTHING;
 
--- Cuadrilla del encargado Roberto Fuentes
-INSERT INTO crews (id, organization_id, crew_lead_id, name, status) VALUES
-  ('c50000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fe-0000-0000-0000-000000000001', 'Furgón Norte', 'active')
+-- Cuadrilla del encargado Roberto Fuentes, a cargo de la supervisora Patricia Núñez
+-- (jerarquía admin > supervisor > encargado > trabajadores)
+INSERT INTO crews (id, organization_id, crew_lead_id, supervisor_id, name, status) VALUES
+  ('c50000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fe-0000-0000-0000-000000000001', 'aa0000fa-0000-0000-0000-000000000001', 'Furgón Norte', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- Asignar los trabajadores de sur-berries a la cuadrilla
@@ -104,6 +105,14 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO payments (organization_id, settlement_id, worker_id, amount, notes) VALUES
   ((SELECT id FROM organizations WHERE slug='sur-berries'), '55a00001-0000-0000-0000-000000000001', 'aa0000fd-0000-0000-0000-000000000001', 26400, 'Pago total temporada frutilla'),
   ((SELECT id FROM organizations WHERE slug='sur-berries'), '55a00002-0000-0000-0000-000000000001', 'aa0000fc-0000-0000-0000-000000000001', 10000, 'Adelanto parcial');
+
+-- Pago del CAMPO al ENCARGADO (nivel 1): contra la liquidación de cuadrilla.
+-- Con esto la responsabilidad del campo queda cumplida. Es un pago parcial de
+-- muestra (50.000 de 79.200) -> la liquidación de cuadrilla queda 'partial'.
+INSERT INTO payments (organization_id, settlement_id, crew_id, amount, notes) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), '55c00001-0000-0000-0000-000000000001', 'c50000ff-0000-0000-0000-000000000001', 50000, 'Pago al encargado Roberto Fuentes');
+
+UPDATE settlements SET status = 'partial' WHERE id = '55c00001-0000-0000-0000-000000000001';
 
 -- Workers (auth_user_id will be linked after API user creation)
 INSERT INTO workers (id, organization_id, full_name, national_id, phone, role, status, qr_badge_url) VALUES

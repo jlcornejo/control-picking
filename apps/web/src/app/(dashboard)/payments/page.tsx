@@ -21,7 +21,7 @@ export default function PaymentsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payments')
-        .select('*, workers(full_name), settlements(period_start, period_end)')
+        .select('*, workers(full_name), crews(name), settlements(period_start, period_end)')
         .order('paid_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -29,8 +29,15 @@ export default function PaymentsPage() {
   });
 
   const columns = [
-    { key: 'workers', label: 'Trabajador', render: (row: any) => (
-      <span className="font-medium text-foreground">{row.workers?.full_name || '—'}</span>
+    { key: 'payee', label: 'Beneficiario', render: (row: any) => (
+      row.crew_id
+        ? (
+          <span className="font-medium text-foreground">
+            {row.crews?.name || 'Cuadrilla'}
+            <span className="ml-1.5 inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Cuadrilla</span>
+          </span>
+        )
+        : <span className="font-medium text-foreground">{row.workers?.full_name || '—'}</span>
     )},
     { key: 'amount', label: 'Monto', render: (row: any) => (
       <span className="font-semibold text-foreground tabular-nums">${Number(row.amount).toLocaleString()}</span>
@@ -86,7 +93,7 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
     queryFn: async () => {
       const { data } = await supabase
         .from('settlements')
-        .select('id, worker_id, total_amount, status, workers(full_name), period_start, period_end')
+        .select('id, payee_type, worker_id, crew_id, total_amount, status, workers!fk_settlements_worker_org(full_name), crews!settlements_crew_id_fkey(name), period_start, period_end')
         .in('status', ['pending', 'partial'])
         .order('generated_at', { ascending: false });
 
@@ -114,9 +121,17 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
     if (!selected) { setError('Seleccione una liquidación'); setLoading(false); return; }
     if (amount > selected.remaining) { setError(`El monto supera el saldo pendiente ($${selected.remaining.toLocaleString()})`); setLoading(false); return; }
 
+    // El sujeto de pago se deriva del tipo de liquidación: 'crew' -> pago al
+    // Encargado (crew_id); 'worker' -> pago al trabajador (worker_id).
+    // organization_id lo completa el trigger set_organization_id desde el JWT.
+    const payeeColumns =
+      (selected as any).payee_type === 'crew'
+        ? { crew_id: (selected as any).crew_id, worker_id: null }
+        : { worker_id: (selected as any).worker_id, crew_id: null };
+
     const { error: dbError } = await supabase.from('payments').insert({
       settlement_id: selectedId,
-      worker_id: (selected as any).worker_id,
+      ...payeeColumns,
       amount,
       notes: notes || null,
     });
@@ -144,10 +159,10 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
           onChange={(e) => setSelectedId(e.target.value)}
           className="block w-full rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
         >
-          <option value="">Seleccione trabajador...</option>
+          <option value="">Seleccione liquidación...</option>
           {(pendingSettlements || []).map((s: any) => (
             <option key={s.id} value={s.id}>
-              {s.workers?.full_name} — {s.period_start} a {s.period_end}
+              {s.payee_type === 'crew' ? `${s.crews?.name || 'Cuadrilla'} (Encargado)` : s.workers?.full_name} — {s.period_start} a {s.period_end}
             </option>
           ))}
         </select>
@@ -157,7 +172,7 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
       {selected && (
         <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">{(selected as any).workers?.full_name}</span>
+            <span className="text-sm font-medium text-foreground">{(selected as any).payee_type === 'crew' ? `${(selected as any).crews?.name || 'Cuadrilla'} (Encargado)` : (selected as any).workers?.full_name}</span>
             <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
               selected.status === 'pending' ? 'bg-amber-50 text-amber-700 ring-amber-600/20' : 'bg-orange-50 text-orange-700 ring-orange-600/20'
             }`}>

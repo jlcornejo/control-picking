@@ -38,6 +38,7 @@ Catalogue of harvestable products (fruit types)
 | Name                    | Definition                                                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | trg_products_updated_at | CREATE TRIGGER trg_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column() |
+| trg_set_org_id_products | CREATE TRIGGER trg_set_org_id_products BEFORE INSERT ON public.products FOR EACH ROW EXECUTE FUNCTION set_organization_id()      |
 
 ## Relations
 

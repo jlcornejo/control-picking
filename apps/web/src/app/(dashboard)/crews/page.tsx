@@ -34,7 +34,7 @@ export default function CrewsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('crews')
-        .select('*, crew_lead:workers!crews_crew_lead_id_fkey(id, full_name), members:workers!fk_workers_crew_org(id)')
+        .select('*, crew_lead:workers!crews_crew_lead_id_fkey(id, full_name), supervisor:workers!fk_crews_supervisor_org(id, full_name), members:workers!fk_workers_crew_org(id)')
         .order('name');
       if (error) throw error;
       return data;
@@ -79,6 +79,9 @@ export default function CrewsPage() {
     )},
     { key: 'crew_lead', label: crewTerm, render: (row: any) => (
       <span className="text-foreground">{row.crew_lead?.full_name || '—'}</span>
+    )},
+    { key: 'supervisor', label: 'Supervisor', sortable: false, render: (row: any) => (
+      <span className="text-foreground">{row.supervisor?.full_name || <span className="text-muted-foreground">Sin asignar</span>}</span>
     )},
     { key: 'members', label: 'Trabajadores', sortable: false, render: (row: any) => (
       <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
@@ -168,28 +171,44 @@ function CrewForm({ onSuccess, initial, crewTerm }: { onSuccess: () => void; ini
     },
   });
 
+  // Supervisores disponibles (el encargado queda a cargo de un supervisor)
+  const { data: supervisors } = useQuery({
+    queryKey: ['crew-supervisors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('workers')
+        .select('id, full_name')
+        .eq('role', 'supervisor')
+        .eq('status', 'active')
+        .order('full_name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const schema = z.object({
     name: z.string().min(1, 'Nombre es requerido').max(120, 'Máximo 120 caracteres'),
     crew_lead_id: z.string().uuid('Seleccione un encargado'),
+    supervisor_id: z.string().uuid('Seleccione un supervisor'),
   });
   const { errors, validate, clearField } = useFormValidation({ schema });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const raw = { name: form.get('name') as string, crew_lead_id: form.get('crew_lead_id') as string };
+    const raw = { name: form.get('name') as string, crew_lead_id: form.get('crew_lead_id') as string, supervisor_id: form.get('supervisor_id') as string };
     const result = validate(raw);
     if (!result.success) return;
 
     setLoading(true);
     if (initial) {
       const { error } = await supabase.from('crews')
-        .update({ name: result.data.name, crew_lead_id: result.data.crew_lead_id })
+        .update({ name: result.data.name, crew_lead_id: result.data.crew_lead_id, supervisor_id: result.data.supervisor_id })
         .eq('id', initial.id);
       if (error) { toast('Error al actualizar', 'error'); setLoading(false); return; }
     } else {
       const { error } = await supabase.from('crews')
-        .insert({ name: result.data.name, crew_lead_id: result.data.crew_lead_id });
+        .insert({ name: result.data.name, crew_lead_id: result.data.crew_lead_id, supervisor_id: result.data.supervisor_id });
       if (error) { toast('Error al crear', 'error'); setLoading(false); return; }
     }
     setLoading(false);
@@ -215,6 +234,17 @@ function CrewForm({ onSuccess, initial, crewTerm }: { onSuccess: () => void; ini
       {(leads || []).length === 0 && (
         <p className="text-xs text-amber-600">
           No hay trabajadores con rol {crewTerm.toLowerCase()}. Crea uno en Trabajadores antes de armar la cuadrilla.
+        </p>
+      )}
+      <FormField label="Supervisor a cargo" required error={errors.supervisor_id}>
+        <select name="supervisor_id" defaultValue={initial?.supervisor_id || ''} onChange={() => clearField('supervisor_id')} className={inputClass('supervisor_id')}>
+          <option value="">Seleccione…</option>
+          {(supervisors || []).map((s: any) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+        </select>
+      </FormField>
+      {(supervisors || []).length === 0 && (
+        <p className="text-xs text-amber-600">
+          No hay trabajadores con rol supervisor. Crea uno en Trabajadores para que quede a cargo del {crewTerm.toLowerCase()}.
         </p>
       )}
       <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-all">

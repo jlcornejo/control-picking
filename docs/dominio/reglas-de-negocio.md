@@ -37,23 +37,26 @@ Estas reglas son propiedades de correctness del sistema. Nunca deben violarse y 
 20. Una liquidación marcada como pagada es inmutable.
 21. El saldo pendiente = total liquidado − total pagado (nunca negativo).
 22. Cada liquidación es a favor de un Trabajador (`payee_type = worker`) o de una Cuadrilla (`payee_type = crew`), nunca ambos a la vez.
-23. **Con Modo Capataz activo**: el cliente liquida a la Cuadrilla (nivel 1, a nombre del Encargado, agregando la producción de la cuadrilla); el Encargado liquida y paga a sus Trabajadores (nivel 2).
-24. **Sin Modo Capataz**: el cliente/supervisor liquida y paga directamente a cada Trabajador.
+23. Cada pago es a favor de un Trabajador (`worker_id`) o de una Cuadrilla/Encargado (`crew_id`), nunca ambos a la vez (XOR).
+24. **Con Modo Capataz activo**: el cliente liquida a la Cuadrilla (nivel 1, a nombre del Encargado, agregando la producción de la cuadrilla) y le paga al Encargado. **La responsabilidad del campo se cumple al pagar al Encargado.**
+25. **Nivel 2 (opcional)**: el Encargado reparte y paga a sus Trabajadores. Puede registrar esos pagos en la plataforma para trazabilidad, pero no está obligado; no es responsabilidad del campo.
+26. **Sin Modo Capataz**: el cliente/supervisor liquida y paga directamente a cada Trabajador.
 
 ### RBAC
 
-25. Un trabajador solo puede ver SUS propios datos.
-26. Un supervisor solo puede operar sobre trabajadores y paños ASIGNADOS a él, dentro de su Organización.
-27. Un encargado solo puede ver y gestionar SU cuadrilla (sus trabajadores, su producción y los pagos que él realiza).
-28. Solo un administrador puede modificar tarifas, campos, cuadrillas y configuración, dentro de su Organización.
-29. Los datos financieros (montos, tarifas) son invisibles para el rol trabajador, excepto su propio estimado.
-30. Solo el Administrador de Plataforma gestiona Organizaciones y suscripciones.
+27. Un trabajador solo puede ver SUS propios datos.
+28. Un supervisor solo puede operar sobre trabajadores y paños ASIGNADOS a él, dentro de su Organización.
+29. Con Modo Capataz activo, cada Cuadrilla queda a cargo de un Supervisor (`crews.supervisor_id`); el Supervisor puede ver (solo lectura) la liquidación y los pagos de la Cuadrilla a su cargo. Un Supervisor puede tener varias cuadrillas; una cuadrilla tiene un solo supervisor.
+30. Un encargado solo puede ver y gestionar SU cuadrilla (sus trabajadores, su producción y, opcionalmente, los pagos que él realiza a sus trabajadores).
+31. Solo un administrador puede modificar tarifas, campos, cuadrillas y configuración, dentro de su Organización. El pago del campo al Encargado (liquidación de cuadrilla) lo registra el Administrador.
+32. Los datos financieros (montos, tarifas) son invisibles para el rol trabajador, excepto su propio estimado.
+33. Solo el Administrador de Plataforma gestiona Organizaciones y suscripciones.
 
 ### Estructura de campo
 
-31. Un paño pertenece a exactamente un campo.
-32. Un paño tiene asociado exactamente un producto.
-33. No se puede eliminar un campo/paño con registros de picking asociados (solo desactivar).
+34. Un paño pertenece a exactamente un campo.
+35. Un paño tiene asociado exactamente un producto.
+36. No se puede eliminar un campo/paño con registros de picking asociados (solo desactivar).
 
 ## Jerarquía de roles
 
@@ -65,6 +68,8 @@ Administrador → Supervisor → Encargado (opcional) → Trabajador
 ```
 
 El nivel **Encargado** (Capataz) es opcional y se activa mediante el **Modo Capataz**, configurable por Organización con override por Campo (`fields.crew_mode_enabled`; `NULL` hereda el default de la organización). Las **etiquetas de rol** son personalizables por Organización (`role_labels`) sin alterar la jerarquía ni la seguridad.
+
+Cuando el Modo Capataz está activo, el Encargado queda **entre** el Supervisor y los Trabajadores: cada Cuadrilla se asigna a un Supervisor (`crews.supervisor_id`) y los Trabajadores pertenecen a la Cuadrilla del Encargado (`workers.crew_id`). El flujo de pago es **campo → Encargado**: el campo liquida y paga a la Cuadrilla (a nombre del Encargado) y con eso cumple su responsabilidad. El reparto del Encargado a sus Trabajadores es un segundo nivel **opcional**, que el Encargado puede registrar para trazabilidad pero que la plataforma no exige.
 
 ## Glosario técnico → dominio
 

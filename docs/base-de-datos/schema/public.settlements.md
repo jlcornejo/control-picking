@@ -53,6 +53,7 @@ Calculated payment due for a worker over a date range.
 | Name                                | Definition                                                                                                                                            |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | trg_settlements_immutable_when_paid | CREATE TRIGGER trg_settlements_immutable_when_paid BEFORE UPDATE ON public.settlements FOR EACH ROW EXECUTE FUNCTION prevent_paid_settlement_update() |
+| trg_set_org_id_settlements          | CREATE TRIGGER trg_set_org_id_settlements BEFORE INSERT ON public.settlements FOR EACH ROW EXECUTE FUNCTION set_organization_id()                     |
 
 ## Relations
 

@@ -45,6 +45,7 @@ Block/paño - subdivision of a field, linked to a product
 | Name                  | Definition                                                                                                                   |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | trg_blocks_updated_at | CREATE TRIGGER trg_blocks_updated_at BEFORE UPDATE ON public.blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column() |
+| trg_set_org_id_blocks | CREATE TRIGGER trg_set_org_id_blocks BEFORE INSERT ON public.blocks FOR EACH ROW EXECUTE FUNCTION set_organization_id()      |
 
 ## Relations
 

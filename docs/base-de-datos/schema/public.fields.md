@@ -41,6 +41,7 @@ Farm/fundo - top-level productive unit
 | Name                  | Definition                                                                                                                   |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | trg_fields_updated_at | CREATE TRIGGER trg_fields_updated_at BEFORE UPDATE ON public.fields FOR EACH ROW EXECUTE FUNCTION update_updated_at_column() |
+| trg_set_org_id_fields | CREATE TRIGGER trg_set_org_id_fields BEFORE INSERT ON public.fields FOR EACH ROW EXECUTE FUNCTION set_organization_id()      |
 
 ## Relations
 

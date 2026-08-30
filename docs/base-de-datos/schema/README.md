@@ -12,11 +12,11 @@
 | [public.supervisor_assignments](public.supervisor_assignments.md) | 7       | Maps supervisors to the workers and blocks they manage.                                          | BASE TABLE |
 | [public.picking_records](public.picking_records.md)               | 11      | Individual harvest entries. Each record = one delivery of boxes/kg by a worker.                  | BASE TABLE |
 | [public.settlements](public.settlements.md)                       | 11      | Calculated payment due for a worker over a date range.                                           | BASE TABLE |
-| [public.payments](public.payments.md)                             | 8       | Actual payments made against settlements.                                                        | BASE TABLE |
+| [public.payments](public.payments.md)                             | 9       | Actual payments made against settlements.                                                        | BASE TABLE |
 | [public.organizations](public.organizations.md)                   | 13      | Cliente/tenant del SaaS. Unidad de aislamiento de datos.                                         | BASE TABLE |
 | [public.platform_admins](public.platform_admins.md)               | 6       | Administradores de plataforma (dueño/soporte del SaaS). Fuera del aislamiento de tenant.         | BASE TABLE |
 | [public.platform_audit_log](public.platform_audit_log.md)         | 7       | Registro append-only de acciones de plataforma sobre datos de clientes.                          | BASE TABLE |
-| [public.crews](public.crews.md)                                   | 7       | Cuadrilla de trabajadores gestionada por un Encargado (crew_lead). Solo con Modo Capataz activo. | BASE TABLE |
+| [public.crews](public.crews.md)                                   | 8       | Cuadrilla de trabajadores gestionada por un Encargado (crew_lead). Solo con Modo Capataz activo. | BASE TABLE |
 
 ## Stored procedures and functions
 
@@ -35,6 +35,7 @@
 | public.is_platform_admin              | bool        |              | FUNCTION |
 | public.is_crew_lead                   | bool        |              | FUNCTION |
 | public.current_crew_id                | uuid        |              | FUNCTION |
+| public.set_organization_id            | trigger     |              | FUNCTION |
 
 ## Enums
 

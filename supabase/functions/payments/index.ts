@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 /** GET /payments — list (admin) */
 async function handleGetList(supabase: any, url: URL) {
   let query = supabase.from('payments')
-    .select('*, workers(full_name), settlements(period_start, period_end)', { count: 'exact' });
+    .select('*, workers(full_name), crews(name), settlements(period_start, period_end)', { count: 'exact' });
 
   const workerId = url.searchParams.get('worker_id');
   if (workerId) query = query.eq('worker_id', workerId);
@@ -105,7 +105,6 @@ async function handlePost(req: Request, supabase: any) {
 
   const body = await req.json();
   if (!body.settlement_id) return error('VALIDATION_ERROR', 'settlement_id es requerido', 422);
-  if (!body.worker_id) return error('VALIDATION_ERROR', 'worker_id es requerido', 422);
   if (!body.amount || body.amount <= 0) return error('VALIDATION_ERROR', 'Monto debe ser mayor a 0', 422);
 
   const orgId = getOrgId(req);
@@ -122,6 +121,14 @@ async function handlePost(req: Request, supabase: any) {
   if (settlement.status === 'paid') {
     return error('SETTLEMENT_IS_IMMUTABLE', 'Esta liquidación ya está completamente pagada', 409);
   }
+
+  // El sujeto de pago se deriva de la liquidación (no del cliente) para evitar
+  // desajustes: liquidación 'crew' -> pago al Encargado (crew_id); liquidación
+  // 'worker' -> pago al trabajador (worker_id). RLS valida el alcance por rol.
+  const payeeColumns =
+    settlement.payee_type === 'crew'
+      ? { crew_id: settlement.crew_id, worker_id: null }
+      : { worker_id: settlement.worker_id, crew_id: null };
 
   // Calculate remaining balance
   const { data: existingPayments } = await supabase
@@ -142,7 +149,7 @@ async function handlePost(req: Request, supabase: any) {
     .insert({
       organization_id: orgId,
       settlement_id: body.settlement_id,
-      worker_id: body.worker_id,
+      ...payeeColumns,
       amount: body.amount,
       notes: body.notes || null,
     })

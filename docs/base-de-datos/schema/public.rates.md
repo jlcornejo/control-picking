@@ -34,6 +34,12 @@ Price rates per unit (box/kg) for each product. Only one current rate per produc
 | idx_rates_product_current | CREATE UNIQUE INDEX idx_rates_product_current ON public.rates USING btree (product_id) WHERE (status = 'current'::rate_status) |
 | idx_rates_organization    | CREATE INDEX idx_rates_organization ON public.rates USING btree (organization_id)                                              |
 
+## Triggers
+
+| Name                 | Definition                                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| trg_set_org_id_rates | CREATE TRIGGER trg_set_org_id_rates BEFORE INSERT ON public.rates FOR EACH ROW EXECUTE FUNCTION set_organization_id() |
+
 ## Relations
 
 ![er](public.rates.svg)

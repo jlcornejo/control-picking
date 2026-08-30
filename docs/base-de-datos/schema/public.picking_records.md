@@ -44,6 +44,12 @@ Individual harvest entries. Each record = one delivery of boxes/kg by a worker.
 | idx_picking_records_recorded_by  | CREATE INDEX idx_picking_records_recorded_by ON public.picking_records USING btree (recorded_by)        |
 | idx_picking_records_organization | CREATE INDEX idx_picking_records_organization ON public.picking_records USING btree (organization_id)   |
 
+## Triggers
+
+| Name                           | Definition                                                                                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| trg_set_org_id_picking_records | CREATE TRIGGER trg_set_org_id_picking_records BEFORE INSERT ON public.picking_records FOR EACH ROW EXECUTE FUNCTION set_organization_id() |
+
 ## Relations
 
 ![er](public.picking_records.svg)

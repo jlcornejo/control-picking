@@ -50,6 +50,7 @@ Farm workers, supervisors, and admins. Linked to Supabase Auth.
 | Name                   | Definition                                                                                                                     |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | trg_workers_updated_at | CREATE TRIGGER trg_workers_updated_at BEFORE UPDATE ON public.workers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column() |
+| trg_set_org_id_workers | CREATE TRIGGER trg_set_org_id_workers BEFORE INSERT ON public.workers FOR EACH ROW EXECUTE FUNCTION set_organization_id()      |
 
 ## Relations
 

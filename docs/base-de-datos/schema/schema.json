@@ -122,6 +122,10 @@
         {
           "name": "trg_products_updated_at",
           "def": "CREATE TRIGGER trg_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_products",
+          "def": "CREATE TRIGGER trg_set_org_id_products BEFORE INSERT ON public.products FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -266,6 +270,10 @@
         {
           "name": "trg_fields_updated_at",
           "def": "CREATE TRIGGER trg_fields_updated_at BEFORE UPDATE ON public.fields FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_fields",
+          "def": "CREATE TRIGGER trg_set_org_id_fields BEFORE INSERT ON public.fields FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -455,6 +463,10 @@
         {
           "name": "trg_blocks_updated_at",
           "def": "CREATE TRIGGER trg_blocks_updated_at BEFORE UPDATE ON public.blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_blocks",
+          "def": "CREATE TRIGGER trg_set_org_id_blocks BEFORE INSERT ON public.blocks FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -587,6 +599,12 @@
             "id",
             "organization_id"
           ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_set_org_id_rates",
+          "def": "CREATE TRIGGER trg_set_org_id_rates BEFORE INSERT ON public.rates FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -810,6 +828,10 @@
         {
           "name": "trg_workers_updated_at",
           "def": "CREATE TRIGGER trg_workers_updated_at BEFORE UPDATE ON public.workers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_workers",
+          "def": "CREATE TRIGGER trg_set_org_id_workers BEFORE INSERT ON public.workers FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -1018,6 +1040,12 @@
             "id",
             "organization_id"
           ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_set_org_id_supervisor_assignments",
+          "def": "CREATE TRIGGER trg_set_org_id_supervisor_assignments BEFORE INSERT ON public.supervisor_assignments FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -1245,6 +1273,12 @@
             "id",
             "organization_id"
           ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_set_org_id_picking_records",
+          "def": "CREATE TRIGGER trg_set_org_id_picking_records BEFORE INSERT ON public.picking_records FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -1513,6 +1547,10 @@
         {
           "name": "trg_settlements_immutable_when_paid",
           "def": "CREATE TRIGGER trg_settlements_immutable_when_paid BEFORE UPDATE ON public.settlements FOR EACH ROW EXECUTE FUNCTION prevent_paid_settlement_update()"
+        },
+        {
+          "name": "trg_set_org_id_settlements",
+          "def": "CREATE TRIGGER trg_set_org_id_settlements BEFORE INSERT ON public.settlements FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -1535,7 +1573,8 @@
         {
           "name": "worker_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true,
+          "comment": "Trabajador pagado (pago individual). NULL cuando el pago es a una cuadrilla (crew_id set)."
         },
         {
           "name": "amount",
@@ -1564,6 +1603,12 @@
           "name": "organization_id",
           "type": "uuid",
           "nullable": false
+        },
+        {
+          "name": "crew_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Cuadrilla pagada cuando el pago es del campo al Encargado (contra una liquidación payee_type=crew). XOR con worker_id."
         }
       ],
       "indexes": [
@@ -1606,9 +1651,28 @@
           "columns": [
             "organization_id"
           ]
+        },
+        {
+          "name": "idx_payments_crew",
+          "def": "CREATE INDEX idx_payments_crew ON public.payments USING btree (crew_id)",
+          "table": "public.payments",
+          "columns": [
+            "crew_id"
+          ]
         }
       ],
       "constraints": [
+        {
+          "name": "chk_payment_payee",
+          "type": "CHECK",
+          "def": "CHECK ((((worker_id IS NOT NULL) AND (crew_id IS NULL)) OR ((worker_id IS NULL) AND (crew_id IS NOT NULL))))",
+          "table": "public.payments",
+          "referenced_table": "",
+          "columns": [
+            "worker_id",
+            "crew_id"
+          ]
+        },
         {
           "name": "payments_amount_check",
           "type": "CHECK",
@@ -1671,6 +1735,27 @@
             "id",
             "organization_id"
           ]
+        },
+        {
+          "name": "fk_payments_crew_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.payments",
+          "referenced_table": "public.crews",
+          "columns": [
+            "crew_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_set_org_id_payments",
+          "def": "CREATE TRIGGER trg_set_org_id_payments BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     },
@@ -2109,6 +2194,12 @@
           "type": "timestamp with time zone",
           "nullable": false,
           "default": "now()"
+        },
+        {
+          "name": "supervisor_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Supervisor a cargo del Encargado de esta cuadrilla (jerarquía admin\u003esupervisor\u003eencargado\u003etrabajador). NULL si aún no se asigna."
         }
       ],
       "indexes": [
@@ -2143,6 +2234,14 @@
           "columns": [
             "id",
             "organization_id"
+          ]
+        },
+        {
+          "name": "idx_crews_supervisor",
+          "def": "CREATE INDEX idx_crews_supervisor ON public.crews USING btree (supervisor_id)",
+          "table": "public.crews",
+          "columns": [
+            "supervisor_id"
           ]
         }
       ],
@@ -2189,6 +2288,21 @@
           ]
         },
         {
+          "name": "fk_crews_supervisor_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (supervisor_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.crews",
+          "referenced_table": "public.workers",
+          "columns": [
+            "supervisor_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
           "name": "crews_pkey",
           "type": "PRIMARY KEY",
           "def": "PRIMARY KEY (id)",
@@ -2214,6 +2328,10 @@
         {
           "name": "trg_crews_updated_at",
           "def": "CREATE TRIGGER trg_crews_updated_at BEFORE UPDATE ON public.crews FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_crews",
+          "def": "CREATE TRIGGER trg_set_org_id_crews BEFORE INSERT ON public.crews FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
     }
@@ -2573,6 +2691,21 @@
       "def": "FOREIGN KEY (settlement_id, organization_id) REFERENCES settlements(id, organization_id) ON DELETE RESTRICT"
     },
     {
+      "table": "public.payments",
+      "columns": [
+        "crew_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.crews",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
       "table": "public.platform_audit_log",
       "columns": [
         "organization_id"
@@ -2638,6 +2771,21 @@
       ],
       "parent_cardinality": "exactly_one",
       "def": "FOREIGN KEY (crew_lead_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.crews",
+      "columns": [
+        "supervisor_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (supervisor_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
     }
   ],
   "functions": [
@@ -2716,6 +2864,12 @@
     {
       "name": "public.current_crew_id",
       "return_type": "uuid",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.set_organization_id",
+      "return_type": "trigger",
       "arguments": "",
       "type": "FUNCTION"
     }
