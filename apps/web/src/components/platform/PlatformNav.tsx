@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import { Building2, ShieldCheck, LogOut } from 'lucide-react';
+import { Building2, ShieldCheck, ScrollText, LogOut } from 'lucide-react';
 
 const links = [
   { href: '/platform', label: 'Organizaciones', icon: Building2 },
+  { href: '/platform/audit', label: 'Auditoría', icon: ScrollText },
 ];
 
 export function PlatformNav({ adminName }: { adminName: string }) {
