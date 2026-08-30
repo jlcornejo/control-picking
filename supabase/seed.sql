@@ -11,24 +11,60 @@
 -- en lugar de variables de psql, para que corra bajo `supabase db reset`.
 -- ============================================================
 
--- Segunda organización de ejemplo (para pruebas de aislamiento).
--- La organización 'default' ya existe (creada en migración 20260829000004).
-INSERT INTO organizations (id, name, slug, subscription_status, status) VALUES
-  ('0a000002-0000-0000-0000-000000000001', 'Sur Berries SpA', 'sur-berries', 'active', 'active')
-ON CONFLICT (slug) DO NOTHING;
+-- ============================================================
+-- ORGANIZACIÓN 2: "Sur Berries SpA" (slug 'sur-berries')
+-- CON Modo Capataz activo — sirve para validar el flujo del Encargado.
+-- (La organización 'default' opera SIN Modo Capataz: pago directo.)
+-- ============================================================
+INSERT INTO organizations (id, name, slug, subscription_status, status, crew_mode_enabled, brand_primary_color, brand_secondary_color) VALUES
+  ('0a000002-0000-0000-0000-000000000001', 'Sur Berries SpA', 'sur-berries', 'active', 'active', true, '#7c3aed', '#f59e0b')
+ON CONFLICT (slug) DO UPDATE SET crew_mode_enabled = EXCLUDED.crew_mode_enabled;
 
--- Datos mínimos del tenant 'sur-berries' para pruebas de aislamiento y suscripción.
-INSERT INTO workers (id, organization_id, full_name, role, status, qr_badge_url) VALUES
-  ('aa0000ff-0000-0000-0000-000000000001',
-   (SELECT id FROM organizations WHERE slug='sur-berries'),
-   'Admin Sur Berries', 'admin', 'active', 'badge-sur-admin-001')
+-- Usuarios de sur-berries: admin, encargado (crew_lead) y trabajadores
+INSERT INTO workers (id, organization_id, full_name, national_id, phone, role, status, qr_badge_url) VALUES
+  ('aa0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Admin Sur Berries', '20.111.111-1', '+56966666661', 'admin', 'active', 'badge-sur-admin-001'),
+  ('aa0000fe-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Roberto Fuentes (Capataz)', '20.222.222-2', '+56966666662', 'crew_lead', 'active', 'badge-sur-lead-001'),
+  ('aa0000fd-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Camila Rojas', '20.333.333-3', '+56966666663', 'worker', 'active', 'badge-sur-worker-001'),
+  ('aa0000fc-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Diego Torres', '20.444.444-4', '+56966666664', 'worker', 'active', 'badge-sur-worker-002'),
+  ('aa0000fb-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Fernanda Silva', '20.555.555-5', '+56966666665', 'worker', 'active', 'badge-sur-worker-003')
 ON CONFLICT (id) DO NOTHING;
 
+-- Producto y tarifa de sur-berries
 INSERT INTO products (id, organization_id, name, unit_measure, status) VALUES
-  ('bb0000ff-0000-0000-0000-000000000001',
-   (SELECT id FROM organizations WHERE slug='sur-berries'),
-   'Frutilla', 'kg', 'active')
+  ('bb0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Frutilla', 'kg', 'active')
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO rates (id, organization_id, product_id, amount, effective_from, status) VALUES
+  ('cc0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'bb0000ff-0000-0000-0000-000000000001', 1200, now(), 'current')
+ON CONFLICT (id) DO NOTHING;
+
+-- Campo y paño de sur-berries (hereda crew_mode de la organización: crew_mode_enabled = NULL)
+INSERT INTO fields (id, organization_id, name, location, total_area, status, crew_mode_enabled) VALUES
+  ('dd0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Fundo Los Maitenes', 'Chillán, Ñuble', 18.0, 'active', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO blocks (id, organization_id, field_id, product_id, name, area, status) VALUES
+  ('ee0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'dd0000ff-0000-0000-0000-000000000001', 'bb0000ff-0000-0000-0000-000000000001', 'Paño F1 - Frutillas', 9.0, 'active')
+ON CONFLICT (id) DO NOTHING;
+
+-- Cuadrilla del encargado Roberto Fuentes
+INSERT INTO crews (id, organization_id, crew_lead_id, name, status) VALUES
+  ('c50000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fe-0000-0000-0000-000000000001', 'Furgón Norte', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+-- Asignar los trabajadores de sur-berries a la cuadrilla
+UPDATE workers SET crew_id = 'c50000ff-0000-0000-0000-000000000001'
+  WHERE id IN (
+    'aa0000fd-0000-0000-0000-000000000001',
+    'aa0000fc-0000-0000-0000-000000000001',
+    'aa0000fb-0000-0000-0000-000000000001'
+  );
+
+-- Producción de muestra de la cuadrilla (registrada por el encargado)
+INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rate_amount_snapshot, work_day, recorded_by) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fd-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 22, 1200, CURRENT_DATE, 'aa0000fe-0000-0000-0000-000000000001'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fc-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 19, 1200, CURRENT_DATE, 'aa0000fe-0000-0000-0000-000000000001'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fb-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 25, 1200, CURRENT_DATE, 'aa0000fe-0000-0000-0000-000000000001');
 
 -- Workers (auth_user_id will be linked after API user creation)
 INSERT INTO workers (id, organization_id, full_name, national_id, phone, role, status, qr_badge_url) VALUES

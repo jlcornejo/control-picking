@@ -55,9 +55,13 @@ create_platform_admin() {
 echo "=== Seeding Auth Users ==="
 echo ""
 
-# Cliente 'default' (organización semilla)
+# Cliente 'default' (SIN Modo Capataz — pago directo)
 create_worker_user "admin@fundo360.cl" "admin123" "aa000001-0000-0000-0000-000000000001"
 create_worker_user "supervisor@fundo360.cl" "super123" "aa000002-0000-0000-0000-000000000001"
+
+# Cliente 'sur-berries' (CON Modo Capataz — flujo del encargado)
+create_worker_user "admin@surberries.cl" "admin123" "aa0000ff-0000-0000-0000-000000000001"
+create_worker_user "capataz@surberries.cl" "capataz123" "aa0000fe-0000-0000-0000-000000000001"
 
 # Dueño del SaaS / soporte (consola de plataforma)
 create_platform_admin "plataforma@fundo360.cl" "plataforma123" "Soporte Fundo360"
@@ -65,6 +69,11 @@ create_platform_admin "plataforma@fundo360.cl" "plataforma123" "Soporte Fundo360
 echo ""
 echo "=== Done! ==="
 echo "Login credentials:"
-echo "  Cliente admin:      admin@fundo360.cl / admin123"
-echo "  Cliente supervisor: supervisor@fundo360.cl / super123"
-echo "  Plataforma (SaaS):  plataforma@fundo360.cl / plataforma123"
+echo "  [default — sin capataz]"
+echo "    Admin:       admin@fundo360.cl / admin123"
+echo "    Supervisor:  supervisor@fundo360.cl / super123"
+echo "  [sur-berries — con capataz]"
+echo "    Admin:       admin@surberries.cl / admin123"
+echo "    Encargado:   capataz@surberries.cl / capataz123"
+echo "  [plataforma SaaS]"
+echo "    Platform:    plataforma@fundo360.cl / plataforma123"
