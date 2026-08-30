@@ -31,7 +31,7 @@ export default function SupervisorsPage() {
       for (const sup of data || []) {
         const { data: workerAssignments } = await supabase
           .from('supervisor_assignments')
-          .select('id, worker_id, workers!supervisor_assignments_worker_id_fkey(full_name)')
+          .select('id, worker_id, workers!fk_assignment_worker_org(full_name)')
           .eq('supervisor_id', sup.id)
           .not('worker_id', 'is', null);
 

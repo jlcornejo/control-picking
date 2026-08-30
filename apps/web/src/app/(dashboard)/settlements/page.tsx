@@ -24,7 +24,7 @@ export default function SettlementsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('settlements')
-        .select('*, workers(full_name, national_id), crews(name, crew_lead:workers!crews_crew_lead_id_fkey(full_name))')
+        .select('*, workers!fk_settlements_worker_org(full_name, national_id), crews!settlements_crew_id_fkey(name, crew_lead:workers!crews_crew_lead_id_fkey(full_name))')
         .order('generated_at', { ascending: false });
       if (error) throw error;
       return data;
