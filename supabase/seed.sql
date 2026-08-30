@@ -20,9 +20,10 @@ INSERT INTO organizations (id, name, slug, subscription_status, status, crew_mod
   ('0a000002-0000-0000-0000-000000000001', 'Sur Berries SpA', 'sur-berries', 'active', 'active', true, '#7c3aed', '#f59e0b')
 ON CONFLICT (slug) DO UPDATE SET crew_mode_enabled = EXCLUDED.crew_mode_enabled;
 
--- Usuarios de sur-berries: admin, encargado (crew_lead) y trabajadores
+-- Usuarios de sur-berries: admin, supervisor, encargado (crew_lead) y trabajadores
 INSERT INTO workers (id, organization_id, full_name, national_id, phone, role, status, qr_badge_url) VALUES
   ('aa0000ff-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Admin Sur Berries', '20.111.111-1', '+56966666661', 'admin', 'active', 'badge-sur-admin-001'),
+  ('aa0000fa-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Patricia Núñez', '20.999.999-9', '+56966666669', 'supervisor', 'active', 'badge-sur-supervisor-001'),
   ('aa0000fe-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Roberto Fuentes (Capataz)', '20.222.222-2', '+56966666662', 'crew_lead', 'active', 'badge-sur-lead-001'),
   ('aa0000fd-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Camila Rojas', '20.333.333-3', '+56966666663', 'worker', 'active', 'badge-sur-worker-001'),
   ('aa0000fc-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'Diego Torres', '20.444.444-4', '+56966666664', 'worker', 'active', 'badge-sur-worker-002'),
@@ -60,11 +61,49 @@ UPDATE workers SET crew_id = 'c50000ff-0000-0000-0000-000000000001'
     'aa0000fb-0000-0000-0000-000000000001'
   );
 
+-- Supervisora Patricia Núñez: supervisa a los trabajadores de la cuadrilla y el paño de frutillas
+INSERT INTO supervisor_assignments (organization_id, supervisor_id, worker_id) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fa-0000-0000-0000-000000000001', 'aa0000fd-0000-0000-0000-000000000001'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fa-0000-0000-0000-000000000001', 'aa0000fc-0000-0000-0000-000000000001'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fa-0000-0000-0000-000000000001', 'aa0000fb-0000-0000-0000-000000000001');
+
+INSERT INTO supervisor_assignments (organization_id, supervisor_id, block_id) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fa-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001');
+
 -- Producción de muestra de la cuadrilla (registrada por el encargado)
 INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rate_amount_snapshot, work_day, recorded_by) VALUES
   ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fd-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 22, 1200, CURRENT_DATE, 'aa0000fe-0000-0000-0000-000000000001'),
   ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fc-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 19, 1200, CURRENT_DATE, 'aa0000fe-0000-0000-0000-000000000001'),
   ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fb-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 25, 1200, CURRENT_DATE, 'aa0000fe-0000-0000-0000-000000000001');
+
+-- ------------------------------------------------------------
+-- Liquidaciones de sur-berries (modelo en dos niveles)
+-- Producción del período (todos @ 1200/kg):
+--   Camila 22kg = 26.400 | Diego 19kg = 22.800 | Fernanda 25kg = 30.000
+--   Total cuadrilla = 79.200
+-- ------------------------------------------------------------
+
+-- NIVEL 1 (cliente -> encargado): liquidación de la cuadrilla 'Furgón Norte'.
+-- Queda 'pending': el pago del cliente al encargado se lleva fuera del módulo
+-- payments (que exige worker_id); esta liquidación es la trazabilidad del monto.
+INSERT INTO settlements (id, organization_id, payee_type, crew_id, period_start, period_end, total_amount, status) VALUES
+  ('55c00001-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'crew', 'c50000ff-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 79200, 'pending')
+ON CONFLICT (id) DO NOTHING;
+
+-- NIVEL 2 (encargado -> trabajadores): liquidaciones individuales de la cuadrilla.
+-- Estados variados para probar la UI: Camila pagada, Diego parcial, Fernanda pendiente.
+INSERT INTO settlements (id, organization_id, payee_type, worker_id, period_start, period_end, total_amount, status) VALUES
+  ('55a00001-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'worker', 'aa0000fd-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 26400, 'paid'),
+  ('55a00002-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'worker', 'aa0000fc-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 22800, 'partial'),
+  ('55a00003-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='sur-berries'), 'worker', 'aa0000fb-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 30000, 'pending')
+ON CONFLICT (id) DO NOTHING;
+
+-- Pagos del encargado a sus trabajadores (nivel 2).
+-- Camila: pago total (26.400) -> liquidación 'paid'.
+-- Diego: pago parcial (10.000 de 22.800) -> liquidación 'partial'.
+INSERT INTO payments (organization_id, settlement_id, worker_id, amount, notes) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), '55a00001-0000-0000-0000-000000000001', 'aa0000fd-0000-0000-0000-000000000001', 26400, 'Pago total temporada frutilla'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), '55a00002-0000-0000-0000-000000000001', 'aa0000fc-0000-0000-0000-000000000001', 10000, 'Adelanto parcial');
 
 -- Workers (auth_user_id will be linked after API user creation)
 INSERT INTO workers (id, organization_id, full_name, national_id, phone, role, status, qr_badge_url) VALUES
@@ -122,3 +161,24 @@ INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rat
   ((SELECT id FROM organizations WHERE slug='default'), 'aa000012-0000-0000-0000-000000000001', 'ee000002-0000-0000-0000-000000000001', 10, 1500, CURRENT_DATE, 'aa000002-0000-0000-0000-000000000001'),
   ((SELECT id FROM organizations WHERE slug='default'), 'aa000013-0000-0000-0000-000000000001', 'ee000003-0000-0000-0000-000000000001', 5, 2000, CURRENT_DATE, 'aa000002-0000-0000-0000-000000000001'),
   ((SELECT id FROM organizations WHERE slug='default'), 'aa000014-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 18, 1500, CURRENT_DATE, 'aa000002-0000-0000-0000-000000000001');
+
+-- ------------------------------------------------------------
+-- Liquidaciones de 'default' (pago directo, SIN modo capataz)
+-- Producción del período por trabajador:
+--   Juan  12+8 @1500 = 30.000 | María 15 @1500 = 22.500 | Pedro 10 @1500 = 15.000
+--   Ana    5   @2000 = 10.000 | Luis  18 @1500 = 27.000
+-- Estados variados para probar la UI: pagada, parcial y pendientes.
+-- ------------------------------------------------------------
+INSERT INTO settlements (id, organization_id, payee_type, worker_id, period_start, period_end, total_amount, status) VALUES
+  ('55d00010-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='default'), 'worker', 'aa000010-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 30000, 'paid'),
+  ('55d00011-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='default'), 'worker', 'aa000011-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 22500, 'partial'),
+  ('55d00012-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='default'), 'worker', 'aa000012-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 15000, 'pending'),
+  ('55d00013-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='default'), 'worker', 'aa000013-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 10000, 'pending'),
+  ('55d00014-0000-0000-0000-000000000001', (SELECT id FROM organizations WHERE slug='default'), 'worker', 'aa000014-0000-0000-0000-000000000001', CURRENT_DATE, CURRENT_DATE, 27000, 'pending')
+ON CONFLICT (id) DO NOTHING;
+
+-- Pagos (nivel único: el campo paga directo al trabajador).
+-- Juan: pago total (30.000) -> 'paid'. María: parcial (12.000 de 22.500) -> 'partial'.
+INSERT INTO payments (organization_id, settlement_id, worker_id, amount, notes) VALUES
+  ((SELECT id FROM organizations WHERE slug='default'), '55d00010-0000-0000-0000-000000000001', 'aa000010-0000-0000-0000-000000000001', 30000, 'Pago total jornada'),
+  ((SELECT id FROM organizations WHERE slug='default'), '55d00011-0000-0000-0000-000000000001', 'aa000011-0000-0000-0000-000000000001', 12000, 'Adelanto parcial');

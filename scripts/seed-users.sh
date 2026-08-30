@@ -61,6 +61,7 @@ create_worker_user "supervisor@fundo360.cl" "super123" "aa000002-0000-0000-0000-
 
 # Cliente 'sur-berries' (CON Modo Capataz — flujo del encargado)
 create_worker_user "admin@surberries.cl" "admin123" "aa0000ff-0000-0000-0000-000000000001"
+create_worker_user "supervisor@surberries.cl" "super123" "aa0000fa-0000-0000-0000-000000000001"
 create_worker_user "capataz@surberries.cl" "capataz123" "aa0000fe-0000-0000-0000-000000000001"
 
 # Dueño del SaaS / soporte (consola de plataforma)
@@ -74,6 +75,7 @@ echo "    Admin:       admin@fundo360.cl / admin123"
 echo "    Supervisor:  supervisor@fundo360.cl / super123"
 echo "  [sur-berries — con capataz]"
 echo "    Admin:       admin@surberries.cl / admin123"
+echo "    Supervisor:  supervisor@surberries.cl / super123"
 echo "    Encargado:   capataz@surberries.cl / capataz123"
 echo "  [plataforma SaaS]"
 echo "    Platform:    plataforma@fundo360.cl / plataforma123"
