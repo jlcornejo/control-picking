@@ -34,11 +34,26 @@ export default function SettlementsPage() {
   async function handleExportPDF(settlement: any) {
     setExporting(settlement.id);
     try {
-      // Fetch picking records for this settlement
+      // Trabajadores a incluir: el individual (payee worker) o todos los
+      // miembros de la cuadrilla (payee crew, el desglose que el campo le paga
+      // al encargado).
+      let workerIds: string[] = [];
+      if (settlement.payee_type === 'crew') {
+        const { data: members } = await supabase
+          .from('workers')
+          .select('id')
+          .eq('crew_id', settlement.crew_id);
+        workerIds = (members || []).map((w: any) => w.id);
+      } else if (settlement.worker_id) {
+        workerIds = [settlement.worker_id];
+      }
+
+      // Fetch picking records for this settlement's worker(s). En cuadrilla se
+      // incluye el nombre del trabajador para el desglose por persona.
       const { data: records } = await supabase
         .from('picking_records')
-        .select('work_day, quantity, rate_amount_snapshot, block_id')
-        .eq('worker_id', settlement.worker_id)
+        .select('work_day, quantity, rate_amount_snapshot, block_id, worker_id, workers!fk_picking_worker_org(full_name)')
+        .in('worker_id', workerIds.length ? workerIds : ['00000000-0000-0000-0000-000000000000'])
         .gte('work_day', settlement.period_start)
         .lte('work_day', settlement.period_end)
         .is('original_record_id', null)
@@ -61,15 +76,19 @@ export default function SettlementsPage() {
         .order('paid_at');
 
       const pdfData = {
-        workerName: settlement.workers?.full_name || '—',
-        workerRut: settlement.workers?.national_id || null,
+        workerName: settlement.payee_type === 'crew'
+          ? `${settlement.crews?.name || 'Cuadrilla'} — Encargado: ${settlement.crews?.crew_lead?.full_name || '—'}`
+          : settlement.workers?.full_name || '—',
+        workerRut: settlement.payee_type === 'crew' ? null : (settlement.workers?.national_id || null),
         periodStart: settlement.period_start,
         periodEnd: settlement.period_end,
         totalAmount: Number(settlement.total_amount),
         status: settlement.status,
         generatedAt: settlement.generated_at,
+        payeeType: settlement.payee_type,
         records: (records || []).map(r => ({
           work_day: r.work_day,
+          worker_name: (r as any).workers?.full_name || '—',
           block_name: blockMap[r.block_id]?.name || '—',
           product_name: blockMap[r.block_id]?.product || '—',
           quantity: Number(r.quantity),
@@ -137,17 +156,13 @@ export default function SettlementsPage() {
         searchPlaceholder="Buscar por trabajador..."
         searchKeys={['workers']}
         actions={(row: any) => (
-          row.payee_type === 'crew' ? (
-            <span className="text-xs text-muted-foreground">Liquidación de cuadrilla</span>
-          ) : (
-            <button
-              onClick={() => handleExportPDF(row)}
-              disabled={exporting === row.id}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
-            >
-              {exporting === row.id ? '...' : '↓ PDF'}
-            </button>
-          )
+          <button
+            onClick={() => handleExportPDF(row)}
+            disabled={exporting === row.id}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            {exporting === row.id ? '...' : '↓ PDF'}
+          </button>
         )}
       />
 

@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 
 interface SettlementRecord {
   work_day: string;
+  worker_name?: string;
   block_name: string;
   product_name: string;
   quantity: number;
@@ -20,6 +21,7 @@ interface SettlementPDFData {
   totalAmount: number;
   status: string;
   generatedAt: string;
+  payeeType?: 'worker' | 'crew';
   records: SettlementRecord[];
   payments?: { date: string; amount: number; notes: string }[];
 }
@@ -44,7 +46,7 @@ export function generateSettlementPDF(data: SettlementPDFData): void {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('Datos del Trabajador', 14, y);
+  doc.text(data.payeeType === 'crew' ? 'Datos de la Cuadrilla' : 'Datos del Trabajador', 14, y);
   y += 8;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -93,26 +95,46 @@ export function generateSettlementPDF(data: SettlementPDFData): void {
   doc.text('Detalle de Producción', 14, y);
   y += 4;
 
+  const isCrew = data.payeeType === 'crew';
   autoTable(doc, {
     startY: y,
-    head: [['Fecha', 'Paño', 'Producto', 'Cant.', 'Tarifa', 'Subtotal']],
-    body: data.records.map(r => [
-      r.work_day,
-      r.block_name,
-      r.product_name,
-      String(r.quantity),
-      `$${r.rate.toLocaleString()}`,
-      `$${r.subtotal.toLocaleString()}`,
-    ]),
+    head: [isCrew
+      ? ['Fecha', 'Trabajador', 'Paño', 'Producto', 'Cant.', 'Tarifa', 'Subtotal']
+      : ['Fecha', 'Paño', 'Producto', 'Cant.', 'Tarifa', 'Subtotal']],
+    body: data.records.map(r => isCrew
+      ? [
+          r.work_day,
+          r.worker_name || '—',
+          r.block_name,
+          r.product_name,
+          String(r.quantity),
+          `$${r.rate.toLocaleString()}`,
+          `$${r.subtotal.toLocaleString()}`,
+        ]
+      : [
+          r.work_day,
+          r.block_name,
+          r.product_name,
+          String(r.quantity),
+          `$${r.rate.toLocaleString()}`,
+          `$${r.subtotal.toLocaleString()}`,
+        ]),
     styles: { fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: [27, 94, 32], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [245, 247, 245] },
-    columnStyles: {
-      0: { cellWidth: 25 },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-      5: { halign: 'right', fontStyle: 'bold' },
-    },
+    columnStyles: isCrew
+      ? {
+          0: { cellWidth: 22 },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'right', fontStyle: 'bold' },
+        }
+      : {
+          0: { cellWidth: 25 },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right', fontStyle: 'bold' },
+        },
     margin: { left: 14, right: 14 },
   });
 
