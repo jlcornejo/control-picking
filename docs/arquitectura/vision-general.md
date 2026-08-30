@@ -58,14 +58,28 @@ supabase/functions/{module-name}/
 - Las Edge Functions importan tipos compartidos desde `packages/shared`
 - Imports relativos dentro de un módulo, absolutos entre módulos
 
+## Multi-tenancy
+
+Fundo360 es un SaaS multi-cliente con **tenant compartido**: una sola base de datos donde cada tabla de dominio lleva `organization_id`, y el aislamiento entre clientes lo garantiza **Row Level Security**.
+
+- **Identidad del tenant en el JWT**: el hook `custom_access_token_hook` inyecta `org_id`, `app_role`, `worker_id`, `is_platform_admin` y `subscription_active` en cada token.
+- **Patrón RLS**: toda política combina el rol con el tenant — `is_platform_admin() OR (<predicado_rol> AND organization_id = current_org_id())`.
+- **Integridad de tenant**: FKs compuestas `(id, organization_id)` impiden referencias cruzadas entre organizaciones.
+- **Administrador de Plataforma**: rol fuera de los tenants (tabla `platform_admins`), con bypass de RLS centralizado en `is_platform_admin()` y auditoría en `platform_audit_log`.
+- **Suscripción**: si la organización no está vigente, el hook no entrega `org_id` y RLS niega el acceso a los datos (que se preservan).
+
+La consola de plataforma vive en un espacio separado del dashboard de cliente (`apps/web/src/app/(platform)/`), con su propio layout que valida `platform_admins`.
+
 ## Decisiones arquitectónicas clave
 
 1. **Supabase sobre backend propio**: Auth + DB + Storage + Realtime en un solo servicio, con RLS para seguridad de datos.
 2. **Edge Functions sobre API tradicional**: serverless, auto-escalable, desplegado junto a la base de datos.
 3. **Monorepo con Turborepo**: tipos compartidos, builds unificados, una sola fuente de verdad.
 4. **RLS como capa primaria de seguridad**: la base de datos aplica las reglas de acceso, no solo el middleware.
-5. **`rate_amount_snapshot` en `picking_records`**: registro inmutable de la tarifa vigente al momento del registro.
-6. **UUIDs en todas partes**: sin IDs secuenciales expuestos; el QR contiene un UUID opaco.
+5. **Multi-tenant con `organization_id` + RLS**: un solo esquema, aislamiento por organización, bypass auditable para el Administrador de Plataforma.
+6. **`rate_amount_snapshot` en `picking_records`**: registro inmutable de la tarifa vigente al momento del registro.
+7. **UUIDs en todas partes**: sin IDs secuenciales expuestos; el QR contiene un UUID opaco.
+8. **Modo Capataz opcional**: la jerarquía con Encargado se activa por organización con override por campo, sin fragmentar el modelo de datos.
 
 ## Convenciones de nomenclatura
 

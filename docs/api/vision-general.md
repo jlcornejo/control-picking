@@ -2,6 +2,9 @@
 
 La API se implementa con **Supabase Edge Functions**. Todos los endpoints siguen las convenciones REST de Fundo360.
 
+!!! note "Multi-tenant y roles"
+    Cada petición se ejecuta en el contexto de la Organización del usuario (claim `org_id` del JWT); la RLS garantiza el aislamiento entre clientes. El `organization_id` de los recursos nuevos se toma del token en el servidor, nunca del cliente. Los endpoints de plataforma (`platform-*`, `organizations`) son exclusivos del **Administrador de Plataforma** (`is_platform_admin`).
+
 ## Convenciones generales
 
 ### Headers requeridos
@@ -114,10 +117,10 @@ Todos los endpoints `GET` que retornan listas soportan (default 20, máximo 100)
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/api/settlements` | Listar liquidaciones (admin) |
-| POST | `/api/settlements/generate` | Generar liquidación para período (admin) |
+| GET | `/api/settlements` | Listar liquidaciones (admin). Distingue `payee_type` worker/crew |
+| POST | `/api/settlements/generate` | Generar liquidaciones nivel 1 (admin): worker directo o crew según el Modo Capataz del campo |
+| POST | `/api/settlements/crew-generate` | Generar liquidaciones nivel 2 (encargado): a los trabajadores de su cuadrilla |
 | GET | `/api/settlements/:id` | Detalle de liquidación |
-| GET | `/api/workers/:id/settlements` | Liquidaciones de un trabajador |
 | GET | `/api/settlements/my` | Mis liquidaciones (trabajador) |
 
 ### Payments (Pagos)
@@ -150,6 +153,33 @@ Todos los endpoints `GET` que retornan listas soportan (default 20, máximo 100)
 | POST | `/api/supervisors/:id/blocks` | Asignar paños (admin) |
 | DELETE | `/api/supervisors/:id/workers/:wId` | Desasignar trabajador (admin) |
 | DELETE | `/api/supervisors/:id/blocks/:bId` | Desasignar paño (admin) |
+
+### Crews (Cuadrillas) — Modo Capataz
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/crews` | Listar cuadrillas de la organización |
+| POST | `/api/crews` | Crear cuadrilla con su encargado (admin) |
+| PUT | `/api/crews/:id` | Modificar cuadrilla (admin) |
+| POST | `/api/crews/:id/members` | Asignar trabajador a la cuadrilla (admin) |
+| DELETE | `/api/crews/:id/members` | Quitar trabajador de la cuadrilla (admin) |
+
+### Organizations (Plataforma)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/organizations` | Listar organizaciones (platform admin) |
+| POST | `/api/organizations` | Crear organización/cliente (platform admin) |
+| GET | `/api/organizations/:id` | Detalle de organización |
+| PATCH | `/api/organizations/:id/subscription` | Cambiar estado de suscripción (platform admin) |
+| PATCH | `/api/organizations/:id/branding` | Editar marca y etiquetas de rol (admin de la org o platform admin) |
+
+### Consola de Plataforma
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/platform-org-view/:orgId` | Vista de soporte (solo lectura) del ambiente de una organización; queda auditada (platform admin) |
+| GET | `/api/platform-audit-log` | Registro de auditoría de acciones de plataforma (platform admin) |
 
 !!! tip "Autogeneración futura"
     Cuando la API exponga un spec OpenAPI estable, esta sección puede reemplazarse por documentación generada automáticamente con el plugin de OpenAPI. Ver [Contribuir → Documentación](../contribuir/documentacion.md).
