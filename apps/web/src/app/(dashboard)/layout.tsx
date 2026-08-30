@@ -12,7 +12,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .from('workers')
     .select('id, full_name, role')
     .eq('auth_user_id', user.id)
-    .single();
+    .maybeSingle();
+
+  // Un administrador de plataforma no tiene fila en workers: va a su consola.
+  if (!worker) {
+    const { data: platformAdmin } = await supabase
+      .from('platform_admins')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (platformAdmin) redirect('/platform');
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
