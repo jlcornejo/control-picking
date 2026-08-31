@@ -163,9 +163,10 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
     return error('CORRECTION_OUTSIDE_WORKDAY', 'Solo se puede corregir registros del día actual', 409);
   }
 
-  // Get current rate for the block's product
-  const { data: block } = await supabase.from('blocks').select('product_id').eq('id', original.block_id).single();
-  const { data: rate } = await supabase.from('rates').select('amount').eq('product_id', block.product_id).eq('status', 'current').single();
+  // Ignorar correcciones sobre un registro que ya es una corrección/auditoría.
+  if (original.original_record_id) {
+    return error('VALIDATION_ERROR', 'No se puede corregir un registro de auditoría', 409);
+  }
 
   // Decode JWT for recorded_by
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
@@ -175,19 +176,33 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
   const orgId = getOrgId(req);
   if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
-  // Create correction record pointing to original
-  const { data, error: dbError } = await supabase
+  // Modelo de corrección (soft-update, regla de dominio 11):
+  //   1) Se conserva un SNAPSHOT de auditoría con los valores VIEJOS, apuntando
+  //      al original (original_record_id = recordId). Este snapshot queda EXCLUIDO
+  //      de los totales (todas las consultas filtran original_record_id IS NULL)
+  //      y visible solo en el historial de Registros como "Corrección".
+  //   2) Se EDITA el original in-place con la nueva cantidad. El original mantiene
+  //      su id y original_record_id=NULL, por lo que sigue contando con el valor
+  //      corregido. Se conserva la tarifa original (regla 14: la tarifa aplicada es
+  //      la vigente al momento del registro, no la actual).
+  const { error: snapErr } = await supabase
     .from('picking_records')
     .insert({
       organization_id: orgId,
       worker_id: original.worker_id,
       block_id: original.block_id,
-      quantity: body.quantity,
-      rate_amount_snapshot: rate?.amount || original.rate_amount_snapshot,
-      work_day: today,
+      quantity: original.quantity,
+      rate_amount_snapshot: original.rate_amount_snapshot,
+      work_day: original.work_day,
       recorded_by: payload.worker_id,
       original_record_id: recordId,
-    })
+    });
+  if (snapErr) return error('VALIDATION_ERROR', snapErr.message, 400);
+
+  const { data, error: dbError } = await supabase
+    .from('picking_records')
+    .update({ quantity: body.quantity })
+    .eq('id', recordId)
     .select()
     .single();
 

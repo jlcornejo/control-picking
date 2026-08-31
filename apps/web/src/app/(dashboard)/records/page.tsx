@@ -1,9 +1,12 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase';
 import { DataTable } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Modal } from '@/components/ui/Modal';
+import { FormField } from '@/components/ui/FormField';
+import { useToast } from '@/components/ui/Toast';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { PageTransition } from '@/components/ui/animations';
@@ -16,10 +19,49 @@ function localDate(offset = 0) {
 
 export default function RecordsPage() {
   const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [dateFrom, setDateFrom] = useState(localDate(-7));
   const [dateTo, setDateTo] = useState(localDate(0));
   const [filterWorker, setFilterWorker] = useState('');
   const [filterBlock, setFilterBlock] = useState('');
+  const [correctRow, setCorrectRow] = useState<any | null>(null);
+  const [correctQty, setCorrectQty] = useState('');
+
+  const correctMutation = useMutation({
+    mutationFn: async () => {
+      if (!correctRow) throw new Error('Sin registro');
+      const qty = parseFloat(correctQty);
+      if (!qty || qty <= 0) throw new Error('La cantidad debe ser mayor a 0');
+      if (correctRow.work_day !== localDate(0)) throw new Error('Solo se puede corregir un registro del día actual');
+
+      // Soft-update (regla 11): snapshot de auditoría con los valores VIEJOS +
+      // edición in-place del original. organization_id lo completa el trigger.
+      const { data: auth } = await supabase.auth.getUser();
+      const { data: me } = await supabase.from('workers').select('id').eq('auth_user_id', auth.user?.id ?? '').maybeSingle();
+      const { error: snapErr } = await supabase.from('picking_records').insert({
+        worker_id: correctRow.worker_id,
+        block_id: correctRow.block_id,
+        quantity: correctRow.quantity,
+        rate_amount_snapshot: correctRow.rate_amount_snapshot,
+        work_day: correctRow.work_day,
+        recorded_by: me?.id ?? correctRow.recorded_by,
+        original_record_id: correctRow.id,
+      });
+      if (snapErr) throw snapErr;
+
+      const { error: updErr } = await supabase.from('picking_records')
+        .update({ quantity: qty })
+        .eq('id', correctRow.id);
+      if (updErr) throw updErr;
+    },
+    onSuccess: () => {
+      setCorrectRow(null); setCorrectQty('');
+      queryClient.invalidateQueries({ queryKey: ['picking-records'] });
+      toast('Registro corregido', 'success');
+    },
+    onError: (err: any) => toast(err.message || 'Error al corregir', 'error'),
+  });
 
   const { data: records, isLoading } = useQuery({
     queryKey: ['picking-records', dateFrom, dateTo, filterWorker, filterBlock],
@@ -207,7 +249,48 @@ export default function RecordsPage() {
         searchPlaceholder="Buscar por trabajador, paño..."
         searchKeys={['worker_name', 'block_name', 'work_day']}
         pageSize={25}
+        actions={(row: any) => (
+          !row.is_correction && row.work_day === localDate(0) ? (
+            <button
+              onClick={() => { setCorrectQty(String(Number(row.quantity))); setCorrectRow(row); }}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+            >
+              Corregir
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )
+        )}
       />
+
+      <Modal open={!!correctRow} onClose={() => { setCorrectRow(null); setCorrectQty(''); }} title="Corregir registro">
+        {correctRow && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-muted/30 px-4 py-3">
+              <p className="text-sm font-medium text-foreground">{correctRow.worker_name} · {correctRow.block_name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Cantidad actual: {Number(correctRow.quantity)}</p>
+            </div>
+            <FormField label="Nueva cantidad" required>
+              <input
+                type="number" step="1" min="1"
+                value={correctQty}
+                onChange={(e) => setCorrectQty(e.target.value)}
+                className="block w-full rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+              />
+            </FormField>
+            <p className="text-xs text-muted-foreground">
+              Se conserva el registro original como auditoría. Solo se puede corregir un registro del día actual.
+            </p>
+            <button
+              onClick={() => correctMutation.mutate()}
+              disabled={correctMutation.isPending || !correctQty || parseFloat(correctQty) <= 0}
+              className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-all"
+            >
+              {correctMutation.isPending ? 'Guardando…' : 'Guardar corrección'}
+            </button>
+          </div>
+        )}
+      </Modal>
     </PageTransition>
   );
 }

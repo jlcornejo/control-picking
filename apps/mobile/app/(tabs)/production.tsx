@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal, TextInput, Alert } from 'react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
 import { localDate } from '../../src/utils/date';
@@ -85,6 +85,47 @@ export default function ProductionScreen() {
   });
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await refetch(); setRefreshing(false); }, [refetch]);
+
+  // Corrección de un registro (soft-update, solo misma jornada, roles de terreno).
+  const queryClient = useQueryClient();
+  const [correctRecord, setCorrectRecord] = useState<any | null>(null);
+  const [correctQty, setCorrectQty] = useState('');
+  const canCorrect = worker?.role === 'admin' || worker?.role === 'supervisor' || worker?.role === 'crew_lead';
+
+  const correctMutation = useMutation({
+    mutationFn: async () => {
+      if (!correctRecord) throw new Error('Sin registro');
+      const qty = parseFloat(correctQty);
+      if (!qty || qty <= 0) throw new Error('La cantidad debe ser mayor a 0');
+      if (correctRecord.work_day !== localDate(0)) throw new Error('Solo se puede corregir un registro del día actual');
+
+      // 1) Snapshot de auditoría con los valores VIEJOS, apuntando al original.
+      //    organization_id lo completa el trigger set_organization_id.
+      const { error: snapErr } = await supabase.from('picking_records').insert({
+        worker_id: correctRecord.worker_id,
+        block_id: correctRecord.block_id,
+        quantity: correctRecord.quantity,
+        rate_amount_snapshot: correctRecord.rate_amount_snapshot,
+        work_day: correctRecord.work_day,
+        recorded_by: worker?.id,
+        original_record_id: correctRecord.id,
+      });
+      if (snapErr) throw snapErr;
+
+      // 2) Editar el original in-place con la nueva cantidad (conserva la tarifa).
+      const { error: updErr } = await supabase.from('picking_records')
+        .update({ quantity: qty })
+        .eq('id', correctRecord.id);
+      if (updErr) throw updErr;
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCorrectRecord(null); setCorrectQty(''); setSelectedRecord(null);
+      queryClient.invalidateQueries({ queryKey: ['production'] });
+      Alert.alert('✅ Registro corregido');
+    },
+    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
+  });
 
   // Swipe gesture for day navigation
   const panResponder = useRef(
@@ -209,6 +250,61 @@ export default function ProductionScreen() {
                   <DetailRow icon="calendar-outline" label="Fecha" value={selectedRecord.work_day} />
                   {selectedRecord.worker_name ? <DetailRow icon="person-outline" label="Trabajador" value={selectedRecord.worker_name} /> : null}
                 </View>
+
+                {/* Corregir: solo registros del día actual y roles de terreno */}
+                {canCorrect && selectedRecord.work_day === localDate(0) && (
+                  <TouchableOpacity
+                    style={s.correctBtn}
+                    onPress={() => { setCorrectQty(String(Number(selectedRecord.quantity))); setCorrectRecord(selectedRecord); }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="create-outline" size={18} color={colors.primary} />
+                    <Text style={s.correctBtnText}>Corregir cantidad</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </RNModal>
+
+      {/* Correction Modal */}
+      <RNModal visible={!!correctRecord} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { setCorrectRecord(null); setCorrectQty(''); }} />
+          <View style={s.modalContent}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Corregir registro</Text>
+              <TouchableOpacity onPress={() => { setCorrectRecord(null); setCorrectQty(''); }}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {correctRecord && (
+              <View style={{ paddingBottom: 8 }}>
+                <Text style={s.correctInfo}>
+                  {correctRecord.worker_name ? `${correctRecord.worker_name} · ` : ''}{correctRecord.block_name}
+                </Text>
+                <Text style={s.correctInfoSub}>Cantidad actual: {Number(correctRecord.quantity)} {correctRecord.unit === 'kg' ? 'kg' : 'cajas'}</Text>
+                <Text style={s.correctLabel}>Nueva cantidad</Text>
+                <TextInput
+                  style={s.correctInput}
+                  value={correctQty}
+                  onChangeText={setCorrectQty}
+                  keyboardType="numeric"
+                  autoFocus
+                  selectTextOnFocus
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <Text style={s.correctHint}>Se conserva el registro original como auditoría. Solo se puede corregir el día actual.</Text>
+                <TouchableOpacity
+                  style={[s.correctConfirm, (!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending) && { opacity: 0.5 }]}
+                  onPress={() => correctMutation.mutate()}
+                  disabled={!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.correctConfirmText}>{correctMutation.isPending ? 'Guardando...' : '✓ Guardar corrección'}</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -273,4 +369,14 @@ const s = StyleSheet.create({
   detailRowLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   detailRowLabel: { fontSize: 13, color: colors.textSecondary },
   detailRowValue: { fontSize: 13, fontWeight: font.semibold, color: colors.text, maxWidth: '50%', textAlign: 'right' },
+  // Correction
+  correctBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: spacing.sm, borderWidth: 1, borderColor: colors.primaryMuted, backgroundColor: colors.primaryBg, borderRadius: radius.lg, paddingVertical: 14 },
+  correctBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary },
+  correctInfo: { fontSize: 15, fontWeight: font.semibold, color: colors.text },
+  correctInfoSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  correctLabel: { fontSize: 13, fontWeight: font.medium, color: colors.textMuted, marginTop: spacing.lg, marginBottom: 6 },
+  correctInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 20, fontWeight: font.bold, color: colors.text, textAlign: 'center' },
+  correctHint: { fontSize: 12, color: colors.textMuted, marginTop: spacing.sm },
+  correctConfirm: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center', marginTop: spacing.lg },
+  correctConfirmText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
 });

@@ -19,7 +19,7 @@ Estas reglas son propiedades de correctness del sistema. Nunca deben violarse y 
 8. No se puede registrar picking en un paño desactivado.
 9. La cantidad registrada nunca puede ser negativa ni cero.
 10. Un registro solo puede corregirse dentro de la misma jornada (día calendario).
-11. La corrección conserva el registro original como auditoría (soft-update, no delete).
+11. La corrección es un **soft-update**: el registro original se edita in-place con la nueva cantidad (sigue contando en los totales) y se conserva una fila-snapshot de auditoría con los valores previos (`original_record_id` apunta al registro corregido; queda excluida de los totales y visible solo en el historial como "Corrección"). Nunca se borra. La tarifa (`rate_amount_snapshot`) del registro no cambia al corregir (regla 14).
 12. El registro de producción es idéntico exista o no Modo Capataz; no se duplica.
 
 ### Tarifas
