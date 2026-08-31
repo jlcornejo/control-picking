@@ -2,7 +2,7 @@
 
 ## Overview
 
-Plan de implementación para el Sistema de Control de Picking, organizado en 3 fases según el roadmap de negocio. Cada task es atómica y entrega valor verificable. Las dependencias se describen en el grafo al final.
+Plan de implementación para Fundo360 (sistema base), organizado en 3 fases según el roadmap de negocio. Cada task es atómica y entrega valor verificable. Las dependencias se describen en el grafo al final.
 
 ## Tasks
 
