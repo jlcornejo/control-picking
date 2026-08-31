@@ -80,11 +80,10 @@ export function notifyBrandingUpdated() {
 }
 
 /**
- * Convierte un color hex (#RRGGBB / #RRGGBBAA) al formato "H S% L%" que usan
- * las CSS variables del tema (consumidas por Tailwind como hsl(var(--x))).
- * Devuelve null si el hex no es válido.
+ * Convierte un color hex (#RRGGBB / #RRGGBBAA) a componentes HSL numéricos
+ * (h en grados 0-360, s y l en 0-100). Devuelve null si el hex no es válido.
  */
-function hexToHslParts(hex: string | null): string | null {
+function hexToHsl(hex: string | null): { h: number; s: number; l: number } | null {
   if (!hex) return null;
   const m = /^#?([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?$/.exec(hex.trim());
   if (!m) return null;
@@ -107,7 +106,18 @@ function hexToHslParts(hex: string | null): string | null {
     }
     h /= 6;
   }
-  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+/** Formatea componentes HSL al string "H S% L%" que consume Tailwind. */
+function hslStr(h: number, s: number, l: number): string {
+  return `${h} ${s}% ${l}%`;
+}
+
+/** "H S% L%" del color, o null si el hex es inválido. */
+function hexToHslParts(hex: string | null): string | null {
+  const hsl = hexToHsl(hex);
+  return hsl ? hslStr(hsl.h, hsl.s, hsl.l) : null;
 }
 
 /**
@@ -119,13 +129,24 @@ function applyCssVars(b: Branding) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
 
-  const primary = hexToHslParts(b.brand_primary_color);
-  if (primary) {
-    root.style.setProperty('--primary', primary);
-    root.style.setProperty('--ring', primary);
+  const p = hexToHsl(b.brand_primary_color);
+  if (p) {
+    root.style.setProperty('--primary', hslStr(p.h, p.s, p.l));
+    root.style.setProperty('--ring', hslStr(p.h, p.s, p.l));
+    // Derivar accent y secondary del tono de marca para que hover, fondos
+    // suaves y acentos (hover:bg-accent, bg-secondary) sigan la paleta y no
+    // queden con el verde fijo del tema. Se conserva la luminosidad clara.
+    root.style.setProperty('--accent', hslStr(p.h, Math.round(p.s * 0.5), 94));
+    root.style.setProperty('--accent-foreground', hslStr(p.h, Math.min(p.s, 60), 22));
+    root.style.setProperty('--secondary', hslStr(p.h, Math.round(p.s * 0.35), 96));
+    root.style.setProperty('--secondary-foreground', hslStr(p.h, Math.min(p.s, 55), 25));
   } else {
     root.style.removeProperty('--primary');
     root.style.removeProperty('--ring');
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--accent-foreground');
+    root.style.removeProperty('--secondary');
+    root.style.removeProperty('--secondary-foreground');
   }
 
   const secondary = hexToHslParts(b.brand_secondary_color);
