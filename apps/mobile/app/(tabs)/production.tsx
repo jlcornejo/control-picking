@@ -12,9 +12,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ListSkeleton, ProductionHeaderSkeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedCard } from '../../src/components/AnimatedCard';
+import { useConnectivity } from '../../src/hooks/useConnectivity';
+import { enqueue } from '../../src/lib/offline-queue';
 
 export default function ProductionScreen() {
   const { worker } = useAuth();
+  const { online } = useConnectivity();
   const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -99,30 +102,50 @@ export default function ProductionScreen() {
       if (!qty || qty <= 0) throw new Error('La cantidad debe ser mayor a 0');
       if (correctRecord.work_day !== localDate(0)) throw new Error('Solo se puede corregir un registro del día actual');
 
-      // 1) Snapshot de auditoría con los valores VIEJOS, apuntando al original.
-      //    organization_id lo completa el trigger set_organization_id.
-      const { error: snapErr } = await supabase.from('picking_records').insert({
-        worker_id: correctRecord.worker_id,
-        block_id: correctRecord.block_id,
-        quantity: correctRecord.quantity,
-        rate_amount_snapshot: correctRecord.rate_amount_snapshot,
-        work_day: correctRecord.work_day,
-        recorded_by: worker?.id,
-        original_record_id: correctRecord.id,
-      });
-      if (snapErr) throw snapErr;
+      if (online) {
+        // 1) Snapshot de auditoría con los valores VIEJOS, apuntando al original.
+        //    organization_id lo completa el trigger set_organization_id.
+        const { error: snapErr } = await supabase.from('picking_records').insert({
+          worker_id: correctRecord.worker_id,
+          block_id: correctRecord.block_id,
+          quantity: correctRecord.quantity,
+          rate_amount_snapshot: correctRecord.rate_amount_snapshot,
+          work_day: correctRecord.work_day,
+          recorded_by: worker?.id,
+          original_record_id: correctRecord.id,
+        });
+        if (snapErr) throw snapErr;
 
-      // 2) Editar el original in-place con la nueva cantidad (conserva la tarifa).
-      const { error: updErr } = await supabase.from('picking_records')
-        .update({ quantity: qty })
-        .eq('id', correctRecord.id);
-      if (updErr) throw updErr;
+        // 2) Editar el original in-place con la nueva cantidad (conserva la tarifa).
+        const { error: updErr } = await supabase.from('picking_records')
+          .update({ quantity: qty })
+          .eq('id', correctRecord.id);
+        if (updErr) throw updErr;
+        return { queued: false };
+      }
+
+      // Offline: encolar la corrección (snapshot + update) para reproducir al reconectar.
+      await enqueue({
+        type: 'picking_correction',
+        payload: {
+          original_id: correctRecord.id,
+          old_worker_id: correctRecord.worker_id,
+          old_block_id: correctRecord.block_id,
+          old_quantity: Number(correctRecord.quantity),
+          old_rate_amount_snapshot: Number(correctRecord.rate_amount_snapshot),
+          work_day: correctRecord.work_day,
+          recorded_by: worker?.id ?? null,
+          new_quantity: qty,
+        },
+      });
+      return { queued: true };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setCorrectRecord(null); setCorrectQty(''); setSelectedRecord(null);
       queryClient.invalidateQueries({ queryKey: ['production'] });
-      Alert.alert('✅ Registro corregido');
+      Alert.alert(res.queued ? '📶 Corrección en espera' : '✅ Registro corregido',
+        res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
   });

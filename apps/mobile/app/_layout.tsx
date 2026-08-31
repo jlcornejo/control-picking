@@ -1,16 +1,35 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../src/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { AnimatedSplash } from '../src/components/AnimatedSplash';
+import { OfflineBanner } from '../src/components/OfflineBanner';
 
 // Keep native splash visible while loading
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30000, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      retry: 1,
+      // Conservar la caché una semana para que la data de terreno esté
+      // disponible sin conexión tras reiniciar la app.
+      gcTime: 1000 * 60 * 60 * 24 * 7,
+    },
+  },
+});
+
+// Persistir la caché de queries en AsyncStorage (soporte offline).
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'fundo360.query_cache.v1',
+  throttleTime: 1000,
 });
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -46,11 +65,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister: asyncStoragePersister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+    >
       <StatusBar style="light" />
+      <OfflineBanner />
       <AuthGate>
         <Stack screenOptions={{ headerShown: false }} />
       </AuthGate>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

@@ -8,9 +8,12 @@ import { formatMoney, formatNumber } from '../../src/utils/format';
 import { PaymentsSkeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { PaymentToast } from '../../src/components/PaymentToast';
+import { useConnectivity } from '../../src/hooks/useConnectivity';
+import { enqueue } from '../../src/lib/offline-queue';
 
 export default function PaymentsScreen() {
   const { worker } = useAuth();
+  const { online } = useConnectivity();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -119,30 +122,49 @@ export default function PaymentsScreen() {
       // Encargado (crew_id); 'worker' -> pago al trabajador (worker_id).
       // organization_id lo completa el trigger set_organization_id desde el JWT.
       const payeeColumns = payModal.payee_type === 'crew'
-        ? { crew_id: payModal.crew_id, worker_id: null }
-        : { worker_id: payModal.worker_id, crew_id: null };
+        ? { crew_id: payModal.crew_id as string | null, worker_id: null }
+        : { worker_id: payModal.worker_id as string | null, crew_id: null };
 
-      const { error } = await supabase.from('payments').insert({
-        settlement_id: payModal.id,
-        ...payeeColumns,
-        amount,
-        notes: payNotes || null,
+      if (online) {
+        const { error } = await supabase.from('payments').insert({
+          settlement_id: payModal.id,
+          ...payeeColumns,
+          amount,
+          notes: payNotes || null,
+        });
+        if (error) throw error;
+
+        // Update status
+        const newPaid = payModal.totalPaid + amount;
+        const newStatus = newPaid >= Number(payModal.total_amount) ? 'paid' : 'partial';
+        await supabase.from('settlements').update({ status: newStatus }).eq('id', payModal.id);
+        return { queued: false };
+      }
+
+      // Offline: encolar el pago. Al reproducir se re-verifica el saldo real
+      // desde el servidor (inmutabilidad del settlement pagado).
+      await enqueue({
+        type: 'payment_insert',
+        payload: {
+          settlement_id: payModal.id,
+          worker_id: payeeColumns.worker_id ?? null,
+          crew_id: payeeColumns.crew_id ?? null,
+          amount,
+          notes: payNotes || null,
+          settlement_total: Number(payModal.total_amount),
+        },
       });
-      if (error) throw error;
-
-      // Update status
-      const newPaid = payModal.totalPaid + amount;
-      const newStatus = newPaid >= Number(payModal.total_amount) ? 'paid' : 'partial';
-      await supabase.from('settlements').update({ status: newStatus }).eq('id', payModal.id);
+      return { queued: true };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPayModal(null);
       setPayAmount('');
       setPayNotes('');
       queryClient.invalidateQueries({ queryKey: ['my-balance'] });
       queryClient.invalidateQueries({ queryKey: ['my-settlements'] });
-      Alert.alert('✅ Pago registrado');
+      Alert.alert(res.queued ? '📶 Pago en espera' : '✅ Pago registrado',
+        res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
     onError: (err: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

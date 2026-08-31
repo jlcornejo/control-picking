@@ -9,11 +9,14 @@ import { formatMoney } from '../../src/utils/format';
 import * as Haptics from 'expo-haptics';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { SuccessOverlay } from '../../src/components/SuccessOverlay';
+import { useConnectivity } from '../../src/hooks/useConnectivity';
+import { enqueue } from '../../src/lib/offline-queue';
 
 type Step = 'scan' | 'select-block' | 'quantity';
 
 export default function RegisterScreen() {
   const { worker: currentWorker } = useAuth();
+  const { online } = useConnectivity();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>('scan');
   const [qrInput, setQrInput] = useState('');
@@ -28,6 +31,16 @@ export default function RegisterScreen() {
     queryFn: async () => {
       const { data } = await supabase.from('blocks').select('id, name, product_id, products(name)').eq('status', 'active').order('name');
       return (data || []).map((b: any) => ({ id: b.id, name: b.name, product_id: b.product_id, product_name: b.products?.name }));
+    },
+  });
+
+  // Tarifas vigentes por producto, cacheadas para poder registrar sin conexión
+  // (el rate_amount_snapshot debe existir al momento del registro).
+  const { data: ratesByProduct } = useQuery({
+    queryKey: ['current-rates'],
+    queryFn: async () => {
+      const { data } = await supabase.from('rates').select('product_id, amount').eq('status', 'current');
+      return Object.fromEntries((data || []).map((r: any) => [r.product_id, Number(r.amount)])) as Record<string, number>;
     },
   });
 
@@ -63,21 +76,45 @@ export default function RegisterScreen() {
     mutationFn: async () => {
       const qty = parseFloat(quantity);
       if (!selectedWorker || !selectedBlock || qty <= 0) throw new Error('Datos incompletos');
-      const { data: rate } = await supabase.from('rates').select('amount').eq('product_id', selectedBlock.product_id).eq('status', 'current').single();
-      if (!rate) throw new Error('Sin tarifa vigente');
-      const { error } = await supabase.from('picking_records').insert({
-        worker_id: selectedWorker.id, block_id: selectedBlock.id, quantity: qty,
-        rate_amount_snapshot: rate.amount, work_day: localDate(0), recorded_by: currentWorker?.id,
-      });
-      if (error) throw error;
-      return { qty, total: qty * rate.amount, workerName: selectedWorker.full_name };
+
+      // Resolver la tarifa vigente: online consulta directa; offline usa la
+      // caché de tarifas. En ambos casos debe ser > 0 (rate_amount_snapshot).
+      let rateAmount: number | undefined;
+      if (online) {
+        const { data: rate } = await supabase.from('rates').select('amount').eq('product_id', selectedBlock.product_id).eq('status', 'current').single();
+        rateAmount = rate ? Number(rate.amount) : ratesByProduct?.[selectedBlock.product_id];
+      } else {
+        rateAmount = ratesByProduct?.[selectedBlock.product_id];
+      }
+      if (!rateAmount || rateAmount <= 0) throw new Error('Sin tarifa vigente para este producto');
+
+      const record = {
+        worker_id: selectedWorker.id,
+        block_id: selectedBlock.id,
+        quantity: qty,
+        rate_amount_snapshot: rateAmount,
+        work_day: localDate(0),
+        recorded_by: currentWorker?.id ?? null,
+      };
+
+      if (online) {
+        const { error } = await supabase.from('picking_records').insert(record);
+        if (error) throw error;
+        return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: false };
+      }
+
+      // Offline: encolar para sincronizar al reconectar.
+      await enqueue({ type: 'picking_insert', payload: record });
+      return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: true };
     },
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ['production'] });
       setSuccessData({
-        title: `${data.qty} unidades registradas`,
-        subtitle: `${data.workerName} → ${formatMoney(data.total)}`,
+        title: data.queued ? `${data.qty} unidades en espera` : `${data.qty} unidades registradas`,
+        subtitle: data.queued
+          ? `${data.workerName} → se sincronizará al reconectar`
+          : `${data.workerName} → ${formatMoney(data.total)}`,
       });
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },

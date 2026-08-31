@@ -10,6 +10,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { EmptyState } from '../../src/components/EmptyState';
 import { PaymentsSkeleton } from '../../src/components/Skeleton';
+import { useConnectivity } from '../../src/hooks/useConnectivity';
+import { enqueue } from '../../src/lib/offline-queue';
 
 const statusLabel: Record<string, string> = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagado' };
 const statusColor: Record<string, string> = { pending: '#f59e0b', partial: '#f97316', paid: '#22c55e' };
@@ -22,6 +24,7 @@ const statusColor: Record<string, string> = { pending: '#f59e0b', partial: '#f97
  */
 export default function CrewScreen() {
   const { worker } = useAuth();
+  const { online } = useConnectivity();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -188,24 +191,43 @@ export default function CrewScreen() {
       const remaining = Number(payModal.total_amount) - payModal.totalPaid;
       if (amount > remaining) throw new Error('Monto supera el saldo');
 
-      const { error } = await supabase.from('payments').insert({
-        settlement_id: payModal.id,
-        worker_id: payModal.worker_id,
-        crew_id: null,
-        amount,
-        notes: payNotes || null,
-      });
-      if (error) throw error;
+      if (online) {
+        const { error } = await supabase.from('payments').insert({
+          settlement_id: payModal.id,
+          worker_id: payModal.worker_id,
+          crew_id: null,
+          amount,
+          notes: payNotes || null,
+        });
+        if (error) throw error;
 
-      const newPaid = payModal.totalPaid + amount;
-      const newStatus = newPaid >= Number(payModal.total_amount) ? 'paid' : 'partial';
-      await supabase.from('settlements').update({ status: newStatus }).eq('id', payModal.id);
+        const newPaid = payModal.totalPaid + amount;
+        const newStatus = newPaid >= Number(payModal.total_amount) ? 'paid' : 'partial';
+        await supabase.from('settlements').update({ status: newStatus }).eq('id', payModal.id);
+        return { queued: false };
+      }
+
+      // Offline: encolar el pago nivel 2 (encargado→trabajador). Al reproducir
+      // se re-verifica el saldo real (inmutabilidad del settlement pagado).
+      await enqueue({
+        type: 'payment_insert',
+        payload: {
+          settlement_id: payModal.id,
+          worker_id: payModal.worker_id,
+          crew_id: null,
+          amount,
+          notes: payNotes || null,
+          settlement_total: Number(payModal.total_amount),
+        },
+      });
+      return { queued: true };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPayModal(null); setPayAmount(''); setPayNotes('');
       queryClient.invalidateQueries({ queryKey: ['crew-member-settlements'] });
-      Alert.alert('✅ Pago registrado');
+      Alert.alert(res.queued ? '📶 Pago en espera' : '✅ Pago registrado',
+        res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
   });
