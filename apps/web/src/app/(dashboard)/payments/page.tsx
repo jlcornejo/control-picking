@@ -194,7 +194,7 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
             </div>
             <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-primary to-glow rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, (selected.paid / Number((selected as any).total_amount)) * 100)}%` }}
               />
             </div>

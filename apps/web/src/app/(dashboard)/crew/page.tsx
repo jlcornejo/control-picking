@@ -111,7 +111,7 @@ export default function CrewLeadPage() {
           row.status !== 'paid' ? (
             <button
               onClick={() => setPayTarget(row)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
             >
               Registrar pago
             </button>

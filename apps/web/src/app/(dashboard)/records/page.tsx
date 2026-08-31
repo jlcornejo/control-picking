@@ -182,9 +182,9 @@ export default function RecordsPage() {
           transition={{ delay: 0.1, duration: 0.3 }}
           className="mb-6 grid grid-cols-3 gap-3"
         >
-          <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
-            <p className="text-xs text-emerald-600 font-medium">Registros</p>
-            <p className="text-xl font-bold text-emerald-800 tabular-nums">{totalRecords}</p>
+          <div className="rounded-xl bg-primary/10 border border-primary/20 px-4 py-3">
+            <p className="text-xs text-primary font-medium">Registros</p>
+            <p className="text-xl font-bold text-primary tabular-nums">{totalRecords}</p>
           </div>
           <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
             <p className="text-xs text-blue-600 font-medium">Total cajas</p>

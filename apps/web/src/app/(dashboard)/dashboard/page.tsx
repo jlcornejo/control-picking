@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Package, DollarSign, Users, Grid3X3 } from 'lucide-react';
 import { AnimatedCounter, FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { KpiCardSkeleton, ChartSkeleton, RankingSkeleton } from '@/components/ui/skeletons';
@@ -20,16 +21,20 @@ export default function DashboardHome() {
   const supabase = createClient();
   const today = localDate(0);
 
+  // Selected date for filtering (defaults to today)
+  const [selectedDate, setSelectedDate] = useState(today);
+  const isViewingToday = selectedDate === today;
+
   // Drilldown state
   const [drilldown, setDrilldown] = useState<{ type: string; title: string; data?: any } | null>(null);
 
   const { data: metrics, isLoading } = useQuery({
-    queryKey: ['dashboard-metrics'],
+    queryKey: ['dashboard-metrics', selectedDate],
     queryFn: async () => {
       const { data: records } = await supabase
         .from('picking_records')
         .select('quantity, rate_amount_snapshot, worker_id, block_id')
-        .eq('work_day', today)
+        .eq('work_day', selectedDate)
         .is('original_record_id', null);
       const totalUnits = (records || []).reduce((s, r) => s + Number(r.quantity), 0);
       const totalAmount = (records || []).reduce((s, r) => s + Number(r.quantity) * Number(r.rate_amount_snapshot), 0);
@@ -37,16 +42,16 @@ export default function DashboardHome() {
       const activeBlocks = new Set((records || []).map(r => r.block_id)).size;
       return { totalUnits, totalAmount: Math.round(totalAmount), activeWorkers, activeBlocks };
     },
-    refetchInterval: 30000,
+    refetchInterval: isViewingToday ? 30000 : false,
   });
 
   const { data: ranking, isLoading: rankingLoading } = useQuery({
-    queryKey: ['dashboard-ranking'],
+    queryKey: ['dashboard-ranking', selectedDate],
     queryFn: async () => {
       const { data } = await supabase
         .from('picking_records')
         .select('worker_id, quantity')
-        .eq('work_day', today)
+        .eq('work_day', selectedDate)
         .is('original_record_id', null);
       const byWorker: Record<string, { id: string; name: string; units: number }> = {};
       for (const r of data || []) {
@@ -62,15 +67,19 @@ export default function DashboardHome() {
       }
       return Object.values(byWorker).sort((a, b) => b.units - a.units).slice(0, 10);
     },
-    refetchInterval: 30000,
+    refetchInterval: isViewingToday ? 30000 : false,
   });
 
   const { data: weeklyTrend, isLoading: trendLoading } = useQuery({
-    queryKey: ['dashboard-weekly-trend'],
+    queryKey: ['dashboard-weekly-trend', selectedDate],
     queryFn: async () => {
       const days: { date: string; fullDate: string; units: number; amount: number }[] = [];
+      const [sy, sm, sd] = selectedDate.split('-').map(Number);
+      const baseDate = new Date(sy, sm - 1, sd);
       for (let i = 6; i >= 0; i--) {
-        const dateStr = localDate(-i);
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() - i);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const { data: records } = await supabase
           .from('picking_records')
           .select('quantity, rate_amount_snapshot')
@@ -78,22 +87,21 @@ export default function DashboardHome() {
           .is('original_record_id', null);
         const units = (records || []).reduce((s, r) => s + Number(r.quantity), 0);
         const amount = (records || []).reduce((s, r) => s + Number(r.quantity) * Number(r.rate_amount_snapshot), 0);
-        const d = new Date(); d.setDate(d.getDate() - i);
         const dayName = d.toLocaleDateString('es-CL', { weekday: 'short' });
         days.push({ date: dayName, fullDate: dateStr, units, amount: Math.round(amount) });
       }
       return days;
     },
-    refetchInterval: 60000,
+    refetchInterval: isViewingToday ? 60000 : false,
   });
 
   const { data: blockProduction, isLoading: blocksLoading } = useQuery({
-    queryKey: ['dashboard-block-production'],
+    queryKey: ['dashboard-block-production', selectedDate],
     queryFn: async () => {
       const { data } = await supabase
         .from('picking_records')
         .select('quantity, block_id')
-        .eq('work_day', today)
+        .eq('work_day', selectedDate)
         .is('original_record_id', null);
       const byBlock: Record<string, { id: string; name: string; units: number }> = {};
       for (const r of data || []) {
@@ -109,7 +117,7 @@ export default function DashboardHome() {
       }
       return Object.values(byBlock).sort((a, b) => b.units - a.units).slice(0, 8);
     },
-    refetchInterval: 30000,
+    refetchInterval: isViewingToday ? 30000 : false,
   });
 
   // Drilldown data fetcher
@@ -121,17 +129,17 @@ export default function DashboardHome() {
       let query = supabase.from('picking_records').select('id, worker_id, block_id, quantity, rate_amount_snapshot, recorded_at, work_day').is('original_record_id', null);
 
       if (drilldown.type === 'worker') {
-        query = query.eq('worker_id', drilldown.data.workerId).eq('work_day', today);
+        query = query.eq('worker_id', drilldown.data.workerId).eq('work_day', selectedDate);
       } else if (drilldown.type === 'block') {
-        query = query.eq('block_id', drilldown.data.blockId).eq('work_day', today);
+        query = query.eq('block_id', drilldown.data.blockId).eq('work_day', selectedDate);
       } else if (drilldown.type === 'day') {
         query = query.eq('work_day', drilldown.data.date);
       } else if (drilldown.type === 'production') {
-        query = query.eq('work_day', today);
+        query = query.eq('work_day', selectedDate);
       } else if (drilldown.type === 'workers-active') {
-        query = query.eq('work_day', today);
+        query = query.eq('work_day', selectedDate);
       } else if (drilldown.type === 'blocks-active') {
-        query = query.eq('work_day', today);
+        query = query.eq('work_day', selectedDate);
       }
 
       const { data } = await query.order('recorded_at', { ascending: false });
@@ -180,18 +188,23 @@ export default function DashboardHome() {
     <div>
       {/* Header */}
       <FadeIn direction="none" duration={0.3}>
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Producción en tiempo real — {today}
-            <span className="inline-flex items-center ml-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="ml-1.5 text-xs text-emerald-600 font-medium">En vivo</span>
-            </span>
-          </p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Producción — {selectedDate}
+              {isViewingToday && (
+                <span className="inline-flex items-center ml-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                  </span>
+                  <span className="ml-1.5 text-xs text-primary font-medium">En vivo</span>
+                </span>
+              )}
+            </p>
+          </div>
+          <DatePicker value={selectedDate} onChange={setSelectedDate} />
         </div>
       </FadeIn>
 
@@ -206,10 +219,10 @@ export default function DashboardHome() {
             <KpiCard
               title="Producción"
               value={metrics?.totalUnits || 0}
-              unit="cajas hoy"
-              gradient="from-emerald-500/10 to-teal-500/5"
-              iconBg="bg-emerald-500/10"
-              iconColor="text-emerald-600"
+              unit={isViewingToday ? 'cajas hoy' : 'cajas'}
+              gradient="from-primary/10 to-glow/5"
+              iconBg="bg-primary/10"
+              iconColor="text-primary"
               icon={<Package size={20} />}
               onClick={() => openKpiDrill('production', 'Todos los registros de hoy')}
             />
@@ -231,7 +244,7 @@ export default function DashboardHome() {
             <KpiCard
               title="Trabajadores"
               value={metrics?.activeWorkers || 0}
-              unit="activos hoy"
+              unit={isViewingToday ? 'activos hoy' : 'activos'}
               gradient="from-violet-500/10 to-purple-500/5"
               iconBg="bg-violet-500/10"
               iconColor="text-violet-600"
@@ -268,15 +281,15 @@ export default function DashboardHome() {
                 <AreaChart data={weeklyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} onClick={(e) => { if (e?.activePayload?.[0]?.payload) openDayDrill(e.activePayload[0].payload); }}>
                   <defs>
                     <linearGradient id="colorUnits" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(152, 60%, 28%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(152, 60%, 28%)" stopOpacity={0} />
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(140, 10%, 91%)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'hsl(160, 5%, 45%)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: 'hsl(160, 5%, 45%)' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(140, 10%, 91%)', fontSize: '12px' }} formatter={(value: number) => [`${value} cajas`, 'Producción']} />
-                  <Area type="monotone" dataKey="units" stroke="hsl(152, 60%, 28%)" fillOpacity={1} fill="url(#colorUnits)" strokeWidth={2} style={{ cursor: 'pointer' }} animationDuration={1200} animationEasing="ease-out" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} formatter={(value: number) => [`${value} cajas`, 'Producción']} />
+                  <Area type="monotone" dataKey="units" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorUnits)" strokeWidth={2} style={{ cursor: 'pointer' }} animationDuration={1200} animationEasing="ease-out" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -292,18 +305,18 @@ export default function DashboardHome() {
           <ChartSkeleton />
         ) : (
           <FadeIn delay={0.3} className="rounded-2xl border border-border bg-card p-5 glow-card">
-            <h3 className="text-sm font-semibold text-foreground mb-1">Producción por paño (hoy)</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-1">Producción por paño ({isViewingToday ? 'hoy' : selectedDate})</h3>
             <p className="text-xs text-muted-foreground mb-4">Click en una barra para ver detalle</p>
             {blockProduction && blockProduction.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={blockProduction} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} onClick={(e) => { if (e?.activePayload?.[0]?.payload) openBlockDrill(e.activePayload[0].payload); }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(140, 10%, 91%)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(160, 5%, 45%)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: 'hsl(160, 5%, 45%)' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(140, 10%, 91%)', fontSize: '12px' }} formatter={(value: number) => [`${value} cajas`, 'Producción']} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} formatter={(value: number) => [`${value} cajas`, 'Producción']} />
                   <Bar dataKey="units" radius={[6, 6, 0, 0]} style={{ cursor: 'pointer' }} animationDuration={1000} animationEasing="ease-out">
                     {blockProduction.map((_, idx) => (
-                      <Cell key={idx} fill={idx === 0 ? 'hsl(152, 60%, 30%)' : 'hsl(152, 50%, 42%)'} />
+                      <Cell key={idx} fill={idx === 0 ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.65)'} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -319,7 +332,7 @@ export default function DashboardHome() {
 
       {/* Ranking */}
       <FadeIn delay={0.35} className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Ranking del día</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Ranking {isViewingToday ? 'del día' : `— ${selectedDate}`}</h2>
         {rankingLoading ? (
           <RankingSkeleton rows={5} />
         ) : (
@@ -329,8 +342,8 @@ export default function DashboardHome() {
                 <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
                   <Users size={20} className="text-muted-foreground" />
                 </div>
-                <p className="text-muted-foreground text-sm">Sin producción registrada hoy</p>
-                <p className="text-muted-foreground text-xs mt-1">Los datos aparecerán cuando se registren cajas</p>
+                <p className="text-muted-foreground text-sm">Sin producción registrada {isViewingToday ? 'hoy' : `el ${selectedDate}`}</p>
+                <p className="text-muted-foreground text-xs mt-1">{isViewingToday ? 'Los datos aparecerán cuando se registren cajas' : 'No hay registros para esta fecha'}</p>
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -354,7 +367,7 @@ export default function DashboardHome() {
                     <span className="flex-1 text-sm font-medium text-foreground">{w.name}</span>
                     <div className="hidden sm:flex w-32 h-2 bg-muted rounded-full overflow-hidden">
                       <motion.div
-                        className="h-full bg-gradient-to-r from-primary to-emerald-400 rounded-full"
+                        className="h-full bg-gradient-to-r from-primary to-glow rounded-full"
                         initial={{ width: 0 }}
                         animate={{ width: `${(w.units / maxUnits) * 100}%` }}
                         transition={{ delay: 0.6 + i * 0.05, duration: 0.8, ease: 'easeOut' }}
@@ -412,9 +425,9 @@ function DrilldownTable({ records, loading, type }: { records: any[]; loading: b
     <div className="space-y-4 max-h-[60vh] overflow-y-auto">
       {/* Summary */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-emerald-50 px-3 py-2">
-          <p className="text-xs text-emerald-600">Total cajas</p>
-          <p className="text-lg font-bold text-emerald-800">{totalUnits}</p>
+        <div className="rounded-xl bg-primary/10 px-3 py-2">
+          <p className="text-xs text-primary">Total cajas</p>
+          <p className="text-lg font-bold text-primary">{totalUnits}</p>
         </div>
         <div className="rounded-xl bg-blue-50 px-3 py-2">
           <p className="text-xs text-blue-600">Total $</p>

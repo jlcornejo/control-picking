@@ -11,6 +11,19 @@ import { Palette, Users, Tag } from 'lucide-react';
 
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
+// Paletas prediseñadas (punto de partida). El cliente puede ajustar libremente
+// después con el color picker.
+const BRAND_PRESETS: { name: string; primary: string; secondary: string }[] = [
+  { name: 'Verde Agro', primary: '#1b5e20', secondary: '#4caf50' },
+  { name: 'Arándano', primary: '#3730a3', secondary: '#6366f1' },
+  { name: 'Cereza', primary: '#9f1239', secondary: '#fb7185' },
+  { name: 'Cítrico', primary: '#c2410c', secondary: '#fb923c' },
+  { name: 'Océano', primary: '#0e7490', secondary: '#22d3ee' },
+  { name: 'Vid', primary: '#6b21a8', secondary: '#c084fc' },
+  { name: 'Tierra', primary: '#78350f', secondary: '#d97706' },
+  { name: 'Pizarra', primary: '#334155', secondary: '#94a3b8' },
+];
+
 const ROLE_KEYS = ['admin', 'supervisor', 'crew_lead', 'worker'] as const;
 const ROLE_DEFAULTS: Record<(typeof ROLE_KEYS)[number], string> = {
   admin: 'Administrador',
@@ -118,6 +131,31 @@ function BrandingCard({ org, onSave, saving }: { org: any; onSave: (u: Record<st
         <FormField label="URL del logo">
           <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" className={inputClass} />
         </FormField>
+        <div>
+          <p className="mb-2 text-sm font-medium text-foreground">Paletas</p>
+          <div className="flex flex-wrap gap-2">
+            {BRAND_PRESETS.map((p) => {
+              const selected = primary.toLowerCase() === p.primary.toLowerCase() && secondary.toLowerCase() === p.secondary.toLowerCase();
+              return (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => { setPrimary(p.primary); setSecondary(p.secondary); setErr(null); }}
+                  title={p.name}
+                  className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs transition-all ${
+                    selected ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'
+                  }`}
+                >
+                  <span className="flex">
+                    <span className="h-4 w-4 rounded-l-full" style={{ backgroundColor: p.primary }} />
+                    <span className="h-4 w-4 rounded-r-full" style={{ backgroundColor: p.secondary }} />
+                  </span>
+                  <span className="text-foreground">{p.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Color primario" error={err && err.includes('primario') ? err : undefined}>
             <div className="flex items-center gap-2">

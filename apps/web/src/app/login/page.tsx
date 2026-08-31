@@ -27,17 +27,17 @@ export default function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
       {/* Aura background */}
-      <div className="absolute inset-0 aura-bg bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/20" />
+      <div className="absolute inset-0 aura-bg bg-gradient-to-br from-background via-primary/5 to-glow/5" />
 
       {/* Animated orbs */}
       <motion.div
-        className="absolute w-[500px] h-[500px] rounded-full bg-emerald-200/20 blur-3xl"
+        className="absolute w-[500px] h-[500px] rounded-full bg-primary/10 blur-3xl"
         animate={{ x: [0, 30, -20, 0], y: [0, -20, 30, 0] }}
         transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
         style={{ top: '10%', left: '10%' }}
       />
       <motion.div
-        className="absolute w-[400px] h-[400px] rounded-full bg-teal-200/20 blur-3xl"
+        className="absolute w-[400px] h-[400px] rounded-full bg-glow/10 blur-3xl"
         animate={{ x: [0, -30, 20, 0], y: [0, 20, -30, 0] }}
         transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
         style={{ bottom: '10%', right: '10%' }}
@@ -56,7 +56,7 @@ export default function LoginPage() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 shadow-lg shadow-emerald-500/20"
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-glow shadow-lg shadow-primary/20"
           >
             <span className="text-3xl"><Leaf size={32} className="text-white" /></span>
           </motion.div>
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
             <button
               type="submit" disabled={loading}
-              className="w-full rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 hover:from-emerald-600 hover:to-teal-600 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 transition-all duration-200"
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 transition-all duration-200"
             >
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>

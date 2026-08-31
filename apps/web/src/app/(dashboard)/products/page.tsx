@@ -71,8 +71,8 @@ export default function ProductsPage() {
             {fieldNames.map((f: string) => {
               const blocksInField = activeBlocks.filter((b: any) => b.fields?.name === f);
               return (
-                <span key={f} className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700" title={blocksInField.map((b: any) => b.name).join(', ')}>
-                  {f} <span className="text-emerald-500">({blocksInField.length})</span>
+                <span key={f} className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-xs text-primary" title={blocksInField.map((b: any) => b.name).join(', ')}>
+                  {f} <span className="text-primary/70">({blocksInField.length})</span>
                 </span>
               );
             })}
@@ -295,13 +295,13 @@ function RateManager({ productId, onUpdate }: { productId: string; onUpdate: () 
   return (
     <div className="space-y-5">
       {/* Current rate */}
-      <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
-        <p className="text-xs font-medium text-emerald-600 uppercase tracking-wider mb-1">Tarifa vigente</p>
-        <p className="text-3xl font-bold text-emerald-800 tabular-nums">
+      <div className="rounded-xl bg-primary/10 border border-primary/20 p-4">
+        <p className="text-xs font-medium text-primary uppercase tracking-wider mb-1">Tarifa vigente</p>
+        <p className="text-3xl font-bold text-primary tabular-nums">
           {currentRate ? `$${Number(currentRate.amount).toLocaleString()}` : 'Sin tarifa'}
         </p>
         {currentRate && (
-          <p className="text-xs text-emerald-600 mt-1">
+          <p className="text-xs text-primary mt-1">
             Desde {new Date(currentRate.created_at).toLocaleDateString('es-CL')}
           </p>
         )}

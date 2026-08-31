@@ -53,9 +53,17 @@ export function Sidebar({ workerName, role }: SidebarProps) {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border/50">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Package size={18} />
-        </div>
+        {branding.logo_url ? (
+          <img
+            src={branding.logo_url}
+            alt={branding.name}
+            className="h-9 w-9 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Package size={18} />
+          </div>
+        )}
         <div>
           <h2 className="text-sm font-semibold text-foreground">{branding.name}</h2>
           <p className="text-[11px] text-muted-foreground">Gestión integral de campo</p>
