@@ -73,11 +73,41 @@ export default function CrewScreen() {
     },
   });
 
+  // Miembros de la cuadrilla con su producción del día (RLS acota a la cuadrilla).
+  const { data: members, refetch: refetchTeam } = useQuery({
+    queryKey: ['crew-members-list', worker?.id],
+    enabled: !!worker?.id,
+    queryFn: async () => {
+      const crewId = await currentCrewId();
+      if (!crewId) return [];
+      const { data: ws } = await supabase
+        .from('workers')
+        .select('id, full_name')
+        .eq('crew_id', crewId)
+        .eq('status', 'active')
+        .order('full_name');
+      const ids = (ws || []).map((w: any) => w.id);
+      let unitsByWorker: Record<string, number> = {};
+      if (ids.length > 0) {
+        const { data: recs } = await supabase
+          .from('picking_records')
+          .select('worker_id, quantity')
+          .in('worker_id', ids)
+          .eq('work_day', localDate(0))
+          .is('original_record_id', null);
+        for (const r of recs || []) {
+          unitsByWorker[r.worker_id] = (unitsByWorker[r.worker_id] ?? 0) + Number(r.quantity);
+        }
+      }
+      return (ws || []).map((w: any) => ({ ...w, units: unitsByWorker[w.id] ?? 0 }));
+    },
+  });
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchCrew(), refetchMembers()]);
+    await Promise.all([refetchCrew(), refetchMembers(), refetchTeam()]);
     setRefreshing(false);
-  }, [refetchCrew, refetchMembers]);
+  }, [refetchCrew, refetchMembers, refetchTeam]);
 
   // Generar liquidaciones de nivel 2 para los trabajadores de la cuadrilla.
   // Agrega la producción del período de los miembros en campos con modo capataz.
@@ -186,6 +216,26 @@ export default function CrewScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <>
+          {/* Miembros de la cuadrilla y su producción del día */}
+          <View style={s.teamHeader}>
+            <Text style={s.sectionTitle}>Mi equipo</Text>
+            <Text style={s.teamCount}>{(members || []).length}</Text>
+          </View>
+          {(members || []).length === 0 ? (
+            <View style={s.emptyCrew}>
+              <Ionicons name="people-outline" size={20} color={colors.textMuted} />
+              <Text style={s.emptyCrewText}>Tu cuadrilla aún no tiene trabajadores asignados.</Text>
+            </View>
+          ) : (
+            (members || []).map((m: any) => (
+              <View key={m.id} style={s.memberRow}>
+                <View style={s.memberAvatar}><Text style={s.memberAvatarText}>{m.full_name?.charAt(0) || '?'}</Text></View>
+                <Text style={s.memberName}>{m.full_name}</Text>
+                <Text style={s.memberUnits}>{m.units} hoy</Text>
+              </View>
+            ))
+          )}
+
           {/* Nivel 1: lo que el cliente paga al encargado */}
           <Text style={s.sectionTitle}>Liquidación de mi cuadrilla</Text>
           {(crewSettlements || []).length === 0 ? (
@@ -329,6 +379,12 @@ const s = StyleSheet.create({
   teamHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: spacing.lg },
   genBtn: { backgroundColor: colors.primaryBg, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 6, marginTop: spacing.lg },
   genBtnText: { color: colors.primary, fontSize: 13, fontWeight: font.semibold },
+  teamCount: { fontSize: 13, fontWeight: font.bold, color: colors.primary, marginTop: spacing.lg, marginRight: spacing.lg },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
+  memberAvatar: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center' },
+  memberAvatarText: { fontSize: 14, fontWeight: font.bold, color: colors.primary },
+  memberName: { flex: 1, fontSize: 14, fontWeight: font.medium, color: colors.text },
+  memberUnits: { fontSize: 13, fontWeight: font.semibold, color: colors.primary },
   card: { backgroundColor: colors.card, marginHorizontal: spacing.lg, padding: spacing.lg, borderRadius: radius.lg, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder },
   cardWorker: { fontSize: 14, fontWeight: font.semibold, color: colors.text },
   cardPeriod: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },

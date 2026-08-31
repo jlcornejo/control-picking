@@ -12,6 +12,7 @@ import { MetricsSkeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedNumber } from '../../src/components/AnimatedNumber';
 import { DatePicker } from '../../src/components/DatePicker';
+import Svg, { Rect } from 'react-native-svg';
 
 export default function MetricsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -72,7 +73,57 @@ export default function MetricsScreen() {
     refetchInterval: isViewingToday ? 30000 : false,
   });
 
-  const onRefresh = useCallback(async () => { setRefreshing(true); await refetch(); setRefreshing(false); }, [refetch]);
+  // Tendencia de los últimos 7 días (unidades por día).
+  const { data: weeklyTrend, refetch: refetchTrend } = useQuery({
+    queryKey: ['mobile-weekly-trend', selectedDate],
+    queryFn: async () => {
+      const parts = selectedDate.split('-').map(Number);
+      const sy = parts[0] ?? new Date().getFullYear();
+      const sm = parts[1] ?? 1;
+      const sd = parts[2] ?? 1;
+      const base = new Date(sy, sm - 1, sd);
+      const days: { label: string; units: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(base);
+        d.setDate(d.getDate() - i);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const { data: recs } = await supabase
+          .from('picking_records')
+          .select('quantity')
+          .eq('work_day', dateStr)
+          .is('original_record_id', null);
+        const units = (recs || []).reduce((s, r) => s + Number(r.quantity), 0);
+        days.push({ label: d.toLocaleDateString('es-CL', { weekday: 'short' }).slice(0, 3), units });
+      }
+      return days;
+    },
+    refetchInterval: isViewingToday ? 60000 : false,
+  });
+
+  // Producción por paño del día seleccionado (top 6).
+  const { data: blockProduction, refetch: refetchBlocks } = useQuery({
+    queryKey: ['mobile-block-production', selectedDate],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('picking_records')
+        .select('quantity, block_id')
+        .eq('work_day', selectedDate)
+        .is('original_record_id', null);
+      const byBlock: Record<string, number> = {};
+      for (const r of data || []) byBlock[r.block_id] = (byBlock[r.block_id] ?? 0) + Number(r.quantity);
+      const ids = Object.keys(byBlock);
+      if (ids.length === 0) return [];
+      const { data: blocks } = await supabase.from('blocks').select('id, name').in('id', ids);
+      const nameMap = Object.fromEntries((blocks || []).map(b => [b.id, b.name]));
+      return Object.entries(byBlock)
+        .map(([id, units]) => ({ name: nameMap[id] || '—', units }))
+        .sort((a, b) => b.units - a.units)
+        .slice(0, 6);
+    },
+    refetchInterval: isViewingToday ? 30000 : false,
+  });
+
+  const onRefresh = useCallback(async () => { setRefreshing(true); await Promise.all([refetch(), refetchTrend(), refetchBlocks()]); setRefreshing(false); }, [refetch, refetchTrend, refetchBlocks]);
   const maxUnits = Math.max(...(metrics?.ranking || []).map(w => w.units), 1);
 
   return (
@@ -102,6 +153,22 @@ export default function MetricsScreen() {
           </View>
           <Ionicons name="arrow-forward" size={18} color="#92400e" />
         </TouchableOpacity>
+      )}
+
+      {/* Tendencia 7 días */}
+      {(weeklyTrend || []).some(d => d.units > 0) && (
+        <>
+          <Text style={s.sectionTitle}>Producción últimos 7 días</Text>
+          <View style={s.chartCard}><BarChart data={weeklyTrend || []} /></View>
+        </>
+      )}
+
+      {/* Producción por paño */}
+      {(blockProduction || []).length > 0 && (
+        <>
+          <Text style={s.sectionTitle}>Producción por paño</Text>
+          <View style={s.chartCard}><BarChart data={blockProduction || []} horizontalLabels /></View>
+        </>
       )}
 
       {/* Ranking */}
@@ -356,6 +423,48 @@ export default function MetricsScreen() {
   }
 }
 
+/** Gráfico de barras simple con react-native-svg (sin dependencias extra). */
+function BarChart({ data, horizontalLabels }: { data: { label?: string; name?: string; units: number }[]; horizontalLabels?: boolean }) {
+  const height = 140;
+  const gap = 8;
+  const max = Math.max(...data.map(d => d.units), 1);
+  const [width, setWidth] = useState(0);
+  const barW = data.length > 0 ? Math.max(6, (width - gap * (data.length - 1)) / data.length) : 0;
+
+  return (
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {width > 0 && (
+        <Svg width={width} height={height}>
+          {data.map((d, i) => {
+            const h = Math.max(2, (d.units / max) * (height - 24));
+            return (
+              <Rect
+                key={i}
+                x={i * (barW + gap)}
+                y={height - 20 - h}
+                width={barW}
+                height={h}
+                rx={4}
+                fill={i === 0 ? colors.primary : colors.primaryLight}
+              />
+            );
+          })}
+        </Svg>
+      )}
+      <View style={{ flexDirection: 'row', marginTop: 4 }}>
+        {data.map((d, i) => (
+          <View key={i} style={{ width: barW + gap, alignItems: 'center' }}>
+            <Text style={s.chartLabel} numberOfLines={1}>
+              {horizontalLabels ? (d.name || '').slice(0, 6) : d.label}
+            </Text>
+            <Text style={s.chartValue}>{d.units}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function KpiMini({ icon, value, label, bg, iconColor, numericValue, onPress }: { icon: string; value: string; label: string; bg: string; iconColor: string; numericValue?: number; onPress?: () => void }) {
   return (
     <TouchableOpacity style={s.kpiCard} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
@@ -397,6 +506,9 @@ const s = StyleSheet.create({
   alertTitle: { fontSize: 13, fontWeight: font.semibold, color: '#92400e' },
   alertValue: { fontSize: 17, fontWeight: font.bold, color: '#78350f', marginTop: 2 },
   sectionTitle: { fontSize: 16, fontWeight: font.bold, color: colors.text, marginBottom: spacing.md, marginTop: spacing.sm },
+  chartCard: { backgroundColor: colors.card, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.cardBorder, padding: spacing.lg, marginBottom: spacing.sm },
+  chartLabel: { fontSize: 10, color: colors.textMuted },
+  chartValue: { fontSize: 11, fontWeight: font.semibold, color: colors.text },
   rankCard: { backgroundColor: colors.card, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.cardBorder, overflow: 'hidden' },
   rankRow: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, gap: spacing.md },
   rankRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.cardBorder },

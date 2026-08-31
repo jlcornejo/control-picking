@@ -128,6 +128,19 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="team"
+        options={{
+          title: 'Mi Equipo',
+          headerTitle: 'Mi Equipo',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'people-circle' : 'people-circle-outline'} size={22} color={color} />
+          ),
+          // Solo el Supervisor ve "Mi Equipo".
+          href: worker?.role === 'supervisor' ? '/(tabs)/team' : null,
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
