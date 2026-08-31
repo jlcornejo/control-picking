@@ -47,3 +47,9 @@ site/
 *.log
 local_cache/
 ~/
+
+# Credenciales de usuarios de prueba (solo desarrollo local)
+TEST_USERS.md
+
+# TypeScript incremental build cache
+*.tsbuildinfo
