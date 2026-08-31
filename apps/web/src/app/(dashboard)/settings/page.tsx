@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { FormField } from '@/components/ui/FormField';
 import { useToast } from '@/components/ui/Toast';
 import { PageTransition } from '@/components/ui/animations';
+import { notifyBrandingUpdated } from '@/hooks/useBranding';
 import { useState, useEffect } from 'react';
 import { Palette, Users, Tag } from 'lucide-react';
 
@@ -59,6 +60,8 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-organization'] });
       queryClient.invalidateQueries({ queryKey: ['branding'] });
+      // Re-aplica los colores/logo de marca al instante (sin recargar).
+      notifyBrandingUpdated();
       toast('Configuración guardada', 'success');
     },
     onError: () => toast('Error al guardar', 'error'),

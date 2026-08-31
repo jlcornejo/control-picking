@@ -58,13 +58,25 @@ export function useBranding() {
     load();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => load());
+    // Re-cargar y re-aplicar cuando la marca se guarda desde Configuración,
+    // sin necesidad de recargar la página.
+    const onBrandingUpdated = () => load();
+    window.addEventListener('branding:updated', onBrandingUpdated);
     return () => {
       active = false;
       subscription.unsubscribe();
+      window.removeEventListener('branding:updated', onBrandingUpdated);
     };
   }, []);
 
   return { branding, loading };
+}
+
+/** Notifica a useBranding que la marca cambió, para re-aplicar sin recargar. */
+export function notifyBrandingUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('branding:updated'));
+  }
 }
 
 /**
