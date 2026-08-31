@@ -115,6 +115,19 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="crew"
+        options={{
+          title: 'Mi Cuadrilla',
+          headerTitle: 'Mi Cuadrilla',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />
+          ),
+          // Solo el Encargado ve "Mi Cuadrilla".
+          href: worker?.role === 'crew_lead' ? '/(tabs)/crew' : null,
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',

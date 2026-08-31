@@ -42,9 +42,18 @@ export default function RegisterScreen() {
   }
 
   async function lookupWorker(badge: string) {
-    const { data, error } = await supabase.from('workers').select('id, full_name, status').eq('qr_badge_url', badge).single();
+    const { data, error } = await supabase.from('workers').select('id, full_name, status, crew_id').eq('qr_badge_url', badge).single();
     if (error || !data) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', 'Badge QR no reconocido'); return; }
     if (data.status !== 'active') { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); Alert.alert('Error', `${data.full_name} no está activo`); return; }
+    // El Encargado solo puede registrar producción de trabajadores de SU cuadrilla.
+    if (currentWorker?.role === 'crew_lead') {
+      const { data: myCrew } = await supabase.from('crews').select('id').eq('status', 'active').limit(1).maybeSingle();
+      if (!myCrew || data.crew_id !== myCrew.id) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert('Fuera de tu cuadrilla', `${data.full_name} no pertenece a tu cuadrilla.`);
+        return;
+      }
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedWorker(data);
     if (selectedBlock) { setStep('quantity'); } else { setStep('select-block'); }

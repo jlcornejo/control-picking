@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform, Modal, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useOrgSettings } from '../../src/hooks/useOrgSettings';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { localDate } from '../../src/utils/date';
@@ -22,11 +23,13 @@ const QR_SIZE = Math.min(Dimensions.get('window').width * 0.55, 220);
 
 export default function ProfileScreen() {
   const { worker, signOut } = useAuth();
+  const { roleLabel } = useOrgSettings();
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
   const [showQR, setShowQR] = useState(false);
-  const roleLabels: Record<string, string> = { admin: 'Administrador', supervisor: 'Supervisor', worker: 'Trabajador' };
-  const roleColors: Record<string, string> = { admin: colors.violet, supervisor: colors.blue, worker: colors.primary };
+  // Etiqueta configurable por organización (incluye Encargado). Fallback en el hook.
+  const roleText = worker?.role ? roleLabel(worker.role) : '';
+  const roleColors: Record<string, string> = { admin: colors.violet, supervisor: colors.blue, crew_lead: colors.amber, worker: colors.primary };
 
   const { data: detail } = useQuery({
     queryKey: ['worker-detail', worker?.id],
@@ -113,7 +116,7 @@ export default function ProfileScreen() {
         <Text style={s.name}>{worker?.full_name || 'Usuario'}</Text>
         <View style={[s.rolePill, { backgroundColor: (roleColors[worker?.role || ''] || colors.primary) + '15' }]}>
           <View style={[s.roleDot, { backgroundColor: roleColors[worker?.role || ''] || colors.primary }]} />
-          <Text style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]}>{roleLabels[worker?.role || '']}</Text>
+          <Text style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]}>{roleText}</Text>
         </View>
       </View>
 

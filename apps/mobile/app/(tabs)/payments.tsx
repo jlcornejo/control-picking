@@ -57,18 +57,27 @@ export default function PaymentsScreen() {
     queryKey: ['my-settlements', worker?.id],
     enabled: !!worker?.id,
     queryFn: async () => {
-      let query = supabase.from('settlements').select('id, period_start, period_end, total_amount, status, worker_id').order('generated_at', { ascending: false }).limit(30);
+      let query = supabase.from('settlements').select('id, period_start, period_end, total_amount, status, payee_type, worker_id, crew_id').order('generated_at', { ascending: false }).limit(30);
       if (worker?.role === 'worker') {
         query = query.eq('worker_id', worker!.id);
       }
       const { data } = await query;
 
-      // Fetch payments and worker names
-      const workerIds = [...new Set((data || []).map(s => s.worker_id))];
+      // Nombre del beneficiario: trabajador (payee worker) o cuadrilla (payee crew).
+      // Se resuelven por separado con joins manuales (el móvil no usa embeds).
       let workerMap: Record<string, string> = {};
-      if (workerIds.length > 0 && worker?.role !== 'worker') {
-        const { data: workers } = await supabase.from('workers').select('id, full_name').in('id', workerIds);
-        workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
+      let crewMap: Record<string, string> = {};
+      if (worker?.role !== 'worker') {
+        const workerIds = [...new Set((data || []).map(s => s.worker_id).filter(Boolean))];
+        if (workerIds.length > 0) {
+          const { data: workers } = await supabase.from('workers').select('id, full_name').in('id', workerIds);
+          workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
+        }
+        const crewIds = [...new Set((data || []).map(s => s.crew_id).filter(Boolean))];
+        if (crewIds.length > 0) {
+          const { data: crews } = await supabase.from('crews').select('id, name').in('id', crewIds);
+          crewMap = Object.fromEntries((crews || []).map(c => [c.id, c.name]));
+        }
       }
 
       const results = [];
@@ -79,7 +88,10 @@ export default function PaymentsScreen() {
           .eq('settlement_id', s.id)
           .order('paid_at', { ascending: false });
         const totalPaid = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-        results.push({ ...s, payments: payments || [], totalPaid, worker_name: workerMap[s.worker_id] || '' });
+        const payeeName = s.payee_type === 'crew'
+          ? (crewMap[s.crew_id] ? `${crewMap[s.crew_id]} (cuadrilla)` : 'Cuadrilla')
+          : (workerMap[s.worker_id] || '');
+        results.push({ ...s, payments: payments || [], totalPaid, worker_name: payeeName });
       }
       return results;
     },
@@ -103,9 +115,16 @@ export default function PaymentsScreen() {
       const remaining = Number(payModal.total_amount) - payModal.totalPaid;
       if (amount > remaining) throw new Error('Monto supera el saldo');
 
+      // El sujeto de pago se deriva del tipo de liquidación: 'crew' -> pago al
+      // Encargado (crew_id); 'worker' -> pago al trabajador (worker_id).
+      // organization_id lo completa el trigger set_organization_id desde el JWT.
+      const payeeColumns = payModal.payee_type === 'crew'
+        ? { crew_id: payModal.crew_id, worker_id: null }
+        : { worker_id: payModal.worker_id, crew_id: null };
+
       const { error } = await supabase.from('payments').insert({
         settlement_id: payModal.id,
-        worker_id: payModal.worker_id,
+        ...payeeColumns,
         amount,
         notes: payNotes || null,
       });
