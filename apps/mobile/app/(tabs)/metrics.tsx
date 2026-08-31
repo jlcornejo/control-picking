@@ -11,19 +11,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MetricsSkeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedNumber } from '../../src/components/AnimatedNumber';
+import { DatePicker } from '../../src/components/DatePicker';
 
 export default function MetricsScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const [drilldown, setDrilldown] = useState<{ title: string; data: any[] } | null>(null);
+  const [drilldown, setDrilldown] = useState<{ title: string; type: 'worker' | 'production' | 'workers' | 'blocks'; data: any[] } | null>(null);
   const router = useRouter();
   const today = localDate(0);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const isViewingToday = selectedDate === today;
+
   const { data: metrics, isLoading: metricsLoading, refetch } = useQuery({
-    queryKey: ['mobile-metrics', today],
+    queryKey: ['mobile-metrics', selectedDate],
     queryFn: async () => {
       const { data: records } = await supabase
         .from('picking_records')
         .select('quantity, rate_amount_snapshot, worker_id, block_id')
-        .eq('work_day', today)
+        .eq('work_day', selectedDate)
         .is('original_record_id', null);
 
       const totalUnits = (records || []).reduce((s, r) => s + Number(r.quantity), 0);
@@ -65,7 +69,7 @@ export default function MetricsScreen() {
         pendingAmount: Math.round(pendingTotal - paidOnPending), pendingCount: (pendingSettlements || []).length,
       };
     },
-    refetchInterval: 30000,
+    refetchInterval: isViewingToday ? 30000 : false,
   });
 
   const onRefresh = useCallback(async () => { setRefreshing(true); await refetch(); setRefreshing(false); }, [refetch]);
@@ -73,18 +77,19 @@ export default function MetricsScreen() {
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <DatePicker value={selectedDate} onChange={setSelectedDate} />
       {metricsLoading ? (
         <MetricsSkeleton />
       ) : (
       <>
       {/* KPI Cards */}
       <View style={s.kpiRow}>
-        <KpiMini icon="cube-outline" value={formatNumber(metrics?.totalUnits || 0)} label="Producción" bg={colors.primaryBg} iconColor={colors.primary} numericValue={metrics?.totalUnits || 0} />
-        <KpiMini icon="cash-outline" value={formatMoney(metrics?.totalAmount || 0)} label="Jornada" bg={colors.blueBg} iconColor={colors.blue} numericValue={metrics?.totalAmount || 0} />
+        <KpiMini icon="cube-outline" value={formatNumber(metrics?.totalUnits || 0)} label="Producción" bg={colors.primaryBg} iconColor={colors.primary} numericValue={metrics?.totalUnits || 0} onPress={openProductionDrill} />
+        <KpiMini icon="cash-outline" value={formatMoney(metrics?.totalAmount || 0)} label="Jornada" bg={colors.blueBg} iconColor={colors.blue} numericValue={metrics?.totalAmount || 0} onPress={openProductionDrill} />
       </View>
       <View style={s.kpiRow}>
-        <KpiMini icon="people-outline" value={String(metrics?.activeWorkers || 0)} label="Trabajadores" bg={colors.violetBg} iconColor={colors.violet} numericValue={metrics?.activeWorkers || 0} />
-        <KpiMini icon="grid-outline" value={String(metrics?.activeBlocks || 0)} label="Paños" bg={colors.amberBg} iconColor={colors.amber} numericValue={metrics?.activeBlocks || 0} />
+        <KpiMini icon="people-outline" value={String(metrics?.activeWorkers || 0)} label="Trabajadores" bg={colors.violetBg} iconColor={colors.violet} numericValue={metrics?.activeWorkers || 0} onPress={openWorkersDrill} />
+        <KpiMini icon="grid-outline" value={String(metrics?.activeBlocks || 0)} label="Paños" bg={colors.amberBg} iconColor={colors.amber} numericValue={metrics?.activeBlocks || 0} onPress={openBlocksDrill} />
       </View>
 
       {/* Pending alert — navigates to payments */}
@@ -100,12 +105,12 @@ export default function MetricsScreen() {
       )}
 
       {/* Ranking */}
-      <Text style={s.sectionTitle}>Top del día</Text>
+      <Text style={s.sectionTitle}>{isViewingToday ? 'Top del día' : `Top — ${selectedDate}`}</Text>
       {(metrics?.ranking || []).length === 0 ? (
         <EmptyState
           icon="trophy-outline"
-          title="Sin producción hoy"
-          message="El ranking del día aparecerá cuando los trabajadores registren su cosecha."
+          title={isViewingToday ? 'Sin producción hoy' : `Sin producción el ${selectedDate}`}
+          message={isViewingToday ? 'El ranking del día aparecerá cuando los trabajadores registren su cosecha.' : 'No hay registros para esta fecha.'}
           iconColor={colors.amber}
         />
       ) : (
@@ -147,30 +152,71 @@ export default function MetricsScreen() {
               <>
                 <View style={s.modalSummary}>
                   <View style={s.modalSummaryItem}>
-                    <Text style={s.modalSummaryValue}>{formatNumber((drilldown.data || []).reduce((s, r) => s + Number(r.quantity), 0))}</Text>
+                    <Text style={s.modalSummaryValue}>
+                      {drilldown.type === 'workers' || drilldown.type === 'blocks'
+                        ? formatNumber(drilldown.data.reduce((sum, r) => sum + (r.units || 0), 0))
+                        : formatNumber(drilldown.data.reduce((sum, r) => sum + Number(r.quantity || 0), 0))}
+                    </Text>
                     <Text style={s.modalSummaryLabel}>cajas</Text>
                   </View>
                   <View style={s.modalSummaryItem}>
-                    <Text style={s.modalSummaryValue}>{formatMoney((drilldown.data || []).reduce((s, r) => s + r.total, 0))}</Text>
+                    <Text style={s.modalSummaryValue}>
+                      {drilldown.type === 'workers' || drilldown.type === 'blocks'
+                        ? formatMoney(drilldown.data.reduce((sum, r) => sum + (r.amount || 0), 0))
+                        : formatMoney(drilldown.data.reduce((sum, r) => sum + (r.total || 0), 0))}
+                    </Text>
                     <Text style={s.modalSummaryLabel}>total</Text>
                   </View>
                 </View>
                 <FlatList
                   data={drilldown.data}
-                  keyExtractor={(item) => item.id}
+                  keyExtractor={(item, idx) => item.id || String(idx)}
                   style={{ maxHeight: 300 }}
-                  renderItem={({ item }) => (
-                    <View style={s.modalRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.modalRowBlock}>{item.block_name}</Text>
-                        <Text style={s.modalRowTime}>{new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</Text>
+                  renderItem={({ item }) => {
+                    if (drilldown.type === 'workers') {
+                      return (
+                        <View style={s.modalRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.modalRowBlock}>{item.name}</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={s.modalRowQty}>{item.units} cajas</Text>
+                            <Text style={s.modalRowTotal}>{formatMoney(item.amount)}</Text>
+                          </View>
+                        </View>
+                      );
+                    }
+                    if (drilldown.type === 'blocks') {
+                      return (
+                        <View style={s.modalRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.modalRowBlock}>{item.name}</Text>
+                            <Text style={s.modalRowTime}>{item.field} · {item.workerCount} trabajadores</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={s.modalRowQty}>{item.units} cajas</Text>
+                            <Text style={s.modalRowTotal}>{formatMoney(item.amount)}</Text>
+                          </View>
+                        </View>
+                      );
+                    }
+                    // production or worker type
+                    return (
+                      <View style={s.modalRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.modalRowBlock}>{item.worker_name || item.block_name}</Text>
+                          <Text style={s.modalRowTime}>
+                            {item.worker_name && item.block_name ? item.block_name + ' · ' : ''}
+                            {item.recorded_at ? new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={s.modalRowQty}>{item.quantity}</Text>
+                          <Text style={s.modalRowTotal}>{formatMoney(item.total)}</Text>
+                        </View>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={s.modalRowQty}>{item.quantity}</Text>
-                        <Text style={s.modalRowTotal}>{formatMoney(item.total)}</Text>
-                      </View>
-                    </View>
-                  )}
+                    );
+                  }}
                 />
               </>
             )}
@@ -179,6 +225,101 @@ export default function MetricsScreen() {
       </RNModal>
     </ScrollView>
   );
+
+  async function openProductionDrill() {
+    const { data: records } = await supabase
+      .from('picking_records')
+      .select('id, quantity, rate_amount_snapshot, recorded_at, worker_id, block_id')
+      .eq('work_day', selectedDate)
+      .is('original_record_id', null)
+      .order('recorded_at', { ascending: false });
+
+    const workerIds = [...new Set((records || []).map(r => r.worker_id))];
+    const blockIds = [...new Set((records || []).map(r => r.block_id))];
+
+    const [{ data: workers }, { data: blocks }] = await Promise.all([
+      supabase.from('workers').select('id, full_name').in('id', workerIds.length ? workerIds : ['x']),
+      supabase.from('blocks').select('id, name').in('id', blockIds.length ? blockIds : ['x']),
+    ]);
+
+    const workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
+    const blockMap = Object.fromEntries((blocks || []).map(b => [b.id, b.name]));
+
+    const enriched = (records || []).map(r => ({
+      ...r,
+      worker_name: workerMap[r.worker_id] || '—',
+      block_name: blockMap[r.block_id] || '—',
+      total: Number(r.quantity) * Number(r.rate_amount_snapshot),
+    }));
+
+    setDrilldown({ title: 'Producción del día', type: 'production', data: enriched });
+  }
+
+  async function openWorkersDrill() {
+    const { data: records } = await supabase
+      .from('picking_records')
+      .select('quantity, rate_amount_snapshot, worker_id')
+      .eq('work_day', selectedDate)
+      .is('original_record_id', null);
+
+    const byWorker: Record<string, { id: string; units: number; amount: number }> = {};
+    for (const r of records || []) {
+      if (!byWorker[r.worker_id]) byWorker[r.worker_id] = { id: r.worker_id, units: 0, amount: 0 };
+      byWorker[r.worker_id]!.units += Number(r.quantity);
+      byWorker[r.worker_id]!.amount += Number(r.quantity) * Number(r.rate_amount_snapshot);
+    }
+
+    const workerIds = Object.keys(byWorker);
+    let workerMap: Record<string, string> = {};
+    if (workerIds.length > 0) {
+      const { data: workers } = await supabase.from('workers').select('id, full_name').in('id', workerIds);
+      workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
+    }
+
+    const data = Object.values(byWorker)
+      .map(w => ({ id: w.id, name: workerMap[w.id] || '—', units: w.units, amount: Math.round(w.amount) }))
+      .sort((a, b) => b.units - a.units);
+
+    setDrilldown({ title: 'Trabajadores activos', type: 'workers', data });
+  }
+
+  async function openBlocksDrill() {
+    const { data: records } = await supabase
+      .from('picking_records')
+      .select('quantity, rate_amount_snapshot, block_id, worker_id')
+      .eq('work_day', selectedDate)
+      .is('original_record_id', null);
+
+    const byBlock: Record<string, { id: string; units: number; amount: number; workers: Set<string> }> = {};
+    for (const r of records || []) {
+      if (!byBlock[r.block_id]) byBlock[r.block_id] = { id: r.block_id, units: 0, amount: 0, workers: new Set() };
+      byBlock[r.block_id]!.units += Number(r.quantity);
+      byBlock[r.block_id]!.amount += Number(r.quantity) * Number(r.rate_amount_snapshot);
+      byBlock[r.block_id]!.workers.add(r.worker_id);
+    }
+
+    const blockIds = Object.keys(byBlock);
+    let blockMap: Record<string, string> = {};
+    let fieldMap: Record<string, string> = {};
+    if (blockIds.length > 0) {
+      const { data: blocks } = await supabase.from('blocks').select('id, name, field_id').in('id', blockIds);
+      blockMap = Object.fromEntries((blocks || []).map(b => [b.id, b.name]));
+      const fieldIds = [...new Set((blocks || []).map(b => b.field_id))];
+      if (fieldIds.length > 0) {
+        const { data: fields } = await supabase.from('fields').select('id, name').in('id', fieldIds);
+        const fMap = Object.fromEntries((fields || []).map(f => [f.id, f.name]));
+        for (const b of blocks || []) {
+          fieldMap[b.id] = fMap[b.field_id] || '—';
+        }
+      }
+    }
+
+    const data = Object.values(byBlock)
+      .map(b => ({ id: b.id, name: blockMap[b.id] || '—', field: fieldMap[b.id] || '—', units: b.units, amount: Math.round(b.amount), workerCount: b.workers.size }))
+      .sort((a, b) => b.units - a.units);
+
+    setDrilldown({ title: 'Paños en cosecha', type: 'blocks', data });
+  }
 
   async function openWorkerDrill(worker: { name: string; units: number }) {
     // Find worker id from ranking data
@@ -194,7 +335,7 @@ export default function MetricsScreen() {
       .from('picking_records')
       .select('id, quantity, rate_amount_snapshot, recorded_at, block_id')
       .eq('worker_id', workers.id)
-      .eq('work_day', today)
+      .eq('work_day', selectedDate)
       .is('original_record_id', null)
       .order('recorded_at', { ascending: false });
 
@@ -211,13 +352,13 @@ export default function MetricsScreen() {
       total: Number(r.quantity) * Number(r.rate_amount_snapshot),
     }));
 
-    setDrilldown({ title: worker.name, data: enriched });
+    setDrilldown({ title: worker.name, type: 'worker', data: enriched });
   }
 }
 
-function KpiMini({ icon, value, label, bg, iconColor, numericValue }: { icon: string; value: string; label: string; bg: string; iconColor: string; numericValue?: number }) {
+function KpiMini({ icon, value, label, bg, iconColor, numericValue, onPress }: { icon: string; value: string; label: string; bg: string; iconColor: string; numericValue?: number; onPress?: () => void }) {
   return (
-    <View style={s.kpiCard}>
+    <TouchableOpacity style={s.kpiCard} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
       <LinearGradient
         colors={[bg, `${bg}88`, 'rgba(255,255,255,0.9)']}
         start={{ x: 0, y: 0 }}
@@ -238,7 +379,7 @@ function KpiMini({ icon, value, label, bg, iconColor, numericValue }: { icon: st
         )}
         <Text style={s.kpiLabel}>{label}</Text>
       </LinearGradient>
-    </View>
+    </TouchableOpacity>
   );
 }
 

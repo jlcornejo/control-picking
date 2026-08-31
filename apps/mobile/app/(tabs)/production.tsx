@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -17,6 +17,7 @@ export default function ProductionScreen() {
   const { worker } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const selectedDate = localDate(dayOffset);
   const isToday = dayOffset === 0;
   const isAdmin = worker?.role === 'admin' || worker?.role === 'supervisor';
@@ -27,7 +28,7 @@ export default function ProductionScreen() {
     queryFn: async () => {
       let query = supabase
         .from('picking_records')
-        .select('id, quantity, rate_amount_snapshot, recorded_at, block_id, worker_id')
+        .select('id, quantity, rate_amount_snapshot, recorded_at, work_day, block_id, worker_id')
         .eq('work_day', selectedDate)
         .is('original_record_id', null)
         .order('recorded_at', { ascending: false });
@@ -39,12 +40,20 @@ export default function ProductionScreen() {
       const { data: records, error } = await query;
       if (error) throw error;
 
-      // Get block names + product info
+      // Get block names + product info + field info
       const blockIds = [...new Set((records || []).map(r => r.block_id))];
-      let blockMap: Record<string, { name: string; unit: string }> = {};
+      let blockMap: Record<string, { name: string; unit: string; product: string; field: string }> = {};
       if (blockIds.length > 0) {
-        const { data: blocks } = await supabase.from('blocks').select('id, name, products(unit_measure)').in('id', blockIds);
-        blockMap = Object.fromEntries((blocks || []).map((b: any) => [b.id, { name: b.name, unit: b.products?.unit_measure || 'box' }]));
+        const { data: blocks } = await supabase
+          .from('blocks')
+          .select('id, name, field_id, fields(name), products(name, unit_measure)')
+          .in('id', blockIds);
+        blockMap = Object.fromEntries((blocks || []).map((b: any) => [b.id, {
+          name: b.name,
+          unit: b.products?.unit_measure || 'box',
+          product: b.products?.name || '—',
+          field: b.fields?.name || '—',
+        }]));
       }
 
       // Get worker names (admin/supervisor)
@@ -59,6 +68,8 @@ export default function ProductionScreen() {
         ...r,
         block_name: blockMap[r.block_id]?.name || '—',
         unit: blockMap[r.block_id]?.unit || 'box',
+        product: blockMap[r.block_id]?.product || '—',
+        field_name: blockMap[r.block_id]?.field || '—',
         worker_name: workerMap[r.worker_id] || '',
       }));
 
@@ -139,6 +150,7 @@ export default function ProductionScreen() {
           </View>
         }
         renderItem={({ item, index }: { item: any; index: number }) => (
+          <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedRecord(item)}>
           <AnimatedCard index={index} style={s.card}>
             <View style={{ flex: 1 }}>
               {item.worker_name ? <Text style={s.cardWorker}>{item.worker_name}</Text> : null}
@@ -151,6 +163,7 @@ export default function ProductionScreen() {
               <Text style={s.cardEarn}>{formatMoney(Number(item.quantity) * Number(item.rate_amount_snapshot))}</Text>
             </View>
           </AnimatedCard>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           isLoading ? (
@@ -165,6 +178,54 @@ export default function ProductionScreen() {
           )
         }
       />
+
+      {/* Record Detail Modal */}
+      <RNModal visible={!!selectedRecord} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSelectedRecord(null)} />
+          <View style={s.modalContent}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Detalle del registro</Text>
+              <TouchableOpacity onPress={() => setSelectedRecord(null)}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {selectedRecord && (
+              <View style={s.detailBody}>
+                {/* Amount highlight */}
+                <View style={s.detailHighlight}>
+                  <Text style={s.detailHighlightQty}>{Number(selectedRecord.quantity)}</Text>
+                  <Text style={s.detailHighlightUnit}>{selectedRecord.unit === 'kg' ? 'kilos' : 'cajas'}</Text>
+                  <Text style={s.detailHighlightAmount}>{formatMoney(Number(selectedRecord.quantity) * Number(selectedRecord.rate_amount_snapshot))}</Text>
+                </View>
+
+                {/* Detail rows */}
+                <View style={s.detailRows}>
+                  <DetailRow icon="leaf-outline" label="Producto" value={selectedRecord.product} />
+                  <DetailRow icon="grid-outline" label="Paño" value={selectedRecord.block_name} />
+                  <DetailRow icon="map-outline" label="Campo" value={selectedRecord.field_name} />
+                  <DetailRow icon="cash-outline" label="Tarifa" value={`${formatMoney(Number(selectedRecord.rate_amount_snapshot))} / ${selectedRecord.unit === 'kg' ? 'kg' : 'caja'}`} />
+                  <DetailRow icon="time-outline" label="Hora" value={new Date(selectedRecord.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} />
+                  <DetailRow icon="calendar-outline" label="Fecha" value={selectedRecord.work_day} />
+                  {selectedRecord.worker_name ? <DetailRow icon="person-outline" label="Trabajador" value={selectedRecord.worker_name} /> : null}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </RNModal>
+    </View>
+  );
+}
+
+function DetailRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <View style={s.detailRow}>
+      <View style={s.detailRowLeft}>
+        <Ionicons name={icon as any} size={16} color={colors.textMuted} />
+        <Text style={s.detailRowLabel}>{label}</Text>
+      </View>
+      <Text style={s.detailRowValue}>{value}</Text>
     </View>
   );
 }
@@ -197,4 +258,19 @@ const s = StyleSheet.create({
   cardEarn: { fontSize: 12, fontWeight: font.semibold, color: colors.primaryDark, marginTop: 4 },
   empty: { alignItems: 'center', paddingTop: 48 },
   emptyText: { fontSize: 14, color: colors.textMuted },
+  // Modal styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: colors.card, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xl, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  modalTitle: { fontSize: 17, fontWeight: font.bold, color: colors.text },
+  detailBody: { gap: spacing.lg },
+  detailHighlight: { alignItems: 'center', backgroundColor: colors.primaryBg, borderRadius: radius.xl, paddingVertical: spacing.xl },
+  detailHighlightQty: { fontSize: 48, fontWeight: font.extrabold, color: colors.primary },
+  detailHighlightUnit: { fontSize: 14, color: colors.textSecondary, marginTop: -4 },
+  detailHighlightAmount: { fontSize: 18, fontWeight: font.bold, color: colors.primaryDark, marginTop: spacing.sm },
+  detailRows: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
+  detailRowLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  detailRowLabel: { fontSize: 13, color: colors.textSecondary },
+  detailRowValue: { fontSize: 13, fontWeight: font.semibold, color: colors.text, maxWidth: '50%', textAlign: 'right' },
 });
