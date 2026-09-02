@@ -1,6 +1,7 @@
 import { handleCors } from '../_shared/cors.ts';
 import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
+import { getOrgWorkday } from '../_shared/workday.ts';
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -113,7 +114,7 @@ async function handlePatchStatus(req: Request, supabase: any, blockId: string) {
   }
 
   if (body.status === 'inactive') {
-    const today = new Date().toISOString().split('T')[0];
+    const today = await getOrgWorkday(supabase, orgId);
     const { count } = await supabase
       .from('picking_records')
       .select('*', { count: 'exact', head: true })

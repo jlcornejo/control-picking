@@ -1,6 +1,7 @@
 import { handleCors } from '../_shared/cors.ts';
 import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
+import { getOrgWorkday } from '../_shared/workday.ts';
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -110,12 +111,13 @@ async function handlePatchStatus(req: Request, supabase: any, fieldId: string) {
     return error('VALIDATION_ERROR', 'Estado debe ser "active" o "inactive"', 422);
   }
 
-  // If deactivating, check for active picking records today
+  // If deactivating, check for active picking records today (tz del tenant)
   if (body.status === 'inactive') {
+    const today = await getOrgWorkday(supabase, orgId);
     const { count } = await supabase
       .from('picking_records')
       .select('*', { count: 'exact', head: true })
-      .eq('work_day', new Date().toISOString().split('T')[0])
+      .eq('work_day', today)
       .in('block_id', 
         (await supabase.from('blocks').select('id').eq('field_id', fieldId)).data?.map((b: any) => b.id) || []
       );

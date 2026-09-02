@@ -1,6 +1,7 @@
 import { handleCors } from '../_shared/cors.ts';
 import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
+import { getOrgWorkday } from '../_shared/workday.ts';
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -16,7 +17,7 @@ Deno.serve(async (req) => {
   // GET /picking-records/my or /picking-records/my/today
   if (req.method === 'GET' && subResource === 'my') {
     const todayOnly = pathParts[2] === 'today';
-    return await handleGetMy(supabase, url, todayOnly);
+    return await handleGetMy(req, supabase, url, todayOnly);
   }
 
   // POST /picking-records/scan
@@ -65,8 +66,11 @@ async function handleGetList(supabase: any, url: URL) {
 }
 
 /** GET /picking-records/my[/today] — worker's own records */
-async function handleGetMy(supabase: any, url: URL, todayOnly: boolean) {
-  const today = new Date().toISOString().split('T')[0];
+async function handleGetMy(req: Request, supabase: any, url: URL, todayOnly: boolean) {
+  // work_day "hoy" en la zona horaria del tenant (no UTC)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+  const today = await getOrgWorkday(supabase, orgId);
 
   let query = supabase.from('picking_records')
     .select('id, block_id, quantity, rate_amount_snapshot, recorded_at, work_day, blocks(name)');
@@ -157,8 +161,12 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
 
   if (origError) return error('NOT_FOUND', 'Registro no encontrado', 404);
 
-  // Check same work_day
-  const today = new Date().toISOString().split('T')[0];
+  // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
+  // Check same work_day (en la zona horaria del tenant, no UTC)
+  const today = await getOrgWorkday(supabase, orgId);
   if (original.work_day !== today) {
     return error('CORRECTION_OUTSIDE_WORKDAY', 'Solo se puede corregir registros del día actual', 409);
   }
@@ -171,10 +179,6 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
   // Decode JWT for recorded_by
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const payload = JSON.parse(atob(token.split('.')[1]!));
-
-  // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
-  const orgId = getOrgId(req);
-  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
   // Modelo de corrección (soft-update, regla de dominio 11):
   //   1) Se conserva un SNAPSHOT de auditoría con los valores VIEJOS, apuntando
@@ -258,8 +262,8 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
   const orgId = getOrgId(req);
   if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
-  const today = new Date().toISOString().split('T')[0];
-
+  // work_day NO se calcula aquí en UTC: lo fija el trigger set_picking_work_day
+  // en la zona horaria de la organización (autoridad del servidor/DB).
   const { data, error: dbError } = await supabase
     .from('picking_records')
     .insert({
@@ -268,7 +272,6 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
       block_id: blockId,
       quantity,
       rate_amount_snapshot: rate.amount,
-      work_day: today,
       recorded_by: payload.worker_id,
     })
     .select()

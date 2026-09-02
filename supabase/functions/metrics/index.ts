@@ -1,6 +1,7 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole } from '../_shared/auth.ts';
+import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
+import { getOrgWorkday } from '../_shared/workday.ts';
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -19,7 +20,7 @@ Deno.serve(async (req) => {
 
   switch (`${metricType}/${subType || ''}`) {
     case 'summary/':
-      return await handleSummary(supabase, url);
+      return await handleSummary(req, supabase, url);
     case 'production/daily':
       return await handleProductionDaily(supabase, url);
     case 'production/by-block':
@@ -35,8 +36,11 @@ Deno.serve(async (req) => {
   }
 });
 
-async function handleSummary(supabase: any, url: URL) {
-  const today = new Date().toISOString().split('T')[0];
+async function handleSummary(req: Request, supabase: any, url: URL) {
+  // "Hoy" en la zona horaria del tenant (no UTC)
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+  const today = await getOrgWorkday(supabase, orgId);
 
   // Today's production
   const { data: todayRecords } = await supabase

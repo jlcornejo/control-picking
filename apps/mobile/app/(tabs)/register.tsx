@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
 import { QRScanner } from '../../src/components/QRScanner';
-import { localDate } from '../../src/utils/date';
+import { tenantWorkday } from '../../src/utils/date';
 import { formatMoney } from '../../src/utils/format';
 import * as Haptics from 'expo-haptics';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
@@ -88,12 +88,16 @@ export default function RegisterScreen() {
       }
       if (!rateAmount || rateAmount <= 0) throw new Error('Sin tarifa vigente para este producto');
 
+      // work_day en la zona del tenant (autoridad del servidor vía RPC).
+      // Se fija explícitamente para que el flujo offline conserve la fecha
+      // correcta aunque se sincronice más tarde; online, el trigger de respaldo
+      // igual lo resolvería en la zona del tenant.
       const record = {
         worker_id: selectedWorker.id,
         block_id: selectedBlock.id,
         quantity: qty,
         rate_amount_snapshot: rateAmount,
-        work_day: localDate(0),
+        work_day: await tenantWorkday(0),
         recorded_by: currentWorker?.id ?? null,
       };
 

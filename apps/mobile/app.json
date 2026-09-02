@@ -6,15 +6,17 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "fundo360",
-    "splash": {
-      "backgroundColor": "#1b5e20",
-      "resizeMode": "contain"
-    },
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#1b5e20",
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1b5e20"
       },
-      "package": "com.fundo360.app"
+      "package": "com.fundo360.app",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "ios": {
       "supportsTablet": true,
@@ -28,12 +30,27 @@
     "plugins": [
       "expo-router",
       [
-        "expo-camera",
+        "expo-splash-screen",
         {
-          "cameraPermission": "Permitir acceso a la cámara para escanear badges QR"
+          "backgroundColor": "#1b5e20",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
         }
       ],
-      "expo-splash-screen"
-    ]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir acceso a la cámara para escanear badges QR",
+          "recordAudioAndroidPermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0a909e0d-5555-4590-a113-ac838c92040f"
+      }
+    },
+    "owner": "joscorne"
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { primeTenantWorkday, clearTenantWorkdayCache } from '../utils/date';
 import type { Session } from '@supabase/supabase-js';
 
 interface WorkerInfo {
@@ -31,6 +32,9 @@ export function useAuth() {
   }, []);
 
   async function fetchWorker(userId: string) {
+    // Precargar el work_day del tenant (zona horaria de la organización) desde el
+    // servidor, para que los filtros de "hoy" no dependan de la zona del dispositivo.
+    await primeTenantWorkday();
     const { data } = await supabase
       .from('workers')
       .select('id, full_name, role, status')
@@ -47,6 +51,7 @@ export function useAuth() {
 
   async function signOut() {
     await supabase.auth.signOut();
+    clearTenantWorkdayCache();
     setSession(null);
     setWorker(null);
   }

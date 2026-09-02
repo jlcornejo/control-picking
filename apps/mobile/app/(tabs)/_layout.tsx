@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { colors, font, radius } from '../../src/constants/theme';
 import { useQuery } from '@tanstack/react-query';
@@ -8,6 +9,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function TabsLayout() {
   const { worker } = useAuth();
+  const insets = useSafeAreaInsets();
+  // Alto base del contenido del tab bar + el inset inferior del sistema
+  // (barra de gestos/botones en Android, home indicator en iOS).
+  const BAR_CONTENT_HEIGHT = 62;
+  const bottomInset = insets.bottom;
   // Operadores de terreno (registran producción y ven dashboard): admin, supervisor y encargado.
   const isAdmin = worker?.role === 'admin' || worker?.role === 'supervisor' || worker?.role === 'crew_lead';
 
@@ -37,23 +43,21 @@ export default function TabsLayout() {
         headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: font.bold, fontSize: 17 },
         tabBarStyle: {
-          position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 24 : 14,
-          left: 20,
-          right: 20,
-          height: 68,
+          height: BAR_CONTENT_HEIGHT + bottomInset,
           backgroundColor: colors.card,
-          borderRadius: 22,
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
           borderTopWidth: 0,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.08,
           shadowRadius: 12,
           elevation: 10,
-          paddingBottom: 0,
-          paddingTop: 0,
+          // Respeta la barra del sistema para que los labels no se corten.
+          paddingBottom: bottomInset > 0 ? bottomInset : 10,
+          paddingTop: 8,
         },
-        tabBarItemStyle: { paddingTop: 10, paddingBottom: 8 },
+        tabBarItemStyle: { paddingTop: 4, paddingBottom: 2 },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: font.semibold },
@@ -162,7 +166,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -20,
+    marginTop: -14,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
