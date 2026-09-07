@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Box, Scale, MapPin, Ruler } from 'lucide-react';
+import { Box, Scale, MapPin, Ruler, Rows3 } from 'lucide-react';
 
 export default function FieldDetailPage() {
   const params = useParams();
@@ -25,6 +25,7 @@ export default function FieldDetailPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editBlock, setEditBlock] = useState<any | null>(null);
   const [toggleBlock, setToggleBlock] = useState<any | null>(null);
+  const [rowsBlock, setRowsBlock] = useState<any | null>(null);
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -68,6 +69,26 @@ export default function FieldDetailPage() {
     },
   });
 
+  // Default de uso de melgas de la organización (para resolver el efectivo del campo).
+  const { data: org } = useQuery({
+    queryKey: ['org-rows-enabled'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('rows_enabled')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Modo Melga efectivo del campo: override del campo, o default de la organización.
+  const rowsEnabledEffective =
+    field?.rows_enabled === null || field?.rows_enabled === undefined
+      ? (org?.rows_enabled ?? false)
+      : field.rows_enabled;
+
   const toggleStatusMutation = useMutation({
     mutationFn: async (block: any) => {
       const newStatus = block.status === 'active' ? 'inactive' : 'active';
@@ -84,7 +105,13 @@ export default function FieldDetailPage() {
 
   const columns = [
     { key: 'name', label: 'Paño', render: (row: any) => (
-      <span className="font-medium text-foreground">{row.name}</span>
+      rowsEnabledEffective ? (
+        <Link href={`/fields/${fieldId}/blocks/${row.id}`} className="font-medium text-primary hover:underline">
+          {row.name}
+        </Link>
+      ) : (
+        <span className="font-medium text-foreground">{row.name}</span>
+      )
     )},
     { key: 'products', label: 'Producto', render: (row: any) => (
       <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
@@ -172,6 +199,11 @@ export default function FieldDetailPage() {
         searchKeys={['name']}
         actions={(row: any) => (
           <>
+            {rowsEnabledEffective && (
+              <button onClick={() => setRowsBlock(row)} className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Melgas">
+                <Rows3 size={15} />
+              </button>
+            )}
             <button onClick={() => setEditBlock(row)} className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Editar">
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
             </button>
@@ -214,7 +246,174 @@ export default function FieldDetailPage() {
         variant={toggleBlock?.status === 'active' ? 'danger' : 'default'}
         loading={toggleStatusMutation.isPending}
       />
+
+      {/* Rows (melgas) manager modal */}
+      <Modal open={!!rowsBlock} onClose={() => setRowsBlock(null)} title={rowsBlock ? `Melgas · ${rowsBlock.name}` : 'Melgas'}>
+        {rowsBlock && <RowsManager block={rowsBlock} />}
+      </Modal>
     </div>
+  );
+}
+
+/** CRUD de melgas (field_rows) de un paño puntual. */
+function RowsManager({ block }: { block: { id: string; name: string } }) {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [editRow, setEditRow] = useState<any | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ['field-rows', block.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('field_rows')
+        .select('*')
+        .eq('block_id', block.id)
+        .order('row_number', { ascending: true, nullsFirst: false })
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const toggleStatus = useMutation({
+    mutationFn: async (row: any) => {
+      const newStatus = row.status === 'active' ? 'inactive' : 'active';
+      const { error } = await supabase.from('field_rows').update({ status: newStatus }).eq('id', row.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['field-rows', block.id] });
+      toast('Estado de la melga actualizado', 'success');
+    },
+    onError: () => toast('Error al actualizar estado', 'error'),
+  });
+
+  return (
+    <div className="space-y-4">
+      {(creating || editRow) ? (
+        <RowForm
+          blockId={block.id}
+          initial={editRow}
+          onCancel={() => { setCreating(false); setEditRow(null); }}
+          onSuccess={() => {
+            setCreating(false); setEditRow(null);
+            queryClient.invalidateQueries({ queryKey: ['field-rows', block.id] });
+            toast(editRow ? 'Melga actualizada' : 'Melga creada', 'success');
+          }}
+        />
+      ) : (
+        <>
+          <div className="flex justify-end">
+            <button onClick={() => setCreating(true)} className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-all">
+              + Nueva Melga
+            </button>
+          </div>
+
+          {isLoading ? (
+            <div className="h-24 bg-muted animate-pulse rounded-xl" />
+          ) : (rows || []).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No hay melgas en este paño.</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {(rows || []).map((r: any) => (
+                <li key={r.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    {r.row_number != null && (
+                      <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-medium text-primary tabular-nums">
+                        {r.row_number}
+                      </span>
+                    )}
+                    <span className="text-sm font-medium text-foreground">{r.name}</span>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setEditRow(r)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Editar">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                    <button onClick={() => toggleStatus.mutate(r)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors" title={r.status === 'active' ? 'Desactivar' : 'Activar'}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Form de creación/edición de una melga (field_row). */
+function RowForm({ blockId, initial, onSuccess, onCancel }: {
+  blockId: string;
+  initial?: any;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+  const { toast } = useToast();
+
+  const rowSchema = z.object({
+    name: z.string().min(1, 'Nombre es requerido').max(100, 'Máximo 100 caracteres'),
+    row_number: z.union([z.coerce.number().int().positive('Debe ser mayor a 0'), z.literal('')]).optional(),
+  });
+
+  const { errors, validate, clearField } = useFormValidation({ schema: rowSchema });
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const raw = {
+      name: form.get('name') as string,
+      row_number: form.get('row_number') as string,
+    };
+
+    const result = validate(raw);
+    if (!result.success) return;
+
+    const rowNumber = result.data.row_number === '' || result.data.row_number === undefined
+      ? null
+      : Number(result.data.row_number);
+
+    setLoading(true);
+    if (initial) {
+      const { error } = await supabase.from('field_rows').update({ name: result.data.name, row_number: rowNumber }).eq('id', initial.id);
+      if (error) { toast('Error al actualizar', 'error'); setLoading(false); return; }
+    } else {
+      // organization_id lo completa el trigger set_organization_id desde el JWT.
+      const { error } = await supabase.from('field_rows').insert({ name: result.data.name, row_number: rowNumber, block_id: blockId });
+      if (error) { toast('Error al crear', 'error'); setLoading(false); return; }
+    }
+    setLoading(false);
+    onSuccess();
+  }
+
+  const inputClass = (fieldName: string) =>
+    `block w-full rounded-xl border px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 transition-all ${
+      errors[fieldName] ? 'border-red-300 bg-red-50/30 focus:ring-red-200 focus:border-red-400' : 'border-border bg-muted/30 focus:ring-primary/30 focus:border-primary/50'
+    }`;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <FormField label="Nombre de la melga" required error={errors.name}>
+        <input name="name" defaultValue={initial?.name || ''} placeholder="Ej: Melga 1, Hilera 12-A" onChange={() => clearField('name')} className={`${inputClass('name')} placeholder:text-muted-foreground/60`} />
+      </FormField>
+      <FormField label="Número de melga (opcional)" error={errors.row_number}>
+        <input name="row_number" type="number" min="1" step="1" defaultValue={initial?.row_number ?? ''} onChange={() => clearField('row_number')} className={inputClass('row_number')} placeholder="Ej: 1" />
+      </FormField>
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-all">
+          Cancelar
+        </button>
+        <button type="submit" disabled={loading} className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-all">
+          {loading ? 'Guardando...' : initial ? 'Guardar Cambios' : 'Crear Melga'}
+        </button>
+      </div>
+    </form>
   );
 }
 

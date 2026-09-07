@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/hooks/useAuth';
-import { colors, radius, spacing, font } from '../src/constants/theme';
+import { colors, radius, font } from '../src/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { signIn } = useAuth();
   const router = useRouter();
 
@@ -35,12 +36,20 @@ export default function LoginScreen() {
   }, []);
 
   async function handleLogin() {
-    if (!email.trim() || !password) { Alert.alert('Error', 'Ingrese email y contraseña'); return; }
+    setErrorMsg(null);
+    if (!email.trim() || !password) { setErrorMsg('Ingrese email y contraseña'); return; }
     setLoading(true);
     try {
       await signIn(email.trim(), password);
       router.replace('/(tabs)/production');
-    } catch { Alert.alert('Error', 'Credenciales inválidas'); }
+    } catch (e: any) {
+      // Mostrar el error en pantalla (Alert no es fiable en web) y loguear el detalle real.
+      console.warn('[login] signIn error:', e?.message || e);
+      const msg = typeof e?.message === 'string' && e.message.toLowerCase().includes('invalid')
+        ? 'Credenciales inválidas'
+        : (e?.message || 'No se pudo iniciar sesión. Revise su conexión.');
+      setErrorMsg(msg);
+    }
     finally { setLoading(false); }
   }
 
@@ -103,6 +112,12 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            {errorMsg ? (
+              <View style={s.errorBox}>
+                <Text style={s.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
+
             <TouchableOpacity style={[s.btn, loading && { opacity: 0.6 }]} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
               <Text style={s.btnText}>{loading ? 'Ingresando...' : 'Ingresar'}</Text>
             </TouchableOpacity>
@@ -135,6 +150,8 @@ const s = StyleSheet.create({
   passwordInput: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: colors.text },
   eyeBtn: { paddingHorizontal: 14 },
   eyeText: { fontSize: 18 },
+  errorBox: { backgroundColor: colors.redBg, borderWidth: 1, borderColor: '#fecaca', borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 },
+  errorText: { color: colors.red, fontSize: 13, fontWeight: font.medium, textAlign: 'center' },
   btn: { backgroundColor: colors.primary, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: 8, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   btnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
   version: { textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 28 },

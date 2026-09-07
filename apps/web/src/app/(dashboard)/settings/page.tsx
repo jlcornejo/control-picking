@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { PageTransition } from '@/components/ui/animations';
 import { notifyBrandingUpdated } from '@/hooks/useBranding';
 import { useState, useEffect } from 'react';
-import { Palette, Users, Tag } from 'lucide-react';
+import { Palette, Users, Tag, Rows3 } from 'lucide-react';
 
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
@@ -43,7 +43,7 @@ export default function SettingsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('organizations')
-        .select('id, name, logo_url, brand_primary_color, brand_secondary_color, crew_mode_enabled, role_labels')
+        .select('id, name, logo_url, brand_primary_color, brand_secondary_color, crew_mode_enabled, rows_enabled, role_labels')
         .limit(1)
         .maybeSingle();
       if (error) throw error;
@@ -82,6 +82,7 @@ export default function SettingsPage() {
       <div className="space-y-6 max-w-2xl">
         <BrandingCard org={org} onSave={(u) => save.mutate(u)} saving={save.isPending} />
         <CrewModeCard org={org} onSave={(u) => save.mutate(u)} saving={save.isPending} />
+        <RowsModeCard org={org} onSave={(u) => save.mutate(u)} saving={save.isPending} />
         <RoleLabelsCard org={org} onSave={(u) => save.mutate(u)} saving={save.isPending} />
       </div>
     </PageTransition>
@@ -204,6 +205,40 @@ function CrewModeCard({ org, onSave, saving }: { org: any; onSave: (u: Record<st
               const val = e.target.checked;
               setEnabled(val);
               onSave({ crew_mode_enabled: val });
+            }}
+            disabled={saving}
+            className="peer sr-only"
+          />
+          <div className="h-6 w-11 rounded-full bg-gray-300 peer-checked:bg-primary transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></div>
+        </label>
+      </div>
+    </Card>
+  );
+}
+
+function RowsModeCard({ org, onSave, saving }: { org: any; onSave: (u: Record<string, unknown>) => void; saving: boolean }) {
+  const [enabled, setEnabled] = useState<boolean>(!!org?.rows_enabled);
+
+  useEffect(() => { setEnabled(!!org?.rows_enabled); }, [org?.rows_enabled]);
+
+  return (
+    <Card icon={<Rows3 size={18} />} title="Melgas" description="Habilita el registro de cosecha a nivel de melga (hilera)">
+      <div className="flex items-center justify-between rounded-xl bg-muted/30 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">Usar melgas dentro de los paños</p>
+          <p className="text-xs text-muted-foreground">
+            Cuando está activo, cada paño puede subdividirse en melgas (hileras) y la cosecha se registra
+            por melga. Puedes sobreescribir esto por campo en la sección Campos.
+          </p>
+        </div>
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => {
+              const val = e.target.checked;
+              setEnabled(val);
+              onSave({ rows_enabled: val });
             }}
             disabled={saving}
             className="peer sr-only"

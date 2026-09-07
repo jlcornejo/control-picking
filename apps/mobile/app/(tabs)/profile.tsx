@@ -178,6 +178,15 @@ export default function ProfileScreen() {
         <InfoRow label="Desde" value={detail?.created_at ? new Date(detail.created_at).toLocaleDateString('es-CL') : '—'} last />
       </View>
 
+      {/* Administración - solo admin */}
+      {worker?.role === 'admin' && (
+        <TouchableOpacity style={s.adminBtn} onPress={() => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {} router.push('/admin'); }} activeOpacity={0.8}>
+          <Ionicons name="settings-outline" size={22} color={colors.textWhite} />
+          <Text style={s.adminBtnText}>Administración</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textWhite} style={{ marginLeft: 'auto' }} />
+        </TouchableOpacity>
+      )}
+
       {/* QR Badge Button - only for workers */}
       {worker?.role === 'worker' && detail?.qr_badge_url && (
         <TouchableOpacity style={s.qrBtn} onPress={() => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {} setShowQR(true); }} activeOpacity={0.8}>
@@ -255,6 +264,8 @@ const s = StyleSheet.create({
   logoutBtn: { marginTop: spacing.xxl, backgroundColor: colors.redBg, borderWidth: 1, borderColor: '#fecaca', borderRadius: radius.lg, paddingVertical: 15, alignItems: 'center' },
   logoutText: { fontSize: 15, fontWeight: font.semibold, color: colors.red },
   version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: spacing.lg },
+  adminBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primary, borderRadius: radius.lg, paddingVertical: 16, paddingHorizontal: spacing.lg },
+  adminBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.textWhite },
   qrBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primaryMuted, borderRadius: radius.lg, paddingVertical: 16 },
   qrBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary },
   qrOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl },

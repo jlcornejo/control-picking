@@ -40,16 +40,18 @@ Deno.serve(async (req) => {
 /** GET /picking-records — list with filters (admin/supervisor) */
 async function handleGetList(supabase: any, url: URL) {
   let query = supabase.from('picking_records')
-    .select('*, workers!picking_records_worker_id_fkey(full_name), blocks(name, products(name))', { count: 'exact' });
+    .select('*, workers!picking_records_worker_id_fkey(full_name), blocks(name, products(name)), field_rows(name, row_number)', { count: 'exact' });
 
   const workerId = url.searchParams.get('worker_id');
   const blockId = url.searchParams.get('block_id');
+  const rowId = url.searchParams.get('row_id');
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
   const workDay = url.searchParams.get('work_day');
 
   if (workerId) query = query.eq('worker_id', workerId);
   if (blockId) query = query.eq('block_id', blockId);
+  if (rowId) query = query.eq('row_id', rowId);
   if (workDay) query = query.eq('work_day', workDay);
   if (dateFrom) query = query.gte('work_day', dateFrom);
   if (dateTo) query = query.lte('work_day', dateTo);
@@ -73,7 +75,7 @@ async function handleGetMy(req: Request, supabase: any, url: URL, todayOnly: boo
   const today = await getOrgWorkday(supabase, orgId);
 
   let query = supabase.from('picking_records')
-    .select('id, block_id, quantity, rate_amount_snapshot, recorded_at, work_day, blocks(name)');
+    .select('id, block_id, row_id, quantity, rate_amount_snapshot, recorded_at, work_day, blocks(name), field_rows(name, row_number)');
 
   if (todayOnly) {
     query = query.eq('work_day', today);
@@ -103,6 +105,7 @@ async function handleGetMy(req: Request, supabase: any, url: URL, todayOnly: boo
     records: (data || []).map((r: any) => ({
       id: r.id,
       block_name: r.blocks?.name || '',
+      row_name: r.field_rows?.name || null,
       quantity: Number(r.quantity),
       rate: Number(r.rate_amount_snapshot),
       subtotal: Math.round(Number(r.quantity) * Number(r.rate_amount_snapshot) * 100) / 100,
@@ -117,7 +120,7 @@ async function handlePost(req: Request, supabase: any) {
   if (roleError) return roleError;
 
   const body = await req.json();
-  return await createPickingRecord(supabase, req, body.worker_id, body.block_id, body.quantity);
+  return await createPickingRecord(supabase, req, body.worker_id, body.block_id, body.quantity, body.row_id ?? null);
 }
 
 /** POST /picking-records/scan — create via QR scan */
@@ -138,7 +141,7 @@ async function handleScan(req: Request, supabase: any) {
   if (workerError || !worker) return error('NOT_FOUND', 'Badge QR no reconocido', 404);
   if (worker.status !== 'active') return error('WORKER_NOT_ACTIVE', 'Trabajador no está activo', 409);
 
-  return await createPickingRecord(supabase, req, worker.id, body.block_id, body.quantity);
+  return await createPickingRecord(supabase, req, worker.id, body.block_id, body.quantity, body.row_id ?? null);
 }
 
 /** PUT /picking-records/:id — correct record (same work_day only) */
@@ -195,6 +198,7 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
       organization_id: orgId,
       worker_id: original.worker_id,
       block_id: original.block_id,
+      row_id: original.row_id,
       quantity: original.quantity,
       rate_amount_snapshot: original.rate_amount_snapshot,
       work_day: original.work_day,
@@ -215,7 +219,14 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
 }
 
 /** Shared logic: create a picking record with validations */
-async function createPickingRecord(supabase: any, req: Request, workerId: string, blockId: string, quantity: number) {
+async function createPickingRecord(
+  supabase: any,
+  req: Request,
+  workerId: string,
+  blockId: string,
+  quantity: number,
+  rowId: string | null = null,
+) {
   if (!workerId) return error('VALIDATION_ERROR', 'worker_id es requerido', 422);
   if (!blockId) return error('VALIDATION_ERROR', 'block_id es requerido', 422);
   if (!quantity || quantity <= 0) return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad debe ser mayor a 0', 422);
@@ -237,6 +248,18 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
     .single();
   if (bErr || !block) return error('NOT_FOUND', 'Paño no encontrado', 404);
   if (block.status !== 'active') return error('BLOCK_NOT_ACTIVE', 'Paño no está activo', 409);
+
+  // Melga (opcional): si viene, debe existir, estar activa y pertenecer a ESTE block.
+  if (rowId) {
+    const { data: row, error: rowErr } = await supabase
+      .from('field_rows')
+      .select('id, status, block_id')
+      .eq('id', rowId)
+      .single();
+    if (rowErr || !row) return error('NOT_FOUND', 'Melga no encontrada', 404);
+    if (row.status !== 'active') return error('ROW_NOT_ACTIVE', 'Melga no está activa', 409);
+    if (row.block_id !== blockId) return error('ROW_BLOCK_MISMATCH', 'La melga no pertenece a este paño', 409);
+  }
 
   // Modo Capataz efectivo del campo: override del campo, o default de la organización.
   // Nota (Req. 8.5): el registro de producción NO cambia según crew_mode; este valor
@@ -270,6 +293,7 @@ async function createPickingRecord(supabase: any, req: Request, workerId: string
       organization_id: orgId,
       worker_id: workerId,
       block_id: blockId,
+      row_id: rowId,
       quantity,
       rate_amount_snapshot: rate.amount,
       recorded_by: payload.worker_id,

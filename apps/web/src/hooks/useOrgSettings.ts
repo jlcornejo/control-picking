@@ -8,6 +8,7 @@ type RoleLabels = Partial<Record<'admin' | 'supervisor' | 'crew_lead' | 'worker'
 /** Configuración operativa de la organización del usuario actual. */
 export interface OrgSettings {
   crew_mode_enabled: boolean;
+  rows_enabled: boolean;
   role_labels: RoleLabels;
 }
 
@@ -20,6 +21,7 @@ const DEFAULT_ROLE_LABELS: Record<'admin' | 'supervisor' | 'crew_lead' | 'worker
 
 const DEFAULT_SETTINGS: OrgSettings = {
   crew_mode_enabled: false,
+  rows_enabled: false,
   role_labels: {},
 };
 
@@ -39,7 +41,7 @@ export function useOrgSettings() {
     async function load() {
       const { data, error } = await supabase
         .from('organizations')
-        .select('crew_mode_enabled, role_labels')
+        .select('crew_mode_enabled, rows_enabled, role_labels')
         .limit(1)
         .maybeSingle();
 
@@ -50,6 +52,7 @@ export function useOrgSettings() {
           ? DEFAULT_SETTINGS
           : {
               crew_mode_enabled: data.crew_mode_enabled ?? false,
+              rows_enabled: data.rows_enabled ?? false,
               role_labels: (data.role_labels as RoleLabels) ?? {},
             },
       );
@@ -69,5 +72,5 @@ export function useOrgSettings() {
     return settings.role_labels[role] || DEFAULT_ROLE_LABELS[role];
   }
 
-  return { settings, roleLabel, crewModeEnabled: settings.crew_mode_enabled, loading };
+  return { settings, roleLabel, crewModeEnabled: settings.crew_mode_enabled, rowsEnabled: settings.rows_enabled, loading };
 }

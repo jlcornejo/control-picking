@@ -25,6 +25,7 @@ export type PickingInsertJob = {
   payload: {
     worker_id: string;
     block_id: string;
+    row_id: string | null;
     quantity: number;
     rate_amount_snapshot: number;
     work_day: string;
@@ -137,6 +138,7 @@ async function runJob(job: QueuedJob): Promise<void> {
     const { error } = await supabase.from('picking_records').insert({
       worker_id: job.payload.worker_id,
       block_id: job.payload.block_id,
+      row_id: job.payload.row_id ?? null,
       quantity: job.payload.quantity,
       rate_amount_snapshot: job.payload.rate_amount_snapshot,
       work_day: job.payload.work_day,

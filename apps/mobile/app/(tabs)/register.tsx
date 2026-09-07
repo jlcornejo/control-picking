@@ -12,7 +12,9 @@ import { SuccessOverlay } from '../../src/components/SuccessOverlay';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
 
-type Step = 'scan' | 'select-block' | 'quantity';
+type Step = 'scan' | 'select-block' | 'select-row' | 'quantity';
+
+type SelectedRow = { id: string; name: string; row_number: number | null } | null;
 
 export default function RegisterScreen() {
   const { worker: currentWorker } = useAuth();
@@ -23,6 +25,8 @@ export default function RegisterScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<{ id: string; full_name: string } | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; product_name?: string } | null>(null);
+  const [selectedRow, setSelectedRow] = useState<SelectedRow>(null);
+  const [rowChoices, setRowChoices] = useState<{ id: string; name: string; row_number: number | null }[]>([]);
   const [quantity, setQuantity] = useState('');
   const [successData, setSuccessData] = useState<{ title: string; subtitle: string } | null>(null);
 
@@ -69,7 +73,31 @@ export default function RegisterScreen() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedWorker(data);
-    if (selectedBlock) { setStep('quantity'); } else { setStep('select-block'); }
+    // Si ya hay paño seleccionado, respetamos si tiene melgas (rowChoices) o no.
+    if (selectedBlock) {
+      setStep(rowChoices.length > 0 && !selectedRow ? 'select-row' : 'quantity');
+    } else {
+      setStep('select-block');
+    }
+  }
+
+  // Selecciona un paño y decide el siguiente paso: si el paño tiene melgas
+  // activas, ofrece elegir melga; si no tiene, salta directo a la cantidad.
+  // Así el nivel melga aparece solo cuando el cliente/campo realmente lo usa.
+  async function chooseBlock(block: { id: string; name: string; product_id: string; product_name?: string }) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedBlock(block);
+    setSelectedRow(null);
+    const { data } = await supabase
+      .from('field_rows')
+      .select('id, name, row_number')
+      .eq('block_id', block.id)
+      .eq('status', 'active')
+      .order('row_number', { ascending: true, nullsFirst: false })
+      .order('name', { ascending: true });
+    const rows = (data || []).map((r: any) => ({ id: r.id, name: r.name, row_number: r.row_number ?? null }));
+    setRowChoices(rows);
+    setStep(rows.length > 0 ? 'select-row' : 'quantity');
   }
 
   const submitMutation = useMutation({
@@ -95,6 +123,7 @@ export default function RegisterScreen() {
       const record = {
         worker_id: selectedWorker.id,
         block_id: selectedBlock.id,
+        row_id: selectedRow?.id ?? null,
         quantity: qty,
         rate_amount_snapshot: rateAmount,
         work_day: await tenantWorkday(0),
@@ -124,8 +153,8 @@ export default function RegisterScreen() {
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
   });
 
-  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setQuantity(''); }
-  function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setQuantity(''); }
+  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); }
+  function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); }
 
   if (showScanner) return <QRScanner onScan={handleQRScanned} onClose={() => setShowScanner(false)} />;
 
@@ -194,7 +223,7 @@ export default function RegisterScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: spacing.lg }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={s.blockCard} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedBlock(item); setStep('quantity'); }} activeOpacity={0.7}>
+            <TouchableOpacity style={s.blockCard} onPress={() => chooseBlock(item)} activeOpacity={0.7}>
               <View>
                 <Text style={s.blockName}>{item.name}</Text>
                 <Text style={s.blockProduct}>{item.product_name}</Text>
@@ -209,6 +238,46 @@ export default function RegisterScreen() {
     );
   }
 
+  if (step === 'select-row') {
+    return (
+      <View style={s.container}>
+        {successOverlay}
+        <View style={s.stepBar}>
+          <View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepActive]} />
+        </View>
+
+        <View style={s.workerChip}>
+          <Text style={s.workerChipText}>👷 {selectedWorker?.full_name}  •  📍 {selectedBlock?.name}</Text>
+        </View>
+
+        <Text style={s.rowHint}>Seleccione la melga</Text>
+
+        <FlatList
+          data={rowChoices}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: spacing.lg }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={s.blockCard}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedRow(item); setStep('quantity'); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                {item.row_number != null && (
+                  <View style={s.rowNumberBadge}><Text style={s.rowNumberText}>{item.row_number}</Text></View>
+                )}
+                <Text style={s.blockName}>{item.name}</Text>
+              </View>
+              <Text style={s.blockArrow}>›</Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>Sin melgas disponibles</Text></View>}
+        />
+        <TouchableOpacity style={s.backBtn} onPress={() => setStep('select-block')}><Text style={s.backBtnText}>← Paño</Text></TouchableOpacity>
+      </View>
+    );
+  }
+
   // QUANTITY
   return (
     <View style={s.container}>
@@ -218,7 +287,9 @@ export default function RegisterScreen() {
       </View>
 
       <View style={s.workerChip}>
-        <Text style={s.workerChipText}>👷 {selectedWorker?.full_name}  •  📍 {selectedBlock?.name}</Text>
+        <Text style={s.workerChipText}>
+          👷 {selectedWorker?.full_name}  •  📍 {selectedBlock?.name}{selectedRow ? `  •  🌱 ${selectedRow.name}` : ''}
+        </Text>
       </View>
 
       <View style={s.center}>
@@ -228,8 +299,8 @@ export default function RegisterScreen() {
       </View>
 
       <View style={s.bottomRow}>
-        <TouchableOpacity style={s.backBtn2} onPress={() => setStep('select-block')}>
-          <Text style={s.backBtnText}>← Paño</Text>
+        <TouchableOpacity style={s.backBtn2} onPress={() => setStep(rowChoices.length > 0 ? 'select-row' : 'select-block')}>
+          <Text style={s.backBtnText}>{rowChoices.length > 0 ? '← Melga' : '← Paño'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.confirmBtn, (!quantity || parseFloat(quantity) <= 0) && { opacity: 0.4 }]}
@@ -270,6 +341,9 @@ const s = StyleSheet.create({
   blockName: { fontSize: 15, fontWeight: font.semibold, color: colors.text },
   blockProduct: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   blockArrow: { fontSize: 22, color: colors.textMuted },
+  rowHint: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs },
+  rowNumberBadge: { minWidth: 26, height: 26, borderRadius: 13, backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  rowNumberText: { fontSize: 12, fontWeight: font.bold, color: colors.primary },
   bigInput: { fontSize: 64, fontWeight: font.extrabold, color: colors.primary, textAlign: 'center', width: '100%', borderBottomWidth: 2, borderBottomColor: colors.primaryMuted, paddingBottom: spacing.sm },
   unitLabel: { fontSize: 14, color: colors.textMuted, marginTop: spacing.md },
   bottomRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, paddingBottom: 28, gap: spacing.sm },

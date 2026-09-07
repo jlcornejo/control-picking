@@ -71,7 +71,7 @@ async function handleGetOne(supabase: any, settlementId: string) {
   // Get breakdown: picking records in the period
   const { data: records } = await supabase
     .from('picking_records')
-    .select('work_day, quantity, rate_amount_snapshot, blocks(name, products(name))')
+    .select('work_day, quantity, rate_amount_snapshot, blocks(name, products(name)), field_rows(name)')
     .eq('worker_id', settlement.worker_id)
     .gte('work_day', settlement.period_start)
     .lte('work_day', settlement.period_end)
@@ -81,6 +81,7 @@ async function handleGetOne(supabase: any, settlementId: string) {
   const breakdown = (records || []).map((r: any) => ({
     work_day: r.work_day,
     block_name: r.blocks?.name || '',
+    row_name: r.field_rows?.name || null,
     product_name: r.blocks?.products?.name || '',
     quantity: Number(r.quantity),
     rate: Number(r.rate_amount_snapshot),

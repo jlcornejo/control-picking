@@ -108,6 +108,9 @@ async function handlePatchStatus(req: Request, supabase: any, blockId: string) {
   const roleError = requireRole(req, ['admin']);
   if (roleError) return roleError;
 
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const body = await req.json();
   if (!['active', 'inactive'].includes(body.status)) {
     return error('VALIDATION_ERROR', 'Estado debe ser "active" o "inactive"', 422);

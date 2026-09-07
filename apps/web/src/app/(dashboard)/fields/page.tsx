@@ -126,7 +126,7 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
   const { toast } = useToast();
-  const { crewModeEnabled } = useOrgSettings();
+  const { crewModeEnabled, rowsEnabled } = useOrgSettings();
 
   const fieldSchema = z.object({
     name: z.string().min(1, 'Nombre es requerido').max(100, 'Máximo 100 caracteres'),
@@ -140,6 +140,14 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
   function crewModeToValue(v: boolean | null | undefined): string {
     return v === true ? 'on' : v === false ? 'off' : '';
   }
+  // Override de Melgas por campo: '' = heredar org, 'on' = true, 'off' = false
+  function rowsModeToValue(v: boolean | null | undefined): string {
+    return v === true ? 'on' : v === false ? 'off' : '';
+  }
+  function rowsModeFromValue(s: string): boolean | null {
+    return s === 'on' ? true : s === 'off' ? false : null;
+  }
+
   function crewModeFromValue(s: string): boolean | null {
     return s === 'on' ? true : s === 'off' ? false : null;
   }
@@ -164,6 +172,9 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
     };
     if (crewModeEnabled) {
       payload.crew_mode_enabled = crewModeFromValue(form.get('crew_mode') as string);
+    }
+    if (rowsEnabled) {
+      payload.rows_enabled = rowsModeFromValue(form.get('rows_mode') as string);
     }
 
     if (initial) {
@@ -200,6 +211,15 @@ function FieldForm({ onSuccess, initial }: { onSuccess: () => void; initial?: an
             <option value="">Heredar de la organización</option>
             <option value="on">Activado (usa cuadrillas)</option>
             <option value="off">Desactivado (pago directo)</option>
+          </select>
+        </FormField>
+      )}
+      {rowsEnabled && (
+        <FormField label="Melgas en este campo">
+          <select name="rows_mode" defaultValue={rowsModeToValue(initial?.rows_enabled)} className={inputClass('rows_mode')}>
+            <option value="">Heredar de la organización</option>
+            <option value="on">Activado (usa melgas)</option>
+            <option value="off">Desactivado (solo paños)</option>
           </select>
         </FormField>
       )}

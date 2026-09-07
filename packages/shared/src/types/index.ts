@@ -62,6 +62,8 @@ export interface Organization extends BaseEntity {
   subscription_status: SubscriptionStatus;
   subscription_plan: string | null;
   crew_mode_enabled: boolean;
+  /** Default for using rows (melgas) across the tenant. Each field can override it. */
+  rows_enabled: boolean;
   role_labels: Partial<Record<WorkerRole, string>>;
   status: EntityStatus;
 }
@@ -89,6 +91,8 @@ export interface Field extends BaseEntity {
   total_area: number;
   /** Crew mode override for this field. null = inherit organization default. */
   crew_mode_enabled: boolean | null;
+  /** Rows (melgas) usage override for this field. null = inherit organization default. */
+  rows_enabled: boolean | null;
   status: EntityStatus;
 }
 
@@ -107,6 +111,20 @@ export interface Block extends BaseEntity {
   product_id: string;
   name: string;
   area: number;
+  status: EntityStatus;
+}
+
+/**
+ * Field row (melga) - finest subdivision within a block.
+ * The harvest row/lane a worker picks along. Optional level (rows_enabled).
+ * Inherits product and rate from its parent block.
+ */
+export interface FieldRow extends BaseEntity {
+  organization_id: string;
+  block_id: string;
+  name: string;
+  /** Row number for ordering/locating in the field. null if not used. */
+  row_number: number | null;
   status: EntityStatus;
 }
 
@@ -138,6 +156,8 @@ export interface PickingRecord extends BaseEntity {
   organization_id: string;
   worker_id: string;
   block_id: string;
+  /** Row (melga) the harvest came from. null when the tenant/field does not use rows. */
+  row_id: string | null;
   quantity: number;
   rate_amount_snapshot: number;
   recorded_at: string;

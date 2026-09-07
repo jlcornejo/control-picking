@@ -21,6 +21,13 @@ export const createBlockSchema = z.object({
   area: z.number().positive('Superficie del paño debe ser mayor a 0'),
 });
 
+/** Validation: Create a new field row (melga) */
+export const createFieldRowSchema = z.object({
+  name: z.string().min(1, 'Nombre de la melga es requerido').max(100),
+  block_id: z.string().uuid(),
+  row_number: z.number().int().positive('Número de melga debe ser mayor a 0').nullable().optional(),
+});
+
 /** Validation: Create a new rate */
 export const createRateSchema = z.object({
   amount: z.number().positive('Tarifa debe ser mayor a 0'),
@@ -38,6 +45,8 @@ export const createWorkerSchema = z.object({
 export const createPickingRecordSchema = z.object({
   worker_id: z.string().uuid(),
   block_id: z.string().uuid(),
+  /** Optional row (melga). When present it must belong to block_id (checked server-side). */
+  row_id: z.string().uuid().nullable().optional(),
   quantity: z.number().positive('Cantidad debe ser mayor a 0'),
 });
 
@@ -45,6 +54,8 @@ export const createPickingRecordSchema = z.object({
 export const scanPickingRecordSchema = z.object({
   qr_code: z.string().uuid('QR code inválido'),
   block_id: z.string().uuid(),
+  /** Optional row (melga). When present it must belong to block_id (checked server-side). */
+  row_id: z.string().uuid().nullable().optional(),
   quantity: z.number().positive('Cantidad debe ser mayor a 0'),
 });
 

@@ -25,6 +25,8 @@ Deno.serve(async (req) => {
       return await handleProductionDaily(supabase, url);
     case 'production/by-block':
       return await handleProductionByBlock(supabase, url);
+    case 'production/by-row':
+      return await handleProductionByRow(supabase, url);
     case 'production/by-field':
       return await handleProductionByField(supabase, url);
     case 'workers/ranking':
@@ -135,6 +137,47 @@ async function handleProductionByBlock(supabase: any, url: URL) {
 
   const result = Object.entries(byBlock)
     .map(([id, vals]) => ({ block_id: id, block_name: vals.name, field_name: vals.field, total_units: vals.units }))
+    .sort((a, b) => b.total_units - a.total_units);
+
+  return success(result);
+}
+
+// Producción agregada por melga (field_rows). Solo considera registros que tienen
+// row_id (los tenants/campos sin melgas simplemente devuelven una lista vacía).
+// Permite filtrar por block_id para ver las melgas de un paño puntual.
+async function handleProductionByRow(supabase: any, url: URL) {
+  const dateFrom = url.searchParams.get('date_from') || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const dateTo = url.searchParams.get('date_to') || new Date().toISOString().split('T')[0];
+  const blockId = url.searchParams.get('block_id');
+
+  let query = supabase
+    .from('picking_records')
+    .select('row_id, quantity, field_rows(name, row_number, blocks(name))')
+    .gte('work_day', dateFrom)
+    .lte('work_day', dateTo)
+    .not('row_id', 'is', null)
+    .is('original_record_id', null);
+
+  if (blockId) query = query.eq('block_id', blockId);
+
+  const { data } = await query;
+
+  const byRow: Record<string, { name: string; row_number: number | null; block: string; units: number }> = {};
+  for (const r of data || []) {
+    if (!r.row_id) continue;
+    if (!byRow[r.row_id]) {
+      byRow[r.row_id] = {
+        name: r.field_rows?.name || '',
+        row_number: r.field_rows?.row_number ?? null,
+        block: r.field_rows?.blocks?.name || '',
+        units: 0,
+      };
+    }
+    byRow[r.row_id].units += Number(r.quantity);
+  }
+
+  const result = Object.entries(byRow)
+    .map(([id, vals]) => ({ row_id: id, row_name: vals.name, row_number: vals.row_number, block_name: vals.block, total_units: vals.units }))
     .sort((a, b) => b.total_units - a.total_units);
 
   return success(result);

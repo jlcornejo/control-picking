@@ -22,7 +22,9 @@
     "db:docs": "tbls doc --force",
     "docs:serve": "mkdocs serve",
     "docs:build": "mkdocs build --strict",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
@@ -32,5 +34,10 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "packageManager": "npm@10.9.8"
+  "packageManager": "npm@10.9.8",
+  "dependencies": {
+    "expo": "~54.0.37",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  }
 }
