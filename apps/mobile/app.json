@@ -43,6 +43,14 @@
           "cameraPermission": "Permitir acceso a la cámara para escanear badges QR",
           "recordAudioAndroidPermission": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableUserScriptSandboxing": false
+          }
+        }
       ]
     ],
     "extra": {

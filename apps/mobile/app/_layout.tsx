@@ -5,9 +5,12 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { useAuth } from '../src/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedSplash } from '../src/components/AnimatedSplash';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 
@@ -38,9 +41,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const segments = useSegments();
   const [showSplash, setShowSplash] = useState(true);
+  // Precargar la fuente de iconos para que el tab bar los renderice desde el
+  // primer frame (si no, los glifos salen invisibles).
+  const [fontsLoaded] = useFonts({ ...Ionicons.font });
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !fontsLoaded) return;
 
     // Hide native splash, show our animated one
     SplashScreen.hideAsync();
@@ -52,13 +58,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else if (session && inAuth) {
       router.replace('/(tabs)/production');
     }
-  }, [session, loading, segments]);
+  }, [session, loading, fontsLoaded, segments]);
 
-  if (loading) return null;
+  if (loading || !fontsLoaded) return null;
 
   return (
     <>
-      {children}
+      <ThemeProvider>{children}</ThemeProvider>
       {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
     </>
   );

@@ -18,6 +18,14 @@ out/
 *.mobileprovision
 *.orig.*
 
+# Expo native projects (managed workflow — EAS regenera con prebuild, no versionar)
+/ios/
+/android/
+apps/*/ios/
+apps/*/android/
+# app.json generado por prebuild en la raíz del monorepo (artefacto, el real es apps/mobile/app.json)
+/app.json
+
 # Environment
 .env
 .env.local
