@@ -12,8 +12,9 @@ import { useToast } from '@/components/ui/Toast';
 import { PageTransition } from '@/components/ui/animations';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, CheckCircle2, Clock, Ban } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Ban, Boxes, Users, FileText, Wallet } from 'lucide-react';
 import { StatCard } from '@/components/platform/StatCard';
+import { formatMoney, formatNumber } from '@/lib/format';
 
 const SUBSCRIPTION = [
   { value: 'trial', label: 'Prueba' },
@@ -44,6 +45,23 @@ export default function PlatformPage() {
   });
 
   const orgs = data || [];
+
+  // Métricas agregadas de plataforma (datos reales, últimos 30 días).
+  const { data: metrics } = useQuery({
+    queryKey: ['platform-metrics'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('platform-metrics', { method: 'GET' });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error?.message || 'Error');
+      return data.data as {
+        window_days: number;
+        harvest: { quantity: number; value: number; records: number };
+        active_workers: number;
+        settlements: { pending_amount: number; paid_amount: number };
+        payments_30d_amount: number;
+      };
+    },
+  });
 
   // KPIs derivados de datos reales (conteos por estado de suscripción).
   const stats = useMemo(() => {
@@ -117,6 +135,42 @@ export default function PlatformPage() {
         <StatCard label="Suscripciones activas" value={stats.active} icon={CheckCircle2} tone="emerald" index={1} hint="Clientes al día" />
         <StatCard label="En prueba (trial)" value={stats.trial} icon={Clock} tone="blue" index={2} hint="Periodo de evaluación" />
         <StatCard label="Suspendidas" value={stats.suspended} icon={Ban} tone="amber" index={3} hint="Acceso bloqueado" />
+      </div>
+
+      {/* KPIs de operación agregada (datos reales, últimos 30 días) */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Cosecha (30 días)"
+          value={metrics ? formatNumber(metrics.harvest.quantity) : '—'}
+          icon={Boxes}
+          tone="primary"
+          index={0}
+          hint={metrics ? `${formatMoney(metrics.harvest.value)} · ${formatNumber(metrics.harvest.records)} registros` : 'Cargando…'}
+        />
+        <StatCard
+          label="Cosecheros activos"
+          value={metrics ? formatNumber(metrics.active_workers) : '—'}
+          icon={Users}
+          tone="emerald"
+          index={1}
+          hint="En toda la plataforma"
+        />
+        <StatCard
+          label="Liquidaciones pendientes"
+          value={metrics ? formatMoney(metrics.settlements.pending_amount) : '—'}
+          icon={FileText}
+          tone="amber"
+          index={2}
+          hint={metrics ? `${formatMoney(metrics.settlements.paid_amount)} ya pagado` : 'Cargando…'}
+        />
+        <StatCard
+          label="Pagos (30 días)"
+          value={metrics ? formatMoney(metrics.payments_30d_amount) : '—'}
+          icon={Wallet}
+          tone="blue"
+          index={3}
+          hint="Desembolsos recientes"
+        />
       </div>
 
       {/* Filtros por estado de suscripción */}
