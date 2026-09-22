@@ -37,7 +37,7 @@ const asyncStoragePersister = createAsyncStoragePersister({
 });
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, worker, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
   const [showSplash, setShowSplash] = useState(true);
@@ -52,13 +52,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     SplashScreen.hideAsync();
 
     const inAuth = segments[0] === 'login';
+    const inChangePassword = segments[0] === 'change-password';
 
     if (!session && !inAuth) {
       router.replace('/login');
-    } else if (session && inAuth) {
+    } else if (session && worker?.must_change_password && !inChangePassword) {
+      // Cambio de contraseña forzado: bloquea el acceso hasta completarlo.
+      router.replace('/change-password');
+    } else if (session && !worker?.must_change_password && (inAuth || inChangePassword)) {
       router.replace('/(tabs)/production');
     }
-  }, [session, loading, fontsLoaded, segments]);
+  }, [session, worker, loading, fontsLoaded, segments]);
 
   if (loading || !fontsLoaded) return null;
 

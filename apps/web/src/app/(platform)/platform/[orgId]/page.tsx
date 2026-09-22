@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { PageTransition } from '@/components/ui/animations';
 import { useParams, useRouter } from 'next/navigation';
 import { Building2, Users, MapPin, Package, Truck, ClipboardList, FileText, Wallet, ArrowLeft } from 'lucide-react';
+import { StatCard } from '@/components/platform/StatCard';
 
 const SUB_LABEL: Record<string, string> = {
   trial: 'Prueba', active: 'Activa', suspended: 'Suspendida', cancelled: 'Cancelada',
@@ -37,14 +38,14 @@ export default function PlatformOrgViewPage() {
   const counts = data?.counts || {};
   const roleCounts = data?.role_counts || {};
 
-  const cards = [
-    { label: 'Trabajadores', value: counts.workers, icon: Users },
-    { label: 'Campos', value: counts.fields, icon: MapPin },
-    { label: 'Productos', value: counts.products, icon: Package },
-    { label: 'Cuadrillas', value: counts.crews, icon: Truck },
-    { label: 'Registros de picking', value: counts.picking_records, icon: ClipboardList },
-    { label: 'Liquidaciones', value: counts.settlements, icon: FileText },
-    { label: 'Pagos', value: counts.payments, icon: Wallet },
+  const cards: { label: string; value: number; icon: typeof Users; tone: 'primary' | 'emerald' | 'blue' | 'amber' | 'red' }[] = [
+    { label: 'Trabajadores', value: counts.workers, icon: Users, tone: 'primary' },
+    { label: 'Campos', value: counts.fields, icon: MapPin, tone: 'emerald' },
+    { label: 'Productos', value: counts.products, icon: Package, tone: 'blue' },
+    { label: 'Cuadrillas', value: counts.crews, icon: Truck, tone: 'amber' },
+    { label: 'Registros de picking', value: counts.picking_records, icon: ClipboardList, tone: 'primary' },
+    { label: 'Liquidaciones', value: counts.settlements, icon: FileText, tone: 'blue' },
+    { label: 'Pagos', value: counts.payments, icon: Wallet, tone: 'emerald' },
   ];
 
   return (
@@ -57,6 +58,17 @@ export default function PlatformOrgViewPage() {
         title={data?.organization?.name || 'Organización'}
         description="Vista de soporte (solo lectura). Este acceso queda registrado en la auditoría."
       />
+
+      {/* Banner: sesión de inspección auditada */}
+      <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <FileText size={16} className="mt-0.5 shrink-0 text-amber-600" />
+        <div>
+          <p className="text-sm font-medium text-amber-800">Sesión de inspección auditada</p>
+          <p className="text-xs text-amber-700">
+            Toda consulta a los datos de esta organización queda registrada en el Platform Audit Log. Vista de solo lectura.
+          </p>
+        </div>
+      </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Cargando…</p>}
       {error && <p className="text-sm text-red-600">No se pudo cargar la organización.</p>}
@@ -80,17 +92,9 @@ export default function PlatformOrgViewPage() {
           <section>
             <p className="mb-3 text-sm font-medium text-foreground">Resumen de operación</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {cards.map((c) => {
-                const Icon = c.icon;
-                return (
-                  <div key={c.label} className="rounded-2xl border border-border bg-white/60 p-4">
-                    <div className="mb-1 flex items-center gap-1.5 text-muted-foreground">
-                      <Icon size={14} /> <span className="text-xs">{c.label}</span>
-                    </div>
-                    <p className="text-2xl font-bold text-foreground tabular-nums">{c.value ?? 0}</p>
-                  </div>
-                );
-              })}
+              {cards.map((c, i) => (
+                <StatCard key={c.label} label={c.label} value={c.value ?? 0} icon={c.icon} tone={c.tone} index={i} />
+              ))}
             </div>
           </section>
 

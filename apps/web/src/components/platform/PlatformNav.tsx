@@ -24,12 +24,15 @@ export function PlatformNav({ adminName }: { adminName: string }) {
   return (
     <aside className="hidden w-64 flex-col border-r border-border/50 bg-white/60 lg:flex">
       <div className="flex items-center gap-3 border-b border-border/50 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground text-background">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <ShieldCheck size={18} />
         </div>
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Fundo360</h2>
-          <p className="text-[11px] text-muted-foreground">Consola de Plataforma</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-foreground">Fundo360</h2>
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">Root</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Consola Super-Admin</p>
         </div>
       </div>
 

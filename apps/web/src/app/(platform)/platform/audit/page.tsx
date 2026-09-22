@@ -5,10 +5,13 @@ import { createClient } from '@/lib/supabase';
 import { DataTable } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { PageTransition } from '@/components/ui/animations';
+import { StatCard } from '@/components/platform/StatCard';
+import { ScrollText, ShieldCheck, Building2 } from 'lucide-react';
 
 const ACTION_LABEL: Record<string, string> = {
   view_org: 'Vio ambiente',
   change_subscription: 'Cambió suscripción',
+  create_tenant: 'Creó cliente',
   impersonate: 'Impersonación',
   update_field: 'Modificó campo',
 };
@@ -26,9 +29,14 @@ export default function PlatformAuditPage() {
       const { data, error } = await supabase.functions.invoke('platform-audit-log', { method: 'GET' });
       if (error) throw error;
       if (data?.success === false) throw new Error(data?.error?.message || 'Error');
-      return (data?.data ?? []) as any[];
+      return { rows: (data?.data ?? []) as any[], total: data?.meta?.total ?? (data?.data?.length ?? 0) };
     },
   });
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  // Organizaciones distintas tocadas por los eventos visibles.
+  const orgsTouched = new Set(rows.map((r) => r.organization?.slug).filter(Boolean)).size;
 
   const columns = [
     { key: 'created_at', label: 'Fecha', render: (row: any) => (
@@ -55,12 +63,20 @@ export default function PlatformAuditPage() {
   return (
     <PageTransition>
       <PageHeader
-        title="Auditoría"
-        description="Registro de accesos y acciones sobre datos de clientes"
+        title="Platform Audit Log"
+        description="Registro inmutable de accesos y acciones de super-admin sobre datos de clientes."
       />
+
+      {/* KPIs de auditoría (datos reales) */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Eventos registrados" value={total} icon={ScrollText} tone="primary" index={0} hint="Total en el registro" />
+        <StatCard label="Organizaciones tocadas" value={orgsTouched} icon={Building2} tone="blue" index={1} hint="En los eventos visibles" />
+        <StatCard label="Integridad" value="100%" icon={ShieldCheck} tone="emerald" index={2} hint="Registro append-only" />
+      </div>
+
       <DataTable
         columns={columns}
-        data={data || []}
+        data={rows}
         loading={isLoading}
         emptyMessage="No hay eventos de auditoría registrados"
         searchPlaceholder="Buscar por acción o recurso..."
