@@ -8,6 +8,7 @@ interface WorkerInfo {
   full_name: string;
   role: 'admin' | 'supervisor' | 'crew_lead' | 'worker';
   status: string;
+  must_change_password: boolean;
 }
 
 export function useAuth() {
@@ -37,7 +38,7 @@ export function useAuth() {
     await primeTenantWorkday();
     const { data } = await supabase
       .from('workers')
-      .select('id, full_name, role, status')
+      .select('id, full_name, role, status, must_change_password')
       .eq('auth_user_id', userId)
       .single();
     setWorker(data);

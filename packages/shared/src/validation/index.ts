@@ -74,6 +74,55 @@ export const createPaymentSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
+/**
+ * Validation: Add a worker to today's roster.
+ * The lead (crew_lead or supervisor) is the authenticated user; the server sets
+ * lead_id, added_by, organization_id and work_day. crew_id is optional and only
+ * set when the lead is a crew_lead managing a crew.
+ */
+export const addToDayRosterSchema = z.object({
+  worker_id: z.string().uuid(),
+  crew_id: z.string().uuid().nullable().optional(),
+});
+
+/** Validation: Remove a worker from today's roster (by roster entry id). */
+export const removeFromDayRosterSchema = z.object({
+  id: z.string().uuid(),
+});
+
+/** Minimum length for user passwords (super-admin created client admins). */
+export const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * Validation: onboard a new client (super-admin).
+ * Creates the organization and its initial admin user in one step.
+ */
+export const createOrganizationSchema = z.object({
+  name: z.string().min(1, 'Nombre de la organización es requerido').max(150),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Slug inválido (minúsculas, números y guiones)')
+    .max(80),
+  subscription_status: z.enum(['trial', 'active', 'suspended', 'cancelled']).optional(),
+  subscription_plan: z.string().max(50).nullable().optional(),
+  admin: z.object({
+    full_name: z.string().min(1, 'Nombre del administrador es requerido').max(150),
+    email: z.string().email('Email del administrador inválido'),
+    password: z.string().min(MIN_PASSWORD_LENGTH, `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`),
+  }),
+});
+
+/** Validation: change own password (forced on first login or voluntary). */
+export const changePasswordSchema = z
+  .object({
+    new_password: z.string().min(MIN_PASSWORD_LENGTH, `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`),
+    confirm_password: z.string(),
+  })
+  .refine((d) => d.new_password === d.confirm_password, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirm_password'],
+  });
+
 /** Validation: Pagination query params */
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

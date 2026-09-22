@@ -100,8 +100,32 @@ export interface Field extends BaseEntity {
 export interface Crew extends BaseEntity {
   organization_id: string;
   crew_lead_id: string;
+  /** Supervisor in charge of this crew's lead. null until assigned. */
+  supervisor_id: string | null;
   name: string;
   status: EntityStatus;
+}
+
+/**
+ * Day roster entry: one worker assigned to one lead (crew_lead or supervisor)
+ * for a single work day. The daily team is built manually each shift; a worker
+ * has exactly one lead per day (enforced by a unique constraint on
+ * organization_id + work_day + worker_id).
+ */
+export interface DayRoster {
+  id: string;
+  organization_id: string;
+  /** Work day (tenant timezone) this roster entry belongs to. */
+  work_day: string;
+  /** Worker in the team for the day. */
+  worker_id: string;
+  /** Lead responsible for the day: a crew_lead or a supervisor. */
+  lead_id: string;
+  /** Crew associated when the lead is a crew_lead. null when the worker reports directly to a supervisor. */
+  crew_id: string | null;
+  /** Worker (lead/supervisor) who added this worker to the roster. */
+  added_by: string;
+  created_at: string;
 }
 
 /** Block (paño/cuartel within a field) */
@@ -149,6 +173,8 @@ export interface Worker extends BaseEntity {
   crew_id: string | null;
   status: EntityStatus;
   auth_user_id: string | null;
+  /** True if the user must change their password on next login (account created by super-admin). */
+  must_change_password: boolean;
 }
 
 /** Picking record (a single harvest entry) */
@@ -163,6 +189,8 @@ export interface PickingRecord extends BaseEntity {
   recorded_at: string;
   work_day: string;
   recorded_by: string;
+  /** Day roster under which this entry was recorded. Freezes the worker-lead attribution for the day. null if recorded without a roster. */
+  day_roster_id: string | null;
   original_record_id: string | null;
 }
 

@@ -11,6 +11,8 @@ import { success, error } from '../_shared/response.ts';
 const SUBSCRIPTION_STATUSES = ['trial', 'active', 'suspended', 'cancelled'];
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const HEX_COLOR_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -81,13 +83,30 @@ async function handleGetOne(req: Request, supabase: any, orgId: string) {
   return success(data);
 }
 
-/** POST /organizations — crear cliente (solo platform admin) */
+/**
+ * POST /organizations — dar de alta un cliente (solo platform admin).
+ *
+ * Onboarding atómico: crea la organización + el usuario admin del cliente en
+ * un solo paso, para que el cliente pueda iniciar sesión y controlar su campo
+ * de inmediato. El super-admin define email + contraseña iniciales; el admin
+ * queda marcado con must_change_password para forzar el cambio en su primer login.
+ *
+ * Como las Edge Functions no pueden abrir una transacción que abarque Auth + DB,
+ * ante un fallo se hace compensación best-effort (borrar lo ya creado) para no
+ * dejar organizaciones huérfanas sin admin ni usuarios de Auth sin worker.
+ *
+ * Body: { name, slug, subscription_status?, subscription_plan?,
+ *         admin: { full_name, email, password } }
+ * Devuelve: { organization, admin: { worker_id, auth_user_id, email } } (nunca la contraseña).
+ */
 async function handleCreate(req: Request) {
   if (!isPlatformAdmin(req)) {
     return error('FORBIDDEN', 'Solo el administrador de plataforma puede crear organizaciones', 403);
   }
 
   const body = await req.json();
+
+  // --- Validación de la organización ---
   if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
     return error('VALIDATION_ERROR', 'Nombre de la organización es requerido', 422);
   }
@@ -98,8 +117,26 @@ async function handleCreate(req: Request) {
     return error('VALIDATION_ERROR', 'Estado de suscripción inválido', 422);
   }
 
-  const admin = createServiceClient();
-  const { data, error: dbError } = await admin
+  // --- Validación del admin del cliente ---
+  const adminInput = body.admin;
+  if (!adminInput || typeof adminInput !== 'object') {
+    return error('VALIDATION_ERROR', 'Los datos del administrador del cliente son requeridos', 422);
+  }
+  if (!adminInput.full_name || typeof adminInput.full_name !== 'string' || adminInput.full_name.trim().length === 0) {
+    return error('VALIDATION_ERROR', 'Nombre del administrador es requerido', 422);
+  }
+  if (!adminInput.email || typeof adminInput.email !== 'string' || !EMAIL_RE.test(adminInput.email.trim())) {
+    return error('VALIDATION_ERROR', 'Email del administrador inválido', 422);
+  }
+  if (!adminInput.password || typeof adminInput.password !== 'string' || adminInput.password.length < MIN_PASSWORD_LENGTH) {
+    return error('VALIDATION_ERROR', `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`, 422);
+  }
+
+  const adminEmail = adminInput.email.trim().toLowerCase();
+  const svc = createServiceClient();
+
+  // --- 1) Crear la organización ---
+  const { data: org, error: orgError } = await svc
     .from('organizations')
     .insert({
       name: body.name.trim(),
@@ -110,11 +147,63 @@ async function handleCreate(req: Request) {
     .select()
     .single();
 
-  if (dbError) {
-    if (dbError.code === '23505') return error('VALIDATION_ERROR', 'El slug ya está en uso', 409);
-    return error('VALIDATION_ERROR', dbError.message, 400);
+  if (orgError) {
+    if (orgError.code === '23505') return error('VALIDATION_ERROR', 'El slug ya está en uso', 409);
+    return error('VALIDATION_ERROR', orgError.message, 400);
   }
-  return success(data, 201);
+
+  // --- 2) Crear el usuario de Auth del admin ---
+  const { data: authData, error: authError } = await svc.auth.admin.createUser({
+    email: adminEmail,
+    password: adminInput.password,
+    email_confirm: true,
+  });
+
+  if (authError || !authData?.user) {
+    // Compensación: borrar la organización recién creada.
+    await svc.from('organizations').delete().eq('id', org.id);
+    const msg = authError?.message || 'No se pudo crear el usuario administrador';
+    const conflict = /already|registered|duplicate|exists/i.test(msg);
+    return error('VALIDATION_ERROR', `No se pudo crear el administrador: ${msg}`, conflict ? 409 : 400);
+  }
+
+  const authUserId = authData.user.id;
+
+  // --- 3) Crear el worker admin del cliente (org_id explícito, must_change_password) ---
+  const { data: worker, error: workerError } = await svc
+    .from('workers')
+    .insert({
+      organization_id: org.id,
+      full_name: adminInput.full_name.trim(),
+      role: 'admin',
+      auth_user_id: authUserId,
+      must_change_password: true,
+      status: 'active',
+    })
+    .select('id')
+    .single();
+
+  if (workerError) {
+    // Compensación: borrar el usuario de Auth y la organización.
+    await svc.auth.admin.deleteUser(authUserId).catch(() => {});
+    await svc.from('organizations').delete().eq('id', org.id);
+    return error('VALIDATION_ERROR', `No se pudo crear el administrador: ${workerError.message}`, 400);
+  }
+
+  // --- 4) Auditoría de la acción de plataforma (best-effort) ---
+  await logPlatformAction(req, svc, org.id, 'create_tenant', `organizations:${org.id}`, {
+    slug: org.slug,
+    admin_email: adminEmail,
+    admin_worker_id: worker.id,
+  });
+
+  return success(
+    {
+      organization: org,
+      admin: { worker_id: worker.id, auth_user_id: authUserId, email: adminEmail },
+    },
+    201,
+  );
 }
 
 /** PATCH /organizations/:id/subscription — cambiar estado de suscripción (solo platform admin) */
