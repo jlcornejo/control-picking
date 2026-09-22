@@ -12,6 +12,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { PaymentsSkeleton } from '../../src/components/Skeleton';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
+import { DayRosterManager } from '../../src/components/DayRosterManager';
 
 const statusLabel: Record<string, string> = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagado' };
 const statusColor: Record<string, string> = { pending: '#f59e0b', partial: '#f97316', paid: '#22c55e' };
@@ -76,41 +77,20 @@ export default function CrewScreen() {
     },
   });
 
-  // Miembros de la cuadrilla con su producción del día (RLS acota a la cuadrilla).
-  const { data: members, refetch: refetchTeam } = useQuery({
-    queryKey: ['crew-members-list', worker?.id],
+  // Cuadrilla activa del encargado (base para el roster del día). RLS la acota
+  // a la suya; se usa como crew_id de las filas del roster y para pre-listar
+  // "su gente habitual" al agregar trabajadores.
+  const { data: myCrewId } = useQuery({
+    queryKey: ['my-crew-id', worker?.id],
     enabled: !!worker?.id,
-    queryFn: async () => {
-      const crewId = await currentCrewId();
-      if (!crewId) return [];
-      const { data: ws } = await supabase
-        .from('workers')
-        .select('id, full_name')
-        .eq('crew_id', crewId)
-        .eq('status', 'active')
-        .order('full_name');
-      const ids = (ws || []).map((w: any) => w.id);
-      let unitsByWorker: Record<string, number> = {};
-      if (ids.length > 0) {
-        const { data: recs } = await supabase
-          .from('picking_records')
-          .select('worker_id, quantity')
-          .in('worker_id', ids)
-          .eq('work_day', localDate(0))
-          .is('original_record_id', null);
-        for (const r of recs || []) {
-          unitsByWorker[r.worker_id] = (unitsByWorker[r.worker_id] ?? 0) + Number(r.quantity);
-        }
-      }
-      return (ws || []).map((w: any) => ({ ...w, units: unitsByWorker[w.id] ?? 0 }));
-    },
+    queryFn: async () => currentCrewId(),
   });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchCrew(), refetchMembers(), refetchTeam()]);
+    await Promise.all([refetchCrew(), refetchMembers()]);
     setRefreshing(false);
-  }, [refetchCrew, refetchMembers, refetchTeam]);
+  }, [refetchCrew, refetchMembers]);
 
   // Generar liquidaciones de nivel 2 para los trabajadores de la cuadrilla.
   // Agrega la producción del período de los miembros en campos con modo capataz.
@@ -238,24 +218,9 @@ export default function CrewScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <>
-          {/* Miembros de la cuadrilla y su producción del día */}
-          <View style={s.teamHeader}>
-            <Text style={s.sectionTitle}>Mi equipo</Text>
-            <Text style={s.teamCount}>{(members || []).length}</Text>
-          </View>
-          {(members || []).length === 0 ? (
-            <View style={s.emptyCrew}>
-              <Ionicons name="people-outline" size={20} color={colors.textMuted} />
-              <Text style={s.emptyCrewText}>Tu cuadrilla aún no tiene trabajadores asignados.</Text>
-            </View>
-          ) : (
-            (members || []).map((m: any) => (
-              <View key={m.id} style={s.memberRow}>
-                <View style={s.memberAvatar}><Text style={s.memberAvatarText}>{m.full_name?.charAt(0) || '?'}</Text></View>
-                <Text style={s.memberName}>{m.full_name}</Text>
-                <Text style={s.memberUnits}>{m.units} hoy</Text>
-              </View>
-            ))
+          {/* Equipo del día: el encargado arma su roster de la jornada */}
+          {worker?.id && (
+            <DayRosterManager leadId={worker.id} crewId={myCrewId ?? null} baseCrewId={myCrewId ?? null} />
           )}
 
           {/* Nivel 1: lo que el cliente paga al encargado */}

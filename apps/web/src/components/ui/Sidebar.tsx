@@ -25,20 +25,23 @@ export function Sidebar({ workerName, role }: SidebarProps) {
   const { branding } = useBranding();
   const { crewModeEnabled, roleLabel: orgRoleLabel } = useOrgSettings();
 
-  // "Cuadrillas" solo se muestra cuando el Modo Capataz está activo en la organización.
-  const navLinks = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/fields', label: 'Campos', icon: MapPin },
-    { href: '/products', label: 'Productos', icon: Package },
-    { href: '/workers', label: 'Trabajadores', icon: Users },
-    ...(crewModeEnabled ? [{ href: '/crews', label: orgRoleLabel('crew_lead') + 's', icon: Truck }] : []),
-    { href: '/records', label: 'Registros', icon: ClipboardList },
-    { href: '/settlements', label: 'Liquidaciones', icon: FileText },
-    { href: '/payments', label: 'Pagos', icon: Wallet },
-    { href: '/supervisors', label: 'Supervisores', icon: UserCog },
-    ...(role === 'crew_lead' ? [{ href: '/crew', label: 'Mi Cuadrilla', icon: Truck }] : []),
-    ...(role === 'admin' ? [{ href: '/settings', label: 'Configuración', icon: Settings }] : []),
-  ];
+  // El menú depende del rol (el gating real está en el layout server-side):
+  //   - crew_lead (Encargado): solo "Mi Cuadrilla".
+  //   - admin: menú de gestión completo. "Cuadrillas" solo con Modo Capataz activo.
+  const navLinks = role === 'crew_lead'
+    ? [{ href: '/crew', label: 'Mi Cuadrilla', icon: Truck }]
+    : [
+        { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/fields', label: 'Campos', icon: MapPin },
+        { href: '/products', label: 'Productos', icon: Package },
+        { href: '/workers', label: 'Trabajadores', icon: Users },
+        ...(crewModeEnabled ? [{ href: '/crews', label: orgRoleLabel('crew_lead') + 's', icon: Truck }] : []),
+        { href: '/records', label: 'Registros', icon: ClipboardList },
+        { href: '/settlements', label: 'Liquidaciones', icon: FileText },
+        { href: '/payments', label: 'Pagos', icon: Wallet },
+        { href: '/supervisors', label: 'Supervisores', icon: UserCog },
+        ...(role === 'admin' ? [{ href: '/settings', label: 'Configuración', icon: Settings }] : []),
+      ];
 
   async function handleLogout() {
     const supabase = createClient();

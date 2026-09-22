@@ -23,7 +23,7 @@ export default function RegisterScreen() {
   const [step, setStep] = useState<Step>('scan');
   const [qrInput, setQrInput] = useState('');
   const [showScanner, setShowScanner] = useState(false);
-  const [selectedWorker, setSelectedWorker] = useState<{ id: string; full_name: string } | null>(null);
+  const [selectedWorker, setSelectedWorker] = useState<{ id: string; full_name: string; day_roster_id: string | null } | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; product_name?: string } | null>(null);
   const [selectedRow, setSelectedRow] = useState<SelectedRow>(null);
   const [rowChoices, setRowChoices] = useState<{ id: string; name: string; row_number: number | null }[]>([]);
@@ -59,20 +59,32 @@ export default function RegisterScreen() {
   }
 
   async function lookupWorker(badge: string) {
-    const { data, error } = await supabase.from('workers').select('id, full_name, status, crew_id').eq('qr_badge_url', badge).single();
+    const { data, error } = await supabase.from('workers').select('id, full_name, status').eq('qr_badge_url', badge).single();
     if (error || !data) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', 'Badge QR no reconocido'); return; }
     if (data.status !== 'active') { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); Alert.alert('Error', `${data.full_name} no está activo`); return; }
-    // El Encargado solo puede registrar producción de trabajadores de SU cuadrilla.
-    if (currentWorker?.role === 'crew_lead') {
-      const { data: myCrew } = await supabase.from('crews').select('id').eq('status', 'active').limit(1).maybeSingle();
-      if (!myCrew || data.crew_id !== myCrew.id) {
+
+    // El responsable (Encargado o Supervisor) solo registra producción de los
+    // trabajadores que están en SU equipo del día. La atribución se congela con
+    // el day_roster_id de la jornada. El worker "puro" (raro aquí) no aplica.
+    let dayRosterId: string | null = null;
+    if (currentWorker?.role === 'crew_lead' || currentWorker?.role === 'supervisor') {
+      const { data: roster } = await supabase
+        .from('day_roster')
+        .select('id')
+        .eq('lead_id', currentWorker.id)
+        .eq('worker_id', data.id)
+        .eq('work_day', await tenantWorkday(0))
+        .maybeSingle();
+      if (!roster) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert('Fuera de tu cuadrilla', `${data.full_name} no pertenece a tu cuadrilla.`);
+        Alert.alert('Fuera de tu equipo de hoy', `${data.full_name} no está en tu equipo de hoy. Agrégalo desde "Mi equipo" antes de registrar su producción.`);
         return;
       }
+      dayRosterId = roster.id;
     }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedWorker(data);
+    setSelectedWorker({ id: data.id, full_name: data.full_name, day_roster_id: dayRosterId });
     // Si ya hay paño seleccionado, respetamos si tiene melgas (rowChoices) o no.
     if (selectedBlock) {
       setStep(rowChoices.length > 0 && !selectedRow ? 'select-row' : 'quantity');
@@ -128,6 +140,8 @@ export default function RegisterScreen() {
         rate_amount_snapshot: rateAmount,
         work_day: await tenantWorkday(0),
         recorded_by: currentWorker?.id ?? null,
+        // Congela la atribución del día: bajo qué responsable/equipo se cosechó.
+        day_roster_id: selectedWorker.day_roster_id,
       };
 
       if (online) {
