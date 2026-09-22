@@ -39,6 +39,9 @@ apps/*/android/
 *.swp
 *.swo
 
+# Kiro MCP config (puede contener API keys en texto plano — no versionar)
+.kiro/settings/mcp.json
+
 # OS
 .DS_Store
 Thumbs.db
