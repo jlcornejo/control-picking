@@ -14,6 +14,11 @@ const ACTION_LABEL: Record<string, string> = {
   create_tenant: 'Creó cliente',
   impersonate: 'Impersonación',
   update_field: 'Modificó campo',
+  create_feature_flag: 'Creó feature flag',
+  update_feature_flag: 'Editó feature flag',
+  delete_feature_flag: 'Eliminó feature flag',
+  set_feature_flag_override: 'Override de flag',
+  clear_feature_flag_override: 'Quitó override de flag',
 };
 
 /**

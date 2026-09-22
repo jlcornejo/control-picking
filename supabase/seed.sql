@@ -212,3 +212,20 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO payments (organization_id, settlement_id, worker_id, amount, notes) VALUES
   ((SELECT id FROM organizations WHERE slug='default'), '55d00010-0000-0000-0000-000000000001', 'aa000010-0000-0000-0000-000000000001', 30000, 'Pago total jornada'),
   ((SELECT id FROM organizations WHERE slug='default'), '55d00011-0000-0000-0000-000000000001', 'aa000011-0000-0000-0000-000000000001', 12000, 'Adelanto parcial');
+
+-- ============================================================
+-- FEATURE FLAGS (catálogo global de plataforma)
+-- ============================================================
+INSERT INTO platform_feature_flags (key, name, description, category, strategy, enabled) VALUES
+  ('bluetooth_scale', 'Báscula Bluetooth', 'Lectura de peso directa desde balanzas Bluetooth en faena, sin tipeo manual.', 'cosecha', 'org_override', false),
+  ('offline_sync', 'Sincronización Offline', 'Cola de mutaciones persistida en el dispositivo con reconexión resiliente.', 'infraestructura', 'org_override', true),
+  ('ai_yield_prediction', 'Predicción de Rendimiento (IA)', 'Proyección de recolección basada en datos históricos y curvas de maduración.', 'analitica', 'org_override', false),
+  ('advanced_metrics', 'Métricas Avanzadas', 'Dashboard de analítica extendida y rankings de productividad.', 'analitica', 'org_override', false),
+  ('disable_pdf_export', 'Kill-Switch: Exportación PDF', 'Interruptor de emergencia que detiene la generación de PDFs pesados en picos de carga.', 'infraestructura', 'kill_switch', false)
+ON CONFLICT (key) DO NOTHING;
+
+-- Overrides de ejemplo: sur-berries tiene báscula bluetooth activada (piloto).
+INSERT INTO organization_feature_flags (organization_id, flag_key, enabled) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'bluetooth_scale', true),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'ai_yield_prediction', true)
+ON CONFLICT (organization_id, flag_key) DO NOTHING;
