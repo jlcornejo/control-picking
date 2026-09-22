@@ -10,6 +10,7 @@ import { ScrollText, ShieldCheck, Building2 } from 'lucide-react';
 
 const ACTION_LABEL: Record<string, string> = {
   view_org: 'Vio ambiente',
+  view_org_detail: 'Inspeccionó datos (soporte)',
   change_subscription: 'Cambió suscripción',
   create_tenant: 'Creó cliente',
   impersonate: 'Impersonación',
