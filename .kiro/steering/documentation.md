@@ -22,8 +22,17 @@ Actualiza `docs/` cuando toques:
 | Alcance del producto, roadmap, usuarios, métricas | `docs/producto/vision-general.md` |
 | Migraciones SQL / esquema de base de datos | Se regenera con `tbls` (ver abajo). No editar a mano `docs/base-de-datos/schema/`. |
 | Costos / infraestructura | `docs/producto/cost-estimate.md` |
+| Cualquier feature, fix o cambio de infra relevante | `CHANGELOG.md` (raíz) — añade una entrada en `## [Sin publicar]` |
 
-Cuando el cambio no encaje en ninguna página existente, crea una página nueva en la carpeta adecuada de `docs/`. La navegación se actualiza sola (awesome-pages); si necesitas fijar orden o título, edita el `.pages` de esa carpeta.
+Cuando el cambio no encaje en ninguna página existente, crea una página nueva en la carpeta adecuada de `docs/`.
+
+## CHANGELOG (historial del proyecto)
+
+`CHANGELOG.md` en la raíz registra la evolución del aplicativo (formato
+[Keep a Changelog](https://keepachangelog.com/es/1.1.0/)). **Toda feature, fix o cambio de
+infra relevante debe añadir una entrada** bajo `## [Sin publicar]`, agrupada por tipo
+(Añadido / Cambiado / Corregido / Infra-Deploy). Es la memoria de "qué se construyó y por
+qué" — mantenerlo al día evita redescubrir la historia en cada sesión. La navegación se actualiza sola (awesome-pages); si necesitas fijar orden o título, edita el `.pages` de esa carpeta.
 
 ## Estructura
 

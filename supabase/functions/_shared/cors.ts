@@ -1,7 +1,7 @@
 /** CORS headers for Edge Functions */
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-request-id, content-type, accept',
+  'Access-Control-Allow-Headers': 'authorization, apikey, x-client-info, x-request-id, content-type, accept',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
 };
 
