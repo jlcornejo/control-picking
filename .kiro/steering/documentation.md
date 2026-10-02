@@ -20,26 +20,52 @@ Actualiza `docs/` cuando toques:
 | Reglas de negocio, invariantes, estados de entidades | `docs/dominio/reglas-de-negocio.md` |
 | Stack, decisiones arquitectónicas, estructura del monorepo | `docs/arquitectura/vision-general.md` |
 | Alcance del producto, roadmap, usuarios, métricas | `docs/producto/vision-general.md` |
+| Etapas del proyecto, estado (listo/pendiente), estimaciones | `docs/planning/vision-general.md` |
+| Avance de tareas (empezar/terminar un ítem) | `docs/planning/tablero.md` (mover entre Por hacer / En curso / Hecho) |
+| Paridad con la app legacy, decisiones de negocio | `docs/legacy/paridad-fundo360.md` y `docs/legacy/decisiones-negocio.md` |
 | Migraciones SQL / esquema de base de datos | Se regenera con `tbls` (ver abajo). No editar a mano `docs/base-de-datos/schema/`. |
 | Costos / infraestructura | `docs/producto/cost-estimate.md` |
-| Cualquier feature, fix o cambio de infra relevante | `CHANGELOG.md` (raíz) — añade una entrada en `## [Sin publicar]` |
+| Cualquier feature, fix o cambio de infra relevante | `CHANGELOG.md` (raíz) **y** `docs/changelog.md` — añade la entrada en `## [Sin publicar]` de ambos |
 
 Cuando el cambio no encaje en ninguna página existente, crea una página nueva en la carpeta adecuada de `docs/`.
 
+### Flujo recomendado al cerrar un cambio
+
+1. Actualiza la(s) página(s) de `docs/` que correspondan según la tabla de arriba.
+2. Si el cambio nació de una decisión de negocio, refléjala en `docs/legacy/decisiones-negocio.md`
+   (marca si quedó resuelta) y mueve el ítem en `docs/planning/tablero.md`.
+3. Añade la entrada en el `CHANGELOG.md` raíz **y** en `docs/changelog.md` (ver abajo).
+4. Verifica el build (`npm run docs:build`, que corre `--strict`) antes de commitear.
+
 ## CHANGELOG (historial del proyecto)
 
-`CHANGELOG.md` en la raíz registra la evolución del aplicativo (formato
-[Keep a Changelog](https://keepachangelog.com/es/1.1.0/)). **Toda feature, fix o cambio de
-infra relevante debe añadir una entrada** bajo `## [Sin publicar]`, agrupada por tipo
-(Añadido / Cambiado / Corregido / Infra-Deploy). Es la memoria de "qué se construyó y por
-qué" — mantenerlo al día evita redescubrir la historia en cada sesión. La navegación se actualiza sola (awesome-pages); si necesitas fijar orden o título, edita el `.pages` de esa carpeta.
+Hay **dos** archivos de changelog que deben mantenerse coherentes:
+
+- `CHANGELOG.md` (raíz) — la **fuente de verdad**, formato
+  [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
+- `docs/changelog.md` — la versión **publicada en el sitio** (MkDocs). Reproduce el contenido
+  del raíz para consulta desde la web; enlaza al `CHANGELOG.md` del repo como fuente.
+
+**Toda feature, fix o cambio de infra relevante debe añadir una entrada** bajo
+`## [Sin publicar]` en **ambos** archivos, agrupada por tipo (Añadido / Cambiado / Corregido
+/ Infra-Deploy). Es la memoria de "qué se construyó y por qué" — mantenerlo al día evita
+redescubrir la historia en cada sesión. La navegación se actualiza sola (awesome-pages); si
+necesitas fijar orden o título, edita el `.pages` de esa carpeta.
 
 ## Estructura
 
 ```
 docs/
 ├── index.md                      # Portada
-├── producto/                     # Visión de producto, roadmap
+├── producto/                     # Visión de producto, roadmap, backlog de reunión
+├── planning/                     # Etapas, estado, estimaciones y tablero (Kanban)
+│   ├── vision-general.md         # Fases, listo/pendiente, estimaciones por tema
+│   └── tablero.md                # Tablero Por hacer / En curso / Hecho
+├── legacy/                       # Paridad con la app legacy "Campo Viejo"
+│   ├── vision-general.md         # Qué es el legacy, criterio de salida a terreno
+│   ├── mapa-funcional.md         # Módulos, entidades y modelo del legacy
+│   ├── paridad-fundo360.md       # Contraste legacy → Fundo360 (✅/⚠️/❌/❔)
+│   └── decisiones-negocio.md     # Preguntas abiertas y cerradas para el cliente
 ├── arquitectura/                 # Stack, decisiones, estructura
 ├── dominio/                      # Reglas de negocio, invariantes, glosario
 ├── api/                          # Endpoints REST por módulo
@@ -47,8 +73,16 @@ docs/
 │   ├── esquema.md                # Portada de la sección
 │   └── schema/                   # ← GENERADO por tbls (no editar a mano)
 │   └── cost-estimate.md          # Estimación de costos
+├── changelog.md                  # Changelog publicado en el sitio (espeja CHANGELOG.md raíz)
 └── contribuir/                   # Guía de documentación
 ```
+
+!!! tip "Planning y tablero como centro del proyecto"
+    `docs/planning/` reemplaza la necesidad de Jira/Confluence: concentra el estado del
+    proyecto y el seguimiento de tareas, versionado y compartible por link. El tablero es
+    hoy una **tabla** (se edita por commit). Un tablero interactivo dentro de la consola de
+    plataforma es una fase futura; mientras tanto, mantener `docs/planning/tablero.md` al día
+    es la fuente de avance.
 
 !!! note "Navegación"
     La navegación del sitio se genera automáticamente con el plugin **awesome-pages** a partir de la estructura de carpetas y de los archivos `.pages` (uno por carpeta define título y orden). No hay bloque `nav:` en `mkdocs.yml`. Al añadir una página nueva, colócala en la carpeta adecuada y, si hace falta orden explícito, actualiza el `.pages` de esa carpeta.
