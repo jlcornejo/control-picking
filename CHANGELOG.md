@@ -15,6 +15,13 @@ Convenciones:
 
 ### Añadido
 
+- **Centro de documentación del proyecto** (MkDocs): nuevas secciones **Legacy / Paridad**
+  (`docs/legacy/` — mapa funcional de la app legacy "Campo Viejo", paridad con Fundo360 y
+  decisiones de negocio pendientes) y **Planning** (`docs/planning/` — etapas, estado,
+  estimaciones por tema y tablero tipo Kanban). Se publica el changelog en el sitio
+  (`docs/changelog.md`) y se actualiza la navegación (`docs/.pages`, `index.md`).
+  Centraliza documentación y seguimiento del proyecto, compartible por GitHub Pages sin
+  depender de Jira/Confluence.
 - **Consola Super-Admin (plataforma)** — panel para el dueño/soporte del SaaS, separado
   del dashboard de cliente. Vive en `apps/web/src/app/(platform)/` y valida contra
   `platform_admins`.

@@ -1,8 +1,11 @@
 nav:
   - index.md
   - producto
+  - planning
+  - legacy
   - arquitectura
   - dominio
   - api
   - base-de-datos
+  - changelog.md
   - contribuir

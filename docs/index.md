@@ -7,10 +7,13 @@ Plataforma SaaS multi-cliente para la gestión integral de operaciones agrícola
 Esta documentación reúne el conocimiento del producto y del sistema en un solo lugar:
 
 - **[Producto](producto/vision-general.md)** — Qué resuelve Fundo360, para quién y con qué alcance.
+- **[Planning](planning/vision-general.md)** — Etapas, estado del proyecto, estimaciones y [tablero](planning/tablero.md) de tareas.
+- **[Legacy / Paridad](legacy/vision-general.md)** — La app actual del cliente, su paridad con Fundo360 y las decisiones de negocio pendientes.
 - **[Arquitectura](arquitectura/vision-general.md)** — Cómo está construido: monorepo, stack y decisiones técnicas.
 - **[Dominio](dominio/reglas-de-negocio.md)** — Reglas de negocio, invariantes y glosario.
 - **[API](api/vision-general.md)** — Endpoints REST, contratos y convenciones.
 - **[Base de datos](base-de-datos/esquema.md)** — Esquema de tablas, relaciones y RLS (generado automáticamente).
+- **[Changelog](changelog.md)** — Historial de cambios del proyecto.
 - **[Contribuir](contribuir/documentacion.md)** — Cómo escribir y publicar documentación.
 
 ## Estado
