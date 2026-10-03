@@ -11,6 +11,7 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
+import { useFontScale, FONT_SCALES, FONT_SCALE_LABELS, type FontScaleKey } from '../../src/hooks/useFontScale';
 
 type Period = 'today' | 'week' | 'month';
 const PERIODS: { key: Period; label: string }[] = [
@@ -24,6 +25,7 @@ const QR_SIZE = Math.min(Dimensions.get('window').width * 0.55, 220);
 export default function ProfileScreen() {
   const { worker, signOut } = useAuth();
   const { roleLabel } = useOrgSettings();
+  const { scale, setScale } = useFontScale();
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
   const [showQR, setShowQR] = useState(false);
@@ -212,6 +214,27 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {/* Accesibilidad: tamaño de texto */}
+      <View style={s.a11yCard}>
+        <View style={s.a11yHeader}>
+          <Ionicons name="text-outline" size={18} color={colors.textSecondary} />
+          <Text style={s.a11yTitle}>Tamaño del texto</Text>
+        </View>
+        <Text style={s.a11yHint}>Agranda el texto de toda la app para leerlo mejor.</Text>
+        <View style={s.a11yRow}>
+          {(Object.keys(FONT_SCALES) as FontScaleKey[]).map((k) => (
+            <TouchableOpacity
+              key={k}
+              style={[s.a11yChip, scale === k && s.a11yChipActive]}
+              onPress={() => { try { Haptics.selectionAsync(); } catch {} setScale(k); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.a11yChipText, scale === k && s.a11yChipTextActive]}>{FONT_SCALE_LABELS[k]}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {/* Logout */}
       <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={s.logoutText}>Cerrar sesión</Text>
@@ -264,6 +287,15 @@ const s = StyleSheet.create({
   logoutBtn: { marginTop: spacing.xxl, backgroundColor: colors.redBg, borderWidth: 1, borderColor: '#fecaca', borderRadius: radius.lg, paddingVertical: 15, alignItems: 'center' },
   logoutText: { fontSize: 15, fontWeight: font.semibold, color: colors.red },
   version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: spacing.lg },
+  a11yCard: { backgroundColor: colors.card, borderRadius: radius.xl, marginTop: spacing.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder },
+  a11yHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  a11yTitle: { fontSize: 14, fontWeight: font.semibold, color: colors.text },
+  a11yHint: { fontSize: 12, color: colors.textMuted, marginTop: 4, marginBottom: spacing.md },
+  a11yRow: { flexDirection: 'row', gap: spacing.sm },
+  a11yChip: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center' },
+  a11yChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  a11yChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.textSecondary },
+  a11yChipTextActive: { color: '#fff' },
   adminBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primary, borderRadius: radius.lg, paddingVertical: 16, paddingHorizontal: spacing.lg },
   adminBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.textWhite },
   qrBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primaryMuted, borderRadius: radius.lg, paddingVertical: 16 },

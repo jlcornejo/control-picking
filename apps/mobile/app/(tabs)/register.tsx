@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, FlatList, StyleSheet, Image } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { evaluateBoxTolerance, ToleranceUnit } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
 import { QRScanner } from '../../src/components/QRScanner';
+import { PhotoCapture } from '../../src/components/PhotoCapture';
 import { tenantWorkday } from '../../src/utils/date';
 import { formatMoney } from '../../src/utils/format';
 import * as Haptics from 'expo-haptics';
@@ -11,6 +14,18 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { SuccessOverlay } from '../../src/components/SuccessOverlay';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
+import { newUuid, uploadPickingEvidence, currentOrgId } from '../../src/lib/picking-evidence';
+
+/** Tipo de caja/envase con destare y tolerancia (control de merma). */
+type BoxTypeOption = {
+  id: string;
+  name: string;
+  tare_weight_kg: number;
+  target_net_weight_kg: number;
+  tolerance_over: number;
+  tolerance_under: number;
+  tolerance_unit: ToleranceUnit;
+};
 
 type Step = 'scan' | 'select-block' | 'select-row' | 'quantity';
 
@@ -24,17 +39,48 @@ export default function RegisterScreen() {
   const [qrInput, setQrInput] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<{ id: string; full_name: string; day_roster_id: string | null } | null>(null);
-  const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; product_name?: string } | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; product_name?: string; unit_measure?: 'box' | 'kg' } | null>(null);
   const [selectedRow, setSelectedRow] = useState<SelectedRow>(null);
   const [rowChoices, setRowChoices] = useState<{ id: string; name: string; row_number: number | null }[]>([]);
   const [quantity, setQuantity] = useState('');
   const [successData, setSuccessData] = useState<{ title: string; subtitle: string } | null>(null);
+  // Destare (control de merma): tipo de caja + peso bruto pesado. Solo cuando el
+  // flag box_tare_control está activo y el producto del paño se mide por caja.
+  const [selectedBoxType, setSelectedBoxType] = useState<BoxTypeOption | null>(null);
+  const [grossWeight, setGrossWeight] = useState('');
+  // Foto de respaldo (evidencia): uri local de la foto tomada y visor de cámara.
+  // Solo cuando el flag picking_photo_evidence está activo.
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [showPhoto, setShowPhoto] = useState(false);
+
+  const { enabled: tareEnabled } = useFeatureFlag('box_tare_control');
+  const { enabled: photoEnabled } = useFeatureFlag('picking_photo_evidence');
 
   const { data: blocks } = useQuery({
     queryKey: ['my-blocks'],
     queryFn: async () => {
-      const { data } = await supabase.from('blocks').select('id, name, product_id, products(name)').eq('status', 'active').order('name');
-      return (data || []).map((b: any) => ({ id: b.id, name: b.name, product_id: b.product_id, product_name: b.products?.name }));
+      const { data } = await supabase.from('blocks').select('id, name, product_id, products(name, unit_measure)').eq('status', 'active').order('name');
+      return (data || []).map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        product_id: b.product_id,
+        product_name: b.products?.name,
+        unit_measure: b.products?.unit_measure as 'box' | 'kg' | undefined,
+      }));
+    },
+  });
+
+  // Tipos de caja activos del tenant (solo se usan si el flag está activo).
+  const { data: boxTypes } = useQuery({
+    queryKey: ['box-types'],
+    enabled: tareEnabled,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('box_types')
+        .select('id, name, tare_weight_kg, target_net_weight_kg, tolerance_over, tolerance_under, tolerance_unit')
+        .eq('status', 'active')
+        .order('name');
+      return (data || []) as BoxTypeOption[];
     },
   });
 
@@ -96,7 +142,7 @@ export default function RegisterScreen() {
   // Selecciona un paño y decide el siguiente paso: si el paño tiene melgas
   // activas, ofrece elegir melga; si no tiene, salta directo a la cantidad.
   // Así el nivel melga aparece solo cuando el cliente/campo realmente lo usa.
-  async function chooseBlock(block: { id: string; name: string; product_id: string; product_name?: string }) {
+  async function chooseBlock(block: { id: string; name: string; product_id: string; product_name?: string; unit_measure?: 'box' | 'kg' }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedBlock(block);
     setSelectedRow(null);
@@ -112,10 +158,37 @@ export default function RegisterScreen() {
     setStep(rows.length > 0 ? 'select-row' : 'quantity');
   }
 
+  // ¿Aplica el control de destare en este registro? Solo si el flag está activo,
+  // el producto del paño se mide por caja y hay tipos de caja configurados.
+  const tareApplies = tareEnabled && selectedBlock?.unit_measure === 'box' && (boxTypes?.length ?? 0) > 0;
+
   const submitMutation = useMutation({
     mutationFn: async () => {
       const qty = parseFloat(quantity);
       if (!selectedWorker || !selectedBlock || qty <= 0) throw new Error('Datos incompletos');
+
+      // Destare (opcional): si aplica y el supervisor eligió caja + pesó, se
+      // calcula el neto y se marca fuera de tolerancia. El pago NO cambia (por qty).
+      let boxFields: {
+        box_type_id: string | null;
+        gross_weight_kg: number | null;
+        tare_snapshot_kg: number | null;
+        net_weight_kg: number | null;
+        out_of_tolerance: boolean;
+      } = { box_type_id: null, gross_weight_kg: null, tare_snapshot_kg: null, net_weight_kg: null, out_of_tolerance: false };
+
+      if (tareApplies && selectedBoxType) {
+        const gross = parseFloat(grossWeight);
+        if (!Number.isFinite(gross) || gross <= 0) throw new Error('Ingresa el peso bruto de la caja');
+        const evalResult = evaluateBoxTolerance(gross, selectedBoxType.tare_weight_kg, selectedBoxType);
+        boxFields = {
+          box_type_id: selectedBoxType.id,
+          gross_weight_kg: gross,
+          tare_snapshot_kg: selectedBoxType.tare_weight_kg,
+          net_weight_kg: evalResult.net_weight_kg,
+          out_of_tolerance: evalResult.out_of_tolerance,
+        };
+      }
 
       // Resolver la tarifa vigente: online consulta directa; offline usa la
       // caché de tarifas. En ambos casos debe ser > 0 (rate_amount_snapshot).
@@ -127,6 +200,32 @@ export default function RegisterScreen() {
         rateAmount = ratesByProduct?.[selectedBlock.product_id];
       }
       if (!rateAmount || rateAmount <= 0) throw new Error('Sin tarifa vigente para este producto');
+
+      // Id del registro generado en cliente: permite correlacionar la foto de
+      // respaldo (ruta {org}/{recordId}/{uuid}.jpg) con el registro antes de
+      // insertarlo. La tabla acepta id explícito (default gen_random_uuid()).
+      const recordId = newUuid();
+
+      // Foto de respaldo (opcional, solo online): se sube primero a Storage y, si
+      // tiene éxito, se guarda su ruta en el registro. Si la subida falla, NO se
+      // bloquea el registro: se guarda sin foto y se avisa (la cosecha es lo
+      // crítico). Offline no sube foto (requiere conexión); se informa.
+      let backupImagePath: string | null = null;
+      let photoSkippedOffline = false;
+      if (photoEnabled && photoUri) {
+        if (online) {
+          const orgId = await currentOrgId();
+          if (orgId) {
+            try {
+              backupImagePath = await uploadPickingEvidence({ orgId, recordId, localUri: photoUri });
+            } catch {
+              backupImagePath = null; // best-effort: no romper el registro por la foto
+            }
+          }
+        } else {
+          photoSkippedOffline = true;
+        }
+      }
 
       // work_day en la zona del tenant (autoridad del servidor vía RPC).
       // Se fija explícitamente para que el flujo offline conserve la fecha
@@ -142,35 +241,58 @@ export default function RegisterScreen() {
         recorded_by: currentWorker?.id ?? null,
         // Congela la atribución del día: bajo qué responsable/equipo se cosechó.
         day_roster_id: selectedWorker.day_roster_id,
+        // Snapshot de destare (null cuando no aplica el control de peso).
+        ...boxFields,
       };
 
       if (online) {
-        const { error } = await supabase.from('picking_records').insert(record);
+        // Incluye el id de cliente y la ruta de la foto (si se subió).
+        const { error } = await supabase.from('picking_records').insert({ ...record, id: recordId, backup_image_path: backupImagePath });
         if (error) throw error;
-        return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: false };
+        return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: false, outOfTolerance: boxFields.out_of_tolerance, netWeight: boxFields.net_weight_kg, photoSkippedOffline, hasPhoto: !!backupImagePath };
       }
 
       // Offline: encolar para sincronizar al reconectar.
       await enqueue({ type: 'picking_insert', payload: record });
-      return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: true };
+      return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: true, outOfTolerance: boxFields.out_of_tolerance, netWeight: boxFields.net_weight_kg, photoSkippedOffline, hasPhoto: false };
     },
     onSuccess: (data) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ['production'] });
+
+      // Alerta de merma NO bloqueante: el registro ya se guardó (y quedó auditado
+      // con out_of_tolerance). Solo se informa; el supervisor decide qué hacer.
+      if (data.outOfTolerance && selectedBoxType) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          '⚠️ Peso fuera de tolerancia',
+          `Neto ${data.netWeight} kg vs objetivo ${selectedBoxType.target_net_weight_kg} kg (${selectedBoxType.name}). ` +
+            'El registro se guardó y quedó marcado para revisión. Ajusta la caja para evitar merma.',
+          [{ text: 'Entendido' }],
+        );
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Aviso si la foto de respaldo no se pudo adjuntar por estar sin conexión.
+      if (data.photoSkippedOffline) {
+        Alert.alert('Foto no adjuntada', 'El registro se guardó, pero la foto de respaldo requiere conexión. Vuelve a adjuntarla con señal si es necesario.');
+      }
+
       setSuccessData({
         title: data.queued ? `${data.qty} unidades en espera` : `${data.qty} unidades registradas`,
         subtitle: data.queued
           ? `${data.workerName} → se sincronizará al reconectar`
-          : `${data.workerName} → ${formatMoney(data.total)}`,
+          : `${data.workerName} → ${formatMoney(data.total)}${data.hasPhoto ? '  📷' : ''}`,
       });
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
   });
 
-  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); }
-  function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); }
+  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
+  function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
 
   if (showScanner) return <QRScanner onScan={handleQRScanned} onClose={() => setShowScanner(false)} />;
+  if (showPhoto) return <PhotoCapture onCapture={(uri) => { setPhotoUri(uri); setShowPhoto(false); }} onClose={() => setShowPhoto(false)} />;
 
   const successOverlay = (
     <SuccessOverlay
@@ -310,6 +432,70 @@ export default function RegisterScreen() {
         <TextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
           value={quantity} onChangeText={setQuantity} keyboardType="numeric" autoFocus selectTextOnFocus />
         <Text style={s.unitLabel}>cajas / kilos</Text>
+
+        {tareApplies && (
+          <View style={s.tareBox}>
+            <Text style={s.tareLabel}>Tipo de caja</Text>
+            <View style={s.tareChips}>
+              {(boxTypes || []).map((bt) => {
+                const active = selectedBoxType?.id === bt.id;
+                return (
+                  <TouchableOpacity
+                    key={bt.id}
+                    onPress={() => { Haptics.selectionAsync(); setSelectedBoxType(bt); }}
+                    style={[s.tareChip, active && s.tareChipActive]}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[s.tareChipText, active && s.tareChipTextActive]}>{bt.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {selectedBoxType && (
+              <>
+                <TextInput
+                  style={s.tareInput}
+                  placeholder={`Peso bruto (objetivo ${selectedBoxType.target_net_weight_kg} kg + tara ${selectedBoxType.tare_weight_kg} kg)`}
+                  placeholderTextColor={colors.textMuted}
+                  value={grossWeight}
+                  onChangeText={setGrossWeight}
+                  keyboardType="numeric"
+                />
+                {!!grossWeight && parseFloat(grossWeight) > 0 && (() => {
+                  const ev = evaluateBoxTolerance(parseFloat(grossWeight), selectedBoxType.tare_weight_kg, selectedBoxType);
+                  return (
+                    <Text style={[s.tareNet, ev.out_of_tolerance && s.tareNetWarn]}>
+                      Neto {ev.net_weight_kg} kg {ev.out_of_tolerance ? '⚠️ fuera de tolerancia' : '✓ dentro de rango'}
+                    </Text>
+                  );
+                })()}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Foto de respaldo (opcional, bajo feature flag picking_photo_evidence) */}
+        {photoEnabled && (
+          <View style={s.photoBox}>
+            {photoUri ? (
+              <View style={s.photoRow}>
+                <Image source={{ uri: photoUri }} style={s.photoThumb} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.photoLabel}>Foto de respaldo adjunta</Text>
+                  <View style={s.photoActions}>
+                    <TouchableOpacity onPress={() => setShowPhoto(true)}><Text style={s.photoAction}>Reemplazar</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => setPhotoUri(null)}><Text style={[s.photoAction, s.photoActionRemove]}>Quitar</Text></TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={s.photoBtn} onPress={() => setShowPhoto(true)} activeOpacity={0.85}>
+                <Text style={s.photoBtnIcon}>📷</Text>
+                <Text style={s.photoBtnText}>Agregar foto de respaldo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={s.bottomRow}>
@@ -317,9 +503,9 @@ export default function RegisterScreen() {
           <Text style={s.backBtnText}>{rowChoices.length > 0 ? '← Melga' : '← Paño'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.confirmBtn, (!quantity || parseFloat(quantity) <= 0) && { opacity: 0.4 }]}
+          style={[s.confirmBtn, (!quantity || parseFloat(quantity) <= 0 || (tareApplies && selectedBoxType && !(parseFloat(grossWeight) > 0))) && { opacity: 0.4 }]}
           onPress={() => submitMutation.mutate()}
-          disabled={!quantity || parseFloat(quantity) <= 0 || submitMutation.isPending} activeOpacity={0.85}>
+          disabled={!quantity || parseFloat(quantity) <= 0 || (tareApplies && !!selectedBoxType && !(parseFloat(grossWeight) > 0)) || submitMutation.isPending} activeOpacity={0.85}>
           <Text style={s.confirmBtnText}>{submitMutation.isPending ? '...' : '✓ Confirmar'}</Text>
         </TouchableOpacity>
       </View>
@@ -368,4 +554,26 @@ const s = StyleSheet.create({
   confirmBtnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
   empty: { alignItems: 'center', paddingTop: 48 },
   emptyText: { fontSize: 14, color: colors.textMuted },
+  // Control de destare (opcional, bajo feature flag)
+  tareBox: { width: '100%', marginTop: spacing.xl, padding: spacing.lg, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.cardBorder },
+  tareLabel: { fontSize: 12, fontWeight: font.semibold, color: colors.textMuted, marginBottom: spacing.sm, letterSpacing: 0.3 },
+  tareChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  tareChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.background },
+  tareChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tareChipText: { fontSize: 13, color: colors.textSecondary, fontWeight: font.medium },
+  tareChipTextActive: { color: colors.textWhite },
+  tareInput: { marginTop: spacing.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12, fontSize: 15, color: colors.text },
+  tareNet: { marginTop: spacing.sm, fontSize: 13, fontWeight: font.semibold, color: colors.primary },
+  tareNetWarn: { color: colors.red },
+  // Foto de respaldo
+  photoBox: { width: '100%', marginTop: spacing.lg },
+  photoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderStyle: 'dashed', borderRadius: radius.lg, paddingVertical: 14, backgroundColor: colors.card },
+  photoBtnIcon: { fontSize: 18 },
+  photoBtnText: { fontSize: 14, fontWeight: font.semibold, color: colors.textSecondary },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.cardBorder },
+  photoThumb: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surface },
+  photoLabel: { fontSize: 13, fontWeight: font.semibold, color: colors.text },
+  photoActions: { flexDirection: 'row', gap: spacing.lg, marginTop: 6 },
+  photoAction: { fontSize: 13, fontWeight: font.medium, color: colors.primary },
+  photoActionRemove: { color: colors.red },
 });

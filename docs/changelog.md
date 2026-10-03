@@ -19,6 +19,13 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Foto de respaldo en el registro de picking** (bajo feature flag por organización): el
+  supervisor/anotador adjunta una foto como comprobante al registrar la cosecha. Se guarda
+  en almacenamiento privado aislado por organización y se accede con enlace firmado
+  temporal; no altera el pago (es evidencia/auditoría). La captura reusa la cámara ya
+  presente, por lo que se entrega sin reinstalar la app.
+- **Accesibilidad: tamaño de texto configurable** (Normal / Grande / Extra grande) desde el
+  perfil, pensado para usuarios con baja visión. Agranda todo el texto de la app.
 - **Centro de documentación del proyecto** en el sitio: secciones
   [Legacy / Paridad](legacy/vision-general.md) (mapa funcional del legacy, paridad con
   Fundo360 y decisiones de negocio) y [Planning](planning/vision-general.md) (etapas,

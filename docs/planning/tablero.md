@@ -23,8 +23,7 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 | F-03 | **Calidad afecta tarifa** (tarifa por producto + calidad) | [Decisión 2](../legacy/decisiones-negocio.md#2-calidad-afecta-la-tarifa) | +3–4 d | 🟡 P1 |
 | F-04 | **Lote/guía de despacho** (si se confirma) | [Decisión 3](../legacy/decisiones-negocio.md#3-loteguia-de-despacho) | 5–8 d | 🟡 P2 |
 | F-05 | **Variedad por cuartel** (si se confirma) | [Decisión 4](../legacy/decisiones-negocio.md#4-variedad-por-cuartel) | 0,5 d | 🟢 P3 |
-| M2-01 | Imágenes de respaldo en picking y pagos | [Backlog §5](../producto/backlog-reunion.md) | 4–6 d | 🟡 P1 |
-| M2-02 | Accesibilidad: escala de fuente configurable | [Backlog §7](../producto/backlog-reunion.md) | 2–3 d | 🟡 P1 |
+| M2-01b | Imágenes de respaldo **en pagos** (pendiente) | [Backlog §5](../producto/backlog-reunion.md) | 2–3 d | 🟡 P1 |
 | M2-03 | Informes exportables (PDF / Excel) | [Backlog §8](../producto/backlog-reunion.md) | 5–7 d | 🟡 P1 |
 | M2-04 | Ticketera de soporte (MVP bandeja) | [Backlog §6](../producto/backlog-reunion.md) | 3–4 d | 🟡 P1 |
 | M3-01 | Visibilidad de cosecha del trabajador (capacidad RBAC) | [Backlog §3](../producto/backlog-reunion.md) | 1–2 d | 🟢 P2 |
@@ -43,6 +42,8 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Entregado |
 |----|-------|-----------|
+| M2-01 | Imágenes de respaldo en el registro de picking (foto + Storage por tenant) | ✅ |
+| M2-02 | Accesibilidad: tamaño de texto configurable (Normal/Grande/Extra) | ✅ |
 | M1-01 | RBAC configurable (perfiles de permisos) | ✅ |
 | M1-02 | Destare + tipos de caja + alertas de peso/merma | ✅ |
 | B-01 | Registro de picking con tarifa congelada + badge QR | ✅ |

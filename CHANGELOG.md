@@ -15,6 +15,16 @@ Convenciones:
 
 ### Añadido
 
+- **Foto de respaldo en el registro de picking** (feature flag `picking_photo_evidence`,
+  por organización): el supervisor/anotador puede adjuntar una foto como comprobante al
+  registrar la cosecha. Bucket privado de Storage `picking-evidence` aislado por tenant
+  (ruta `{org_id}/{record_id}/{uuid}.jpg`, policies RLS sobre `storage.objects`), columna
+  opcional `picking_records.backup_image_path` (snapshot, no altera el pago), captura con
+  cámara reusando `expo-camera` (sin recompilar: entregable por OTA) y acceso con URL
+  firmada temporal. La evidencia es inmutable (sin UPDATE/DELETE para roles de terreno).
+- **Accesibilidad: tamaño de texto configurable** (Normal / Grande / Extra grande) desde el
+  perfil móvil, persistido por usuario. Pensado para administradores de fundo con baja
+  visión. Escala todo el texto de la app sin depender de los ajustes del sistema operativo.
 - **Centro de documentación del proyecto** (MkDocs): nuevas secciones **Legacy / Paridad**
   (`docs/legacy/` — mapa funcional de la app legacy "Campo Viejo", paridad con Fundo360 y
   decisiones de negocio pendientes) y **Planning** (`docs/planning/` — etapas, estado,

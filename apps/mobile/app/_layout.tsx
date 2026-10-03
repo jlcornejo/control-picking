@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
+import { FontScaleProvider } from '../src/hooks/useFontScale';
 import { useAuth } from '../src/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -68,7 +69,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <ThemeProvider>{children}</ThemeProvider>
+      <FontScaleProvider>
+        <ThemeProvider>{children}</ThemeProvider>
+      </FontScaleProvider>
       {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
     </>
   );
