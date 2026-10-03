@@ -19,6 +19,8 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Actualizaciones OTA (`expo-updates`)** en la app móvil: a partir del próximo build, los
+  cambios de solo-código se entregan por aire sin reinstalar la app.
 - **Foto de respaldo en el registro de picking** (bajo feature flag por organización): el
   supervisor/anotador adjunta una foto como comprobante al registrar la cosecha. Se guarda
   en almacenamiento privado aislado por organización y se accede con enlace firmado

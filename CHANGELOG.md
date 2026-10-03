@@ -15,6 +15,10 @@ Convenciones:
 
 ### Añadido
 
+- **Actualizaciones OTA (`expo-updates`)** en la app móvil: `runtimeVersion` con política
+  `appVersion` y endpoint EAS Update por canal (`preview` / `production`). A partir del
+  próximo build, los cambios solo-JS se entregan por `eas update` sin reinstalar. Requiere
+  un rebuild EAS esta vez para incorporar el runtime de updates.
 - **Foto de respaldo en el registro de picking** (feature flag `picking_photo_evidence`,
   por organización): el supervisor/anotador puede adjuntar una foto como comprobante al
   registrar la cosecha. Bucket privado de Storage `picking-evidence` aislado por tenant

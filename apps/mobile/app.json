@@ -8,6 +8,13 @@
     "scheme": "fundo360",
     "icon": "./assets/icon.png",
     "backgroundColor": "#1b5e20",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0a909e0d-5555-4590-a113-ac838c92040f",
+      "fallbackToCacheTimeout": 0
+    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
