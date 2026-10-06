@@ -12,7 +12,9 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   // Alto base del contenido del tab bar + el inset inferior del sistema
   // (barra de gestos/botones en Android, home indicator en iOS).
-  const BAR_CONTENT_HEIGHT = 62;
+  // 76px da espacio holgado para icono (22) + label (10) sin que el label se
+  // recorte cuando el inset del sistema es 0 (p. ej. en web).
+  const BAR_CONTENT_HEIGHT = 76;
   const bottomInset = insets.bottom;
   // Operadores de terreno (registran producción y ven dashboard): admin, supervisor y encargado.
   const isAdmin = worker?.role === 'admin' || worker?.role === 'supervisor' || worker?.role === 'crew_lead';
@@ -54,13 +56,15 @@ export default function TabsLayout() {
           shadowRadius: 12,
           elevation: 10,
           // Respeta la barra del sistema para que los labels no se corten.
-          paddingBottom: bottomInset > 0 ? bottomInset : 10,
-          paddingTop: 8,
+          paddingBottom: bottomInset > 0 ? bottomInset : 8,
+          paddingTop: 6,
         },
-        tabBarItemStyle: { paddingTop: 4, paddingBottom: 2 },
+        tabBarItemStyle: { paddingTop: 2, paddingBottom: 4 },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: font.semibold },
+        // lineHeight explícito reserva alto para el label; sin él, react-native-web
+        // lo colapsa a height 0 cuando el espacio queda justo y el label desaparece.
+        tabBarLabelStyle: { fontSize: 10, lineHeight: 14, fontWeight: font.semibold },
       }}
     >
       <Tabs.Screen name="index" options={{ href: null }} />
