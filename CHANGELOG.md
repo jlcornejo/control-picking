@@ -15,6 +15,9 @@ Convenciones:
 
 ### Añadido
 
+- **Set de pruebas manuales por perfil** (`docs/pruebas/`): casos paso a paso para
+  Supervisor/Anotador (requisito mínimo de terreno), Administrador, Encargado y Trabajador,
+  más la guía de preparación del entorno (web contra remoto) y usuarios de prueba.
 - **Actualizaciones OTA (`expo-updates`)** en la app móvil: `runtimeVersion` con política
   `appVersion` y endpoint EAS Update por canal (`preview` / `production`). A partir del
   próximo build, los cambios solo-JS se entregan por `eas update` sin reinstalar. Requiere

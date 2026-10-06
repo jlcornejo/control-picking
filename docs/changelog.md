@@ -19,6 +19,8 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Set de pruebas manuales por perfil**: casos paso a paso para validar la app móvil
+  (Supervisor, Admin, Encargado, Trabajador). Ver la sección [Pruebas](pruebas/vision-general.md).
 - **Actualizaciones OTA (`expo-updates`)** en la app móvil: a partir del próximo build, los
   cambios de solo-código se entregan por aire sin reinstalar la app.
 - **Foto de respaldo en el registro de picking** (bajo feature flag por organización): el

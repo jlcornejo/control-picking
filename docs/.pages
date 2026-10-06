@@ -3,6 +3,7 @@ nav:
   - producto
   - planning
   - legacy
+  - pruebas
   - arquitectura
   - dominio
   - api

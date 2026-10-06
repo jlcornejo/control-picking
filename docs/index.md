@@ -9,6 +9,7 @@ Esta documentación reúne el conocimiento del producto y del sistema en un solo
 - **[Producto](producto/vision-general.md)** — Qué resuelve Fundo360, para quién y con qué alcance.
 - **[Planning](planning/vision-general.md)** — Etapas, estado del proyecto, estimaciones y [tablero](planning/tablero.md) de tareas.
 - **[Legacy / Paridad](legacy/vision-general.md)** — La app actual del cliente, su paridad con Fundo360 y las decisiones de negocio pendientes.
+- **[Pruebas](pruebas/vision-general.md)** — Casos de prueba manuales por perfil de la app móvil.
 - **[Arquitectura](arquitectura/vision-general.md)** — Cómo está construido: monorepo, stack y decisiones técnicas.
 - **[Dominio](dominio/reglas-de-negocio.md)** — Reglas de negocio, invariantes y glosario.
 - **[API](api/vision-general.md)** — Endpoints REST, contratos y convenciones.
