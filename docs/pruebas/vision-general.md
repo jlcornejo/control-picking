@@ -65,13 +65,35 @@ respaldo activada).
 | Supervisor | `supervisor@surberries.cl` | `super123` |
 | Encargado (crew_lead) | `capataz@surberries.cl` | `capataz123` |
 
-Trabajadores (sin login, se identifican por **badge QR**): Camila Rojas, Diego Torres,
-Fernanda Silva.
+### Códigos de badge de los trabajadores (para el ingreso manual)
 
-!!! tip "Badge para el ingreso manual"
-    En el registro de picking, si no puedes escanear, usa el **ingreso manual del badge**.
-    El valor del badge es el que está guardado en el trabajador (campo `qr_badge_url`). Si
-    no lo tienes a mano, pídelo al admin o míralo en la pantalla Trabajadores.
+Los trabajadores no inician sesión: se identifican por su **badge**. En el registro de
+picking, cuando pida escanear, usa el botón de **ingreso manual** y escribe exactamente el
+código de la columna "Badge" (respeta mayúsculas, minúsculas y guiones):
+
+| Trabajador | Badge (código a escribir) | RUT |
+|------------|---------------------------|-----|
+| Camila Rojas | `badge-sur-worker-001` | 20.333.333-3 |
+| Diego Torres | `badge-sur-worker-002` | 20.444.444-4 |
+| Fernanda Silva | `badge-sur-worker-003` | 20.555.555-5 |
+
+### Datos del campo (Sur Berries)
+
+Lo que verás al registrar cosecha en este tenant:
+
+| Dato | Valor en el ambiente |
+|------|----------------------|
+| Campo | Fundo Los Maitenes |
+| Paño | **Paño F1 - Frutillas** (único paño) |
+| Melgas | Melga 1, Melga 2, Melga 3 |
+| Producto | Frutilla, se mide en **kilos (kg)** |
+| Tarifa vigente | **$1.200 por kg** |
+
+!!! note "Qué aparece y qué no en este tenant"
+    - La **foto de respaldo** SÍ está activa (verás "Agregar foto de respaldo").
+    - El **control de destare / tipo de caja** NO aparece: el producto Frutilla se mide en
+      kg, no en cajas, y este tenant no tiene tipos de caja configurados. Es correcto que no
+      salga.
 
 ---
 

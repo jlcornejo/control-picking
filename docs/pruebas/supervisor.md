@@ -1,8 +1,9 @@
 # Pruebas — Supervisor / Anotador
 
 !!! danger "Requisito mínimo para terreno"
-    Este es el perfil que opera en campo. Los casos **S-03 a S-07 (registro de cosecha)**
-    son el núcleo que debe pasar sí o sí antes de la prueba en terreno.
+    Este es el perfil que opera en campo. Los casos marcados con 🔴 (armar equipo, registrar
+    cosecha, bloqueo fuera de equipo y foto de respaldo) son el núcleo que debe pasar sí o sí
+    antes de la prueba en terreno.
 
 **Usuario:** `supervisor@surberries.cl` / `super123` (tenant Sur Berries).
 
@@ -20,114 +21,149 @@ Ver [preparación del entorno](vision-general.md#preparacion-del-entorno) para l
 
 ---
 
-## S-01 · Login y aterrizaje
+!!! info "Datos que usarás en esta guía"
+    - **Trabajador de prueba:** Camila Rojas · badge **`badge-sur-worker-001`**.
+    - **Paño:** "Paño F1 - Frutillas" · **Melga 1** · producto Frutilla (**kg**) · tarifa **$1.200/kg**.
+    - La lista completa de badges y datos del campo está en
+      [Preparación](vision-general.md#codigos-de-badge-de-los-trabajadores-para-el-ingreso-manual).
 
-- **Precondición:** app abierta, sin sesión.
-- **Pasos:** ingresar `supervisor@surberries.cl` / `super123` → Entrar.
-- **Resultado esperado:** entra y aterriza en **Producción**. En la barra inferior se ven:
-  Dashboard, Producción, botón central **Registro Picking**, Pagos, **Mi Equipo**, Perfil.
-  **No** aparece "Mi Cuadrilla" ni "Administración".
+## S-01 · Iniciar sesión
 
-## S-02 · Armar el equipo del día (precondición del registro)
-
-- **Precondición:** sesión de supervisor.
-- **Pasos:** ir a **Mi Equipo** → usar el gestor de equipo del día → agregar a un trabajador
-  (ej. **Camila Rojas**) al roster de hoy.
-- **Resultado esperado:** Camila queda listada en el equipo del día. Este paso es
-  **obligatorio** para poder registrar su producción (ver S-04).
-
-## S-03 · Abrir Registro Picking
-
-- **Precondición:** sesión de supervisor.
-- **Pasos:** tocar el botón central **Registro Picking** (ícono QR).
-- **Resultado esperado:** se abre el flujo en el paso **Escanear Badge**, con opción de
-  **ingreso manual** del código del badge.
-
-## S-04 · Registrar cosecha de un trabajador del equipo (camino feliz) 🔴
-
-- **Precondición:** Camila Rojas agregada al equipo del día (S-02).
+- **Precondición:** la app abierta en la pantalla de inicio de sesión (si ya hay una sesión,
+  ve a **Perfil** → **Cerrar sesión** primero).
 - **Pasos:**
-  1. En Registro Picking, escanear el badge de Camila **o** ingresarlo manual → Identificar.
-  2. Elegir un **paño**.
-  3. Si el paño tiene **melgas**, elegir una.
-  4. Ingresar una **cantidad** (ej. 12) → **✓ Confirmar**.
-- **Resultado esperado:** aparece la pantalla de éxito con el nombre de la trabajadora y el
-  monto estimado. El registro queda disponible en **Producción** (ver S-09).
+  1. En el campo **Email**, escribir `supervisor@surberries.cl`.
+  2. En el campo **Contraseña**, escribir `super123`.
+  3. Tocar el botón verde **Ingresar**.
+- **Resultado esperado:** la app entra y muestra la pantalla **Producción** (barra verde
+  arriba con "0 cajas / $0 estimado" si no hay registros hoy). En la **barra inferior** hay 6
+  íconos: Dashboard, Producción, un **botón verde central con un QR** (Registro), Pagos,
+  **Mi Equipo** y Perfil.
+  - ✅ Correcto si entra sin el error rojo "Failed to fetch".
+  - ❌ Si aparece "Failed to fetch", la app no está conectada al servidor (avisar al equipo).
+
+## S-02 · Armar el equipo del día 🔴 (hazlo ANTES de registrar)
+
+> Un supervisor solo puede registrar la cosecha de los trabajadores que están en **su equipo
+> de hoy**. Por eso este paso va primero.
+
+- **Precondición:** sesión iniciada como supervisor.
+- **Pasos:**
+  1. En la barra inferior, tocar **Mi Equipo**.
+  2. En el gestor de "equipo del día", tocar el botón para **agregar trabajador** (buscador o
+     botón "+").
+  3. Buscar **Camila Rojas** y agregarla al equipo de **hoy**.
+- **Resultado esperado:** Camila Rojas queda en la lista del equipo del día. Si vuelves a
+  entrar a Mi Equipo, sigue ahí.
+
+## S-03 · Abrir el Registro de Picking
+
+- **Pasos:** tocar el **botón verde central con el ícono QR** en la barra inferior.
+- **Resultado esperado:** se abre la pantalla **Registro Picking** en el primer paso, con un
+  botón grande **"Escanear Badge"** y, más abajo, un campo de texto para **ingreso manual**
+  ("Código del badge") con un botón **Identificar**.
+
+## S-04 · Registrar cosecha de Camila (camino feliz) 🔴
+
+- **Precondición:** Camila agregada al equipo del día (S-02).
+- **Pasos:**
+  1. En Registro Picking, en el campo **"Código del badge"**, escribir exactamente
+     `badge-sur-worker-001` → tocar **Identificar**.
+     *(En el dispositivo con cámara, también puedes tocar "Escanear Badge". En el navegador,
+     usa el ingreso manual.)*
+  2. En la lista de paños, tocar **"Paño F1 - Frutillas"**.
+  3. En la lista de melgas, tocar **"Melga 1"**.
+  4. En el teclado numérico, escribir la cantidad **10** (son 10 kg).
+  5. Tocar **✓ Confirmar**.
+- **Resultado esperado:** aparece una pantalla de éxito con **"10 unidades registradas"**, el
+  nombre **Camila Rojas** y el monto **$12.000** (10 kg × $1.200). Vuelve al inicio del
+  registro.
 
 ## S-05 · Bloqueo: trabajador fuera del equipo del día (caso negativo) 🔴
 
-- **Precondición:** elegir un trabajador que **NO** esté en el roster de hoy (ej. Diego
-  Torres si no lo agregaste).
-- **Pasos:** en Registro Picking, identificar a ese trabajador.
-- **Resultado esperado:** se bloquea con el aviso **"Fuera de tu equipo de hoy"** y el
-  mensaje de que lo agregue desde "Mi equipo" antes de registrar. **No** permite continuar.
+- **Precondición:** **no** haber agregado a Diego Torres al equipo de hoy.
+- **Pasos:** en Registro Picking, ingresar el badge `badge-sur-worker-002` (Diego Torres) →
+  **Identificar**.
+- **Resultado esperado:** aparece un aviso titulado **"Fuera de tu equipo de hoy"** con el
+  texto de que lo agregues desde "Mi equipo" antes de registrar. **No** deja continuar al
+  paso del paño.
 
-## S-06 · Badge inválido (caso negativo)
+## S-06 · Badge inexistente (caso negativo)
 
-- **Pasos:** en Registro Picking, ingresar manualmente un badge inexistente (ej. `xxxxxx`).
+- **Pasos:** en Registro Picking, en "Código del badge" escribir `zzz-no-existe` →
+  **Identificar**.
 - **Resultado esperado:** aviso **"Badge QR no reconocido"**. No avanza.
 
 ## S-07 · Foto de respaldo en el registro 🔴
 
-- **Precondición:** estar en el paso **cantidad** de un registro válido (S-04), con conexión.
+- **Precondición:** repetir S-04 hasta el paso de **cantidad** (badge Camila → Paño F1 →
+  Melga 1 → escribir 10). Tener conexión.
 - **Pasos:**
-  1. Tocar **"Agregar foto de respaldo"**.
-  2. Tomar una foto (en web, usar la webcam) → **✓ Usar foto**.
-  3. Confirmar el registro.
-- **Resultado esperado:** la miniatura de la foto aparece en el formulario antes de
-  confirmar; permite **Reemplazar** o **Quitar**. Tras confirmar, el registro se guarda y el
-  mensaje de éxito incluye el ícono 📷. (La foto es opcional: el registro también se puede
-  confirmar sin ella.)
+  1. En la pantalla de cantidad, buscar el bloque **"Agregar foto de respaldo"** y tocarlo.
+  2. Se abre la cámara. En el navegador, el sistema pedirá permiso de **webcam**: aceptar.
+  3. Tomar la foto con el botón de disparo (círculo) → aparece una previsualización → tocar
+     **✓ Usar foto**.
+  4. De vuelta en el formulario, tocar **✓ Confirmar**.
+- **Resultado esperado:** antes de confirmar, se ve una **miniatura** de la foto con las
+  opciones **Reemplazar** y **Quitar**. Tras confirmar, el mensaje de éxito muestra el ícono
+  **📷** junto al monto. (La foto es opcional: el registro también se puede confirmar sin ella.)
+  - ⏭️ Si el navegador no da acceso a webcam, marcar N/A y probar este caso en el dispositivo.
 
-## S-08 · Registro sin tarifa (caso negativo)
+## S-08 · Ver la producción del día
 
-- **Precondición:** un paño cuyo producto **no tenga tarifa vigente** (si existe en el
-  ambiente; si todos tienen tarifa, marcar N/A).
-- **Pasos:** intentar registrar en ese paño.
-- **Resultado esperado:** error **"Sin tarifa vigente para este producto"**; no se guarda.
+- **Pasos:** en la barra inferior, tocar **Producción**.
+- **Resultado esperado:** la barra verde superior muestra el total (ej. **20 kg** si hiciste
+  S-04 y S-07, cada uno de 10) y el **monto estimado**. Abajo, la lista **"Registros"** con
+  una tarjeta por registro, cada una con el nombre **Camila Rojas**, el paño y la hora.
 
-## S-09 · Ver producción del día
+## S-09 · Corregir un registro del día
 
-- **Pasos:** ir a **Producción**.
-- **Resultado esperado:** se ve el total de unidades y el monto estimado del día, y la lista
-  de registros **con el nombre del trabajador** en cada tarjeta. El registro de S-04 aparece.
+- **Precondición:** un registro de **hoy** (el de S-04).
+- **Pasos:**
+  1. En Producción, tocar la tarjeta del registro de Camila.
+  2. En el detalle, tocar **"Corregir cantidad"**.
+  3. Cambiar la cantidad a **8** → **Guardar corrección**.
+- **Resultado esperado:** mensaje "Registro corregido". La tarjeta ahora muestra **8**. (El
+  registro original se conserva como auditoría; la tarifa no cambia.)
 
-## S-10 · Corregir un registro del día
+## S-10 · La corrección solo aplica al día actual (caso negativo)
 
-- **Precondición:** un registro de **hoy** en Producción.
-- **Pasos:** abrir el registro → **Corregir cantidad** → cambiar la cantidad → Guardar.
-- **Resultado esperado:** la cantidad se actualiza. (La corrección conserva el registro
-  original como auditoría; la tarifa no cambia.)
+- **Pasos:** en Producción, tocar **"‹ Ayer"** (o deslizar a la derecha) para ir a un día
+  pasado y tocar un registro (si hay).
+- **Resultado esperado:** en el detalle **no** aparece el botón "Corregir cantidad". Solo se
+  corrige el día de hoy.
 
-## S-11 · Corrección bloqueada en días pasados (caso negativo)
+## S-11 · Registrar un pago
 
-- **Pasos:** en Producción, navegar a **Ayer** (botón o swipe) y abrir un registro.
-- **Resultado esperado:** **no** aparece el botón "Corregir cantidad" (solo se corrige el
-  día actual).
+- **Precondición:** existe una liquidación **pendiente** o **parcial** en Pagos. (Si no hay
+  ninguna, marcar N/A: las liquidaciones las genera el admin o el encargado.)
+- **Pasos:**
+  1. Tocar **Pagos** en la barra inferior.
+  2. Tocar una liquidación cuyo estado **no** sea "Pagado" → botón **Pagar**.
+  3. Dejar el monto propuesto (el saldo) o escribir uno **menor** → confirmar.
+- **Resultado esperado:** el pago se registra, el estado pasa a **Parcial** o **Pagado** y el
+  "Total pendiente de pago" baja.
+- **Chequeo negativo:** intenta pagar un monto **mayor** al saldo → debe rechazarlo con un
+  aviso de que supera el saldo.
 
-## S-12 · Registrar un pago
+## S-12 · Accesibilidad: tamaño del texto
 
-- **Precondición:** existe una liquidación **pendiente** o **parcial** en Pagos.
-- **Pasos:** ir a **Pagos** → abrir una liquidación no pagada → **Pagar** → ingresar un monto
-  (≤ saldo) → confirmar.
-- **Resultado esperado:** el pago se registra, el estado pasa a **parcial** o **pagado** y el
-  saldo pendiente baja. Intentar un monto mayor al saldo debe ser rechazado.
-
-## S-13 · Accesibilidad: tamaño del texto
-
-- **Pasos:** ir a **Perfil** → **Tamaño del texto** → elegir **Grande** y luego **Extra grande**.
-- **Resultado esperado:** el texto de toda la app se agranda de inmediato. La preferencia
-  **persiste** tras cerrar y reabrir la app.
+- **Pasos:**
+  1. Tocar **Perfil** en la barra inferior.
+  2. Bajar hasta **"Tamaño del texto"**.
+  3. Tocar **Grande** y observar; luego **Extra grande**.
+- **Resultado esperado:** el texto de toda la app se agranda de inmediato al elegir cada
+  opción. Si cierras y vuelves a abrir la app, la preferencia **se mantiene**.
 
 ---
 
 ## Checklist mínimo para dar OK a terreno
 
-- [ ] S-01 Login y aterrizaje
-- [ ] S-02 Armar equipo del día
+- [ ] S-01 Iniciar sesión
+- [ ] S-02 Armar equipo del día 🔴
 - [ ] S-04 Registrar cosecha (camino feliz) 🔴
 - [ ] S-05 Bloqueo fuera de equipo 🔴
 - [ ] S-07 Foto de respaldo 🔴
-- [ ] S-09 Ver producción del día
-- [ ] S-10 Corregir registro del día
-- [ ] S-12 Registrar un pago
+- [ ] S-08 Ver producción del día
+- [ ] S-09 Corregir registro del día
+- [ ] S-11 Registrar un pago
