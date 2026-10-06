@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { colors, font } from '../constants/theme';
@@ -38,7 +39,7 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
     return (
       <View style={s.container}>
         <View style={s.permissionBox}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>📷</Text>
+          <Ionicons name="camera-outline" size={48} color={colors.textMuted} style={{ marginBottom: 16 }} />
           <Text style={s.permissionTitle}>Acceso a cámara</Text>
           <Text style={s.permissionText}>
             Se necesita acceso a la cámara para tomar la foto de respaldo del registro.
@@ -78,11 +79,13 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
       <View style={s.container}>
         <Image source={{ uri: preview }} style={StyleSheet.absoluteFillObject} resizeMode="contain" />
         <View style={s.previewBar}>
-          <TouchableOpacity style={s.retakeBtn} onPress={() => setPreview(null)} activeOpacity={0.85}>
-            <Text style={s.retakeBtnText}>↺ Repetir</Text>
+          <TouchableOpacity style={[s.retakeBtn, s.btnRow]} onPress={() => setPreview(null)} activeOpacity={0.85}>
+            <Ionicons name="refresh" size={18} color="#fff" />
+            <Text style={s.retakeBtnText}>Repetir</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.confirmBtn} onPress={confirm} activeOpacity={0.85}>
-            <Text style={s.confirmBtnText}>✓ Usar foto</Text>
+          <TouchableOpacity style={[s.confirmBtn, s.btnRow]} onPress={confirm} activeOpacity={0.85}>
+            <Ionicons name="checkmark" size={18} color="#fff" />
+            <Text style={s.confirmBtnText}>Usar foto</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -95,7 +98,7 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
       <View style={s.overlay}>
         <View style={s.topBar}>
           <TouchableOpacity style={s.closeBtn} onPress={onClose}>
-            <Text style={s.closeBtnText}>✕</Text>
+            <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
         <View style={s.bottomBar}>
@@ -121,6 +124,7 @@ const s = StyleSheet.create({
   shutter: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.3)', borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   shutterInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff' },
   previewBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 40, backgroundColor: 'rgba(0,0,0,0.6)' },
+  btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   retakeBtn: { flex: 1, borderWidth: 1, borderColor: '#fff', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   retakeBtnText: { color: '#fff', fontSize: 16, fontWeight: font.semibold },
   confirmBtn: { flex: 2, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },

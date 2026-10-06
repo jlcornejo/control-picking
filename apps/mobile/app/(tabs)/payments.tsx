@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
 import * as Haptics from 'expo-haptics';
@@ -164,7 +165,7 @@ export default function PaymentsScreen() {
       setPayNotes('');
       queryClient.invalidateQueries({ queryKey: ['my-balance'] });
       queryClient.invalidateQueries({ queryKey: ['my-settlements'] });
-      showAlert(res.queued ? '📶 Pago en espera' : '✅ Pago registrado',
+      showAlert(res.queued ? 'Pago en espera' : 'Pago registrado',
         res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
     onError: (err: any) => {
@@ -326,8 +327,15 @@ export default function PaymentsScreen() {
                 <TouchableOpacity style={s.modalCancelBtn} onPress={() => { setPayModal(null); setPayAmount(''); setPayNotes(''); }}>
                   <Text style={s.modalCancelText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.modalPayBtn} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
-                  <Text style={s.modalPayText}>{payMutation.isPending ? '...' : '✓ Pagar'}</Text>
+                <TouchableOpacity style={[s.modalPayBtn, s.payBtnRow]} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
+                  {payMutation.isPending ? (
+                    <Text style={s.modalPayText}>...</Text>
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={18} color="#fff" />
+                      <Text style={s.modalPayText}>Pagar</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
               <View style={{ height: 20 }} />
@@ -382,5 +390,6 @@ const s = StyleSheet.create({
   modalCancelBtn: { flex: 1, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   modalCancelText: { color: '#6b7280', fontSize: 15, fontWeight: '500' },
   modalPayBtn: { flex: 2, backgroundColor: '#1b5e20', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  payBtnRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   modalPayText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

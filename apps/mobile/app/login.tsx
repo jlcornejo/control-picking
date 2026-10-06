@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../src/hooks/useAuth';
 import { colors, radius, font } from '../src/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -70,7 +71,7 @@ export default function LoginScreen() {
           {/* Logo */}
           <Animated.View style={[s.logo, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
             <View style={s.logoCircle}>
-              <Text style={s.logoEmoji}>🌿</Text>
+              <Ionicons name="leaf" size={38} color={colors.textWhite} />
             </View>
             <Text style={s.title}>Fundo360</Text>
             <Text style={s.subtitle}>Gestión integral de campo</Text>
@@ -107,7 +108,7 @@ export default function LoginScreen() {
                   returnKeyType="go"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={s.eyeBtn} activeOpacity={0.7}>
-                  <Text style={s.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>

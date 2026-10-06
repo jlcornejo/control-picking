@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Alert, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -12,6 +12,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { PaymentsSkeleton } from '../../src/components/Skeleton';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
+import { showAlert } from '../../src/lib/alert';
 import { DayRosterManager } from '../../src/components/DayRosterManager';
 
 const statusLabel: Record<string, string> = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagado' };
@@ -153,9 +154,9 @@ export default function CrewScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowGen(false);
       queryClient.invalidateQueries({ queryKey: ['crew-member-settlements'] });
-      Alert.alert(created > 0 ? '✅ Listo' : 'Sin cambios', created > 0 ? `${created} liquidación(es) generada(s)` : 'No había producción nueva para liquidar');
+      showAlert(created > 0 ? 'Listo' : 'Sin cambios', created > 0 ? `${created} liquidación(es) generada(s)` : 'No había producción nueva para liquidar');
     },
-    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
+    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
   });
 
   // Pago a un trabajador de la cuadrilla (nivel 2, opcional).
@@ -206,10 +207,10 @@ export default function CrewScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPayModal(null); setPayAmount(''); setPayNotes('');
       queryClient.invalidateQueries({ queryKey: ['crew-member-settlements'] });
-      Alert.alert(res.queued ? '📶 Pago en espera' : '✅ Pago registrado',
+      showAlert(res.queued ? 'Pago en espera' : 'Pago registrado',
         res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
-    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
+    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
   });
 
   return <>
@@ -335,8 +336,15 @@ export default function CrewScreen() {
                 <TouchableOpacity style={s.modalCancelBtn} onPress={() => { setPayModal(null); setPayAmount(''); setPayNotes(''); }}>
                   <Text style={s.modalCancelText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.modalPayBtn} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
-                  <Text style={s.modalPayText}>{payMutation.isPending ? '...' : '✓ Pagar'}</Text>
+                <TouchableOpacity style={[s.modalPayBtn, s.payBtnRow]} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
+                  {payMutation.isPending ? (
+                    <Text style={s.modalPayText}>...</Text>
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={18} color={colors.textWhite} />
+                      <Text style={s.modalPayText}>Pagar</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
               <View style={{ height: 20 }} />
@@ -395,5 +403,6 @@ const s = StyleSheet.create({
   modalCancelBtn: { flex: 1, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
   modalCancelText: { color: colors.textMuted, fontSize: 15, fontWeight: font.medium },
   modalPayBtn: { flex: 2, backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
+  payBtnRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   modalPayText: { color: colors.textWhite, fontSize: 15, fontWeight: font.semibold },
 });

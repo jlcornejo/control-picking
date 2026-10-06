@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { evaluateBoxTolerance, ToleranceUnit } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
@@ -265,7 +266,7 @@ export default function RegisterScreen() {
       if (data.outOfTolerance && selectedBoxType) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         showAlert(
-          '⚠️ Peso fuera de tolerancia',
+          'Peso fuera de tolerancia',
           `Neto ${data.netWeight} kg vs objetivo ${selectedBoxType.target_net_weight_kg} kg (${selectedBoxType.name}). ` +
             'El registro se guardó y quedó marcado para revisión. Ajusta la caja para evitar merma.',
           [{ text: 'Entendido' }],
@@ -283,7 +284,7 @@ export default function RegisterScreen() {
         title: data.queued ? `${data.qty} unidades en espera` : `${data.qty} unidades registradas`,
         subtitle: data.queued
           ? `${data.workerName} → se sincronizará al reconectar`
-          : `${data.workerName} → ${formatMoney(data.total)}${data.hasPhoto ? '  📷' : ''}`,
+          : `${data.workerName} → ${formatMoney(data.total)}`,
       });
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
@@ -317,7 +318,10 @@ export default function RegisterScreen() {
           <View style={s.quickBanner}>
             <View style={{ flex: 1 }}>
               <Text style={s.quickLabel}>Paño seleccionado</Text>
-              <Text style={s.quickValue}>📍 {selectedBlock.name}</Text>
+              <View style={s.chipRow}>
+                <Ionicons name="location" size={14} color="#1e40af" />
+                <Text style={s.quickValue}>{selectedBlock.name}</Text>
+              </View>
             </View>
             <TouchableOpacity onPress={() => setSelectedBlock(null)} style={s.quickChange}><Text style={s.quickChangeText}>Cambiar</Text></TouchableOpacity>
           </View>
@@ -325,7 +329,7 @@ export default function RegisterScreen() {
 
         <View style={s.center}>
           <TouchableOpacity style={s.scanBtn} onPress={() => setShowScanner(true)} activeOpacity={0.85}>
-            <Text style={{ fontSize: 40 }}>📷</Text>
+            <Ionicons name="camera-outline" size={40} color={colors.primary} />
             <Text style={s.scanBtnText}>Escanear Badge</Text>
           </TouchableOpacity>
 
@@ -351,8 +355,9 @@ export default function RegisterScreen() {
           <View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepActive]} /><View style={s.stepLine} /><View style={s.stepDot} />
         </View>
 
-        <View style={s.workerChip}>
-          <Text style={s.workerChipText}>👷 {selectedWorker?.full_name}</Text>
+        <View style={[s.workerChip, s.chipRow]}>
+          <Ionicons name="person" size={13} color={colors.primaryDark} />
+          <Text style={s.workerChipText}>{selectedWorker?.full_name}</Text>
         </View>
 
         <FlatList
@@ -370,7 +375,10 @@ export default function RegisterScreen() {
           )}
           ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>Sin paños disponibles</Text></View>}
         />
-        <TouchableOpacity style={s.backBtn} onPress={resetForm}><Text style={s.backBtnText}>← Volver</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.backBtn, s.chipRow]} onPress={resetForm}>
+          <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
+          <Text style={s.backBtnText}>Volver</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -383,8 +391,12 @@ export default function RegisterScreen() {
           <View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepActive]} />
         </View>
 
-        <View style={s.workerChip}>
-          <Text style={s.workerChipText}>👷 {selectedWorker?.full_name}  •  📍 {selectedBlock?.name}</Text>
+        <View style={[s.workerChip, s.chipRow]}>
+          <Ionicons name="person" size={13} color={colors.primaryDark} />
+          <Text style={s.workerChipText}>{selectedWorker?.full_name}</Text>
+          <Text style={s.workerChipText}>  •  </Text>
+          <Ionicons name="location" size={13} color={colors.primaryDark} />
+          <Text style={s.workerChipText}>{selectedBlock?.name}</Text>
         </View>
 
         <Text style={s.rowHint}>Seleccione la melga</Text>
@@ -410,7 +422,10 @@ export default function RegisterScreen() {
           )}
           ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>Sin melgas disponibles</Text></View>}
         />
-        <TouchableOpacity style={s.backBtn} onPress={() => setStep('select-block')}><Text style={s.backBtnText}>← Paño</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.backBtn, s.chipRow]} onPress={() => setStep('select-block')}>
+          <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
+          <Text style={s.backBtnText}>Paño</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -423,10 +438,19 @@ export default function RegisterScreen() {
         <View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepDone]} /><View style={[s.stepLine, s.stepLineDone]} /><View style={[s.stepDot, s.stepActive]} />
       </View>
 
-      <View style={s.workerChip}>
-        <Text style={s.workerChipText}>
-          👷 {selectedWorker?.full_name}  •  📍 {selectedBlock?.name}{selectedRow ? `  •  🌱 ${selectedRow.name}` : ''}
-        </Text>
+      <View style={[s.workerChip, s.chipRow]}>
+        <Ionicons name="person" size={13} color={colors.primaryDark} />
+        <Text style={s.workerChipText}>{selectedWorker?.full_name}</Text>
+        <Text style={s.workerChipText}>  •  </Text>
+        <Ionicons name="location" size={13} color={colors.primaryDark} />
+        <Text style={s.workerChipText}>{selectedBlock?.name}</Text>
+        {selectedRow ? (
+          <>
+            <Text style={s.workerChipText}>  •  </Text>
+            <Ionicons name="leaf-outline" size={13} color={colors.primaryDark} />
+            <Text style={s.workerChipText}>{selectedRow.name}</Text>
+          </>
+        ) : null}
       </View>
 
       <View style={s.center}>
@@ -466,7 +490,7 @@ export default function RegisterScreen() {
                   const ev = evaluateBoxTolerance(parseFloat(grossWeight), selectedBoxType.tare_weight_kg, selectedBoxType);
                   return (
                     <Text style={[s.tareNet, ev.out_of_tolerance && s.tareNetWarn]}>
-                      Neto {ev.net_weight_kg} kg {ev.out_of_tolerance ? '⚠️ fuera de tolerancia' : '✓ dentro de rango'}
+                      Neto {ev.net_weight_kg} kg {ev.out_of_tolerance ? '— fuera de tolerancia' : '— dentro de rango'}
                     </Text>
                   );
                 })()}
@@ -491,7 +515,7 @@ export default function RegisterScreen() {
               </View>
             ) : (
               <TouchableOpacity style={s.photoBtn} onPress={() => setShowPhoto(true)} activeOpacity={0.85}>
-                <Text style={s.photoBtnIcon}>📷</Text>
+                <Ionicons name="camera-outline" size={18} color={colors.textSecondary} />
                 <Text style={s.photoBtnText}>Agregar foto de respaldo</Text>
               </TouchableOpacity>
             )}
@@ -500,14 +524,22 @@ export default function RegisterScreen() {
       </View>
 
       <View style={s.bottomRow}>
-        <TouchableOpacity style={s.backBtn2} onPress={() => setStep(rowChoices.length > 0 ? 'select-row' : 'select-block')}>
-          <Text style={s.backBtnText}>{rowChoices.length > 0 ? '← Melga' : '← Paño'}</Text>
+        <TouchableOpacity style={[s.backBtn2, s.chipRow]} onPress={() => setStep(rowChoices.length > 0 ? 'select-row' : 'select-block')}>
+          <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
+          <Text style={s.backBtnText}>{rowChoices.length > 0 ? 'Melga' : 'Paño'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.confirmBtn, (!quantity || parseFloat(quantity) <= 0 || (tareApplies && selectedBoxType && !(parseFloat(grossWeight) > 0))) && { opacity: 0.4 }]}
+          style={[s.confirmBtn, s.chipRow, (!quantity || parseFloat(quantity) <= 0 || (tareApplies && selectedBoxType && !(parseFloat(grossWeight) > 0))) && { opacity: 0.4 }]}
           onPress={() => submitMutation.mutate()}
           disabled={!quantity || parseFloat(quantity) <= 0 || (tareApplies && !!selectedBoxType && !(parseFloat(grossWeight) > 0)) || submitMutation.isPending} activeOpacity={0.85}>
-          <Text style={s.confirmBtnText}>{submitMutation.isPending ? '...' : '✓ Confirmar'}</Text>
+          {submitMutation.isPending ? (
+            <Text style={s.confirmBtnText}>...</Text>
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={18} color={colors.textWhite} />
+              <Text style={s.confirmBtnText}>Confirmar</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -538,6 +570,7 @@ const s = StyleSheet.create({
   primaryBtnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
   workerChip: { alignSelf: 'center', backgroundColor: colors.primaryBg, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, marginBottom: spacing.sm },
   workerChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.primaryDark },
+  chipRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   blockCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.lg, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder },
   blockName: { fontSize: 15, fontWeight: font.semibold, color: colors.text },
   blockProduct: { fontSize: 12, color: colors.textMuted, marginTop: 2 },

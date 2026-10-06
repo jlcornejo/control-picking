@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -75,7 +76,7 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
         ]}
       >
         <View style={styles.logoIcon}>
-          <Text style={styles.logoEmoji}>🌿</Text>
+          <Ionicons name="leaf" size={48} color={colors.textWhite} />
         </View>
       </Animated.View>
 

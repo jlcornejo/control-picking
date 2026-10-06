@@ -145,7 +145,7 @@ export default function ProductionScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setCorrectRecord(null); setCorrectQty(''); setSelectedRecord(null);
       queryClient.invalidateQueries({ queryKey: ['production'] });
-      showAlert(res.queued ? '📶 Corrección en espera' : '✅ Registro corregido',
+      showAlert(res.queued ? 'Corrección en espera' : 'Registro corregido',
         res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
@@ -322,12 +322,19 @@ export default function ProductionScreen() {
                 />
                 <Text style={s.correctHint}>Se conserva el registro original como auditoría. Solo se puede corregir el día actual.</Text>
                 <TouchableOpacity
-                  style={[s.correctConfirm, (!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending) && { opacity: 0.5 }]}
+                  style={[s.correctConfirm, s.correctConfirmRow, (!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending) && { opacity: 0.5 }]}
                   onPress={() => correctMutation.mutate()}
                   disabled={!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending}
                   activeOpacity={0.85}
                 >
-                  <Text style={s.correctConfirmText}>{correctMutation.isPending ? 'Guardando...' : '✓ Guardar corrección'}</Text>
+                  {correctMutation.isPending ? (
+                    <Text style={s.correctConfirmText}>Guardando...</Text>
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={18} color={colors.textWhite} />
+                      <Text style={s.correctConfirmText}>Guardar corrección</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
@@ -402,5 +409,6 @@ const s = StyleSheet.create({
   correctInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 20, fontWeight: font.bold, color: colors.text, textAlign: 'center' },
   correctHint: { fontSize: 12, color: colors.textMuted, marginTop: spacing.sm },
   correctConfirm: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center', marginTop: spacing.lg },
+  correctConfirmRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   correctConfirmText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
 });

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { colors } from '../constants/theme';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -32,7 +34,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     return (
       <View style={s.container}>
         <View style={s.permissionBox}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>📷</Text>
+          <Ionicons name="camera-outline" size={48} color={colors.textMuted} style={{ marginBottom: 16 }} />
           <Text style={s.permissionTitle}>Acceso a cámara</Text>
           <Text style={s.permissionText}>
             Se necesita acceso a la cámara para escanear los badges QR de los trabajadores.
@@ -68,7 +70,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
         {/* Top */}
         <View style={s.overlayTop}>
           <TouchableOpacity style={s.closeBtn} onPress={onClose}>
-            <Text style={s.closeBtnText}>✕</Text>
+            <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 
