@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, TextInput, TouchableOpacity, Alert, Modal,
+  View, Text, FlatList, TextInput, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '../lib/supabase';
 import { localDate } from '../utils/date';
 import { colors, radius, spacing, font } from '../constants/theme';
+import { showAlert } from '../lib/alert';
 
 /**
  * "Mi equipo de hoy": el responsable (Encargado o Supervisor) arma manualmente
@@ -118,7 +119,7 @@ export function DayRosterManager({
       const msg = /duplicate|unique/i.test(e?.message || '')
         ? 'Este trabajador ya está en el equipo de otro responsable hoy.'
         : e?.message || 'No se pudo agregar';
-      Alert.alert('No se pudo agregar', msg);
+      showAlert('No se pudo agregar', msg);
     },
   });
 
@@ -138,13 +139,13 @@ export function DayRosterManager({
       const msg = /violates foreign key|restrict/i.test(e?.message || '')
         ? 'No se puede quitar: este trabajador ya tiene producción registrada hoy.'
         : e?.message || 'No se pudo quitar';
-      Alert.alert('No se pudo quitar', msg);
+      showAlert('No se pudo quitar', msg);
     },
   });
 
   const confirmRemove = useCallback(
     (m: RosterMember) => {
-      Alert.alert('Quitar del equipo', `¿Quitar a ${m.fullName} del equipo de hoy?`, [
+      showAlert('Quitar del equipo', `¿Quitar a ${m.fullName} del equipo de hoy?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Quitar', style: 'destructive', onPress: () => removeMutation.mutate(m.rosterId) },
       ]);
@@ -154,7 +155,7 @@ export function DayRosterManager({
 
   const clearAll = useCallback(() => {
     if (members.length === 0) return;
-    Alert.alert('Vaciar equipo', `¿Quitar a los ${members.length} trabajadores del equipo de hoy?`, [
+    showAlert('Vaciar equipo', `¿Quitar a los ${members.length} trabajadores del equipo de hoy?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Vaciar',
