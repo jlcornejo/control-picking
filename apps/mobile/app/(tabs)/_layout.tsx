@@ -72,7 +72,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="metrics"
         options={{
-          title: 'Dashboard',
+          title: 'Panel',
           headerTitle: 'Dashboard',
           tabBarIcon: ({ color, focused }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', height: 24, marginTop: 2 }}>
@@ -86,7 +86,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="production"
         options={{
-          title: isAdmin ? 'Producción' : 'Mi Día',
+          title: isAdmin ? 'Campo' : 'Mi Día',
           headerTitle: isAdmin ? 'Producción' : 'Mi Producción',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'leaf' : 'leaf-outline'} size={22} color={color} />
@@ -125,7 +125,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="crew"
         options={{
-          title: 'Mi Cuadrilla',
+          title: 'Cuadrilla',
           headerTitle: 'Mi Cuadrilla',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />
@@ -138,7 +138,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="team"
         options={{
-          title: 'Mi Equipo',
+          title: 'Equipo',
           headerTitle: 'Mi Equipo',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'people-circle' : 'people-circle-outline'} size={22} color={color} />
