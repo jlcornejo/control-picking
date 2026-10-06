@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Alert, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -10,6 +10,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { PaymentToast } from '../../src/components/PaymentToast';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
+import { showAlert } from '../../src/lib/alert';
 
 export default function PaymentsScreen() {
   const { worker } = useAuth();
@@ -163,12 +164,12 @@ export default function PaymentsScreen() {
       setPayNotes('');
       queryClient.invalidateQueries({ queryKey: ['my-balance'] });
       queryClient.invalidateQueries({ queryKey: ['my-settlements'] });
-      Alert.alert(res.queued ? '📶 Pago en espera' : '✅ Pago registrado',
+      showAlert(res.queued ? '📶 Pago en espera' : '✅ Pago registrado',
         res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
     onError: (err: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', err.message);
+      showAlert('Error', err.message);
     },
   });
 

@@ -1,9 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Animated, StyleSheet, Dimensions, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, font } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
+
+// react-native-web does not support the native animation driver; forcing it to
+// true logs a warning on every animation. Use the JS driver on web.
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface SuccessOverlayProps {
   visible: boolean;
@@ -31,13 +35,13 @@ export function SuccessOverlay({ visible, title, subtitle, onFinish, duration = 
     // Animate in
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.spring(scale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
-      Animated.spring(checkScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true }),
-      Animated.timing(textOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(checkScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.timing(textOpacity, { toValue: 1, duration: 200, useNativeDriver: USE_NATIVE_DRIVER }),
       Animated.delay(duration - 800),
-      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: USE_NATIVE_DRIVER }),
     ]).start(() => {
       onFinish();
     });

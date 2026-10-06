@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, FlatList, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { evaluateBoxTolerance, ToleranceUnit } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
@@ -15,6 +15,7 @@ import { SuccessOverlay } from '../../src/components/SuccessOverlay';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
 import { newUuid, uploadPickingEvidence, currentOrgId } from '../../src/lib/picking-evidence';
+import { showAlert } from '../../src/lib/alert';
 
 /** Tipo de caja/envase con destare y tolerancia (control de merma). */
 type BoxTypeOption = {
@@ -95,7 +96,7 @@ export default function RegisterScreen() {
   });
 
   async function handleScan() {
-    if (!qrInput.trim()) { Alert.alert('Error', 'Ingrese el badge QR'); return; }
+    if (!qrInput.trim()) { showAlert('Error', 'Ingrese el badge QR'); return; }
     await lookupWorker(qrInput.trim());
   }
 
@@ -106,8 +107,8 @@ export default function RegisterScreen() {
 
   async function lookupWorker(badge: string) {
     const { data, error } = await supabase.from('workers').select('id, full_name, status').eq('qr_badge_url', badge).single();
-    if (error || !data) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', 'Badge QR no reconocido'); return; }
-    if (data.status !== 'active') { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); Alert.alert('Error', `${data.full_name} no está activo`); return; }
+    if (error || !data) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', 'Badge QR no reconocido'); return; }
+    if (data.status !== 'active') { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); showAlert('Error', `${data.full_name} no está activo`); return; }
 
     // El responsable (Encargado o Supervisor) solo registra producción de los
     // trabajadores que están en SU equipo del día. La atribución se congela con
@@ -123,7 +124,7 @@ export default function RegisterScreen() {
         .maybeSingle();
       if (!roster) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert('Fuera de tu equipo de hoy', `${data.full_name} no está en tu equipo de hoy. Agrégalo desde "Mi equipo" antes de registrar su producción.`);
+        showAlert('Fuera de tu equipo de hoy', `${data.full_name} no está en tu equipo de hoy. Agrégalo desde "Mi equipo" antes de registrar su producción.`);
         return;
       }
       dayRosterId = roster.id;
@@ -263,7 +264,7 @@ export default function RegisterScreen() {
       // con out_of_tolerance). Solo se informa; el supervisor decide qué hacer.
       if (data.outOfTolerance && selectedBoxType) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert(
+        showAlert(
           '⚠️ Peso fuera de tolerancia',
           `Neto ${data.netWeight} kg vs objetivo ${selectedBoxType.target_net_weight_kg} kg (${selectedBoxType.name}). ` +
             'El registro se guardó y quedó marcado para revisión. Ajusta la caja para evitar merma.',
@@ -275,7 +276,7 @@ export default function RegisterScreen() {
 
       // Aviso si la foto de respaldo no se pudo adjuntar por estar sin conexión.
       if (data.photoSkippedOffline) {
-        Alert.alert('Foto no adjuntada', 'El registro se guardó, pero la foto de respaldo requiere conexión. Vuelve a adjuntarla con señal si es necesario.');
+        showAlert('Foto no adjuntada', 'El registro se guardó, pero la foto de respaldo requiere conexión. Vuelve a adjuntarla con señal si es necesario.');
       }
 
       setSuccessData({
@@ -285,7 +286,7 @@ export default function RegisterScreen() {
           : `${data.workerName} → ${formatMoney(data.total)}${data.hasPhoto ? '  📷' : ''}`,
       });
     },
-    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
+    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
   });
 
   function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }

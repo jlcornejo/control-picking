@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal, TextInput } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -14,6 +14,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedCard } from '../../src/components/AnimatedCard';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
+import { showAlert } from '../../src/lib/alert';
 
 export default function ProductionScreen() {
   const { worker } = useAuth();
@@ -144,10 +145,10 @@ export default function ProductionScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setCorrectRecord(null); setCorrectQty(''); setSelectedRecord(null);
       queryClient.invalidateQueries({ queryKey: ['production'] });
-      Alert.alert(res.queued ? '📶 Corrección en espera' : '✅ Registro corregido',
+      showAlert(res.queued ? '📶 Corrección en espera' : '✅ Registro corregido',
         res.queued ? 'Se sincronizará al reconectar.' : undefined);
     },
-    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); Alert.alert('Error', err.message); },
+    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
   });
 
   // Swipe gesture for day navigation
