@@ -1,8 +1,11 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { CAPABILITIES, type Capability } from '@fundo360/shared';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useOrgSettings } from '../../src/hooks/useOrgSettings';
+import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
+import { usePermissions } from '../../src/hooks/usePermissions';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 
@@ -15,6 +18,10 @@ interface AdminModule {
   color: string;
   available: boolean;
   requiresCrewMode?: boolean;
+  requiresTareFlag?: boolean;
+  requiresRbacFlag?: boolean;
+  /** Capacidad requerida (RBAC configurable). Si el perfil la restringe, se oculta. */
+  requiresCapability?: Capability;
 }
 
 /**
@@ -25,6 +32,9 @@ interface AdminModule {
 export default function AdminHome() {
   const { worker } = useAuth();
   const { crewModeEnabled } = useOrgSettings();
+  const { enabled: tareEnabled } = useFeatureFlag('box_tare_control');
+  const { enabled: rbacEnabled } = useFeatureFlag('configurable_rbac');
+  const { has } = usePermissions();
   const router = useRouter();
 
   // Guard de rol: solo el administrador accede a esta sección.
@@ -40,15 +50,23 @@ export default function AdminHome() {
   }
 
   const modules: AdminModule[] = [
-    { key: 'workers', route: '/admin/workers', title: 'Trabajadores', description: 'Personal de campo y badges QR', icon: 'people', color: colors.primary, available: true },
-    { key: 'fields', route: '/admin/fields', title: 'Campos y Paños', description: 'Estructura productiva', icon: 'map', color: colors.blue, available: true },
-    { key: 'products', route: '/admin/products', title: 'Productos y Tarifas', description: 'Cultivos y precios por unidad', icon: 'pricetag', color: colors.violet, available: true },
-    { key: 'crews', route: '/admin/crews', title: 'Cuadrillas', description: 'Equipos y encargados', icon: 'car', color: colors.amber, available: true, requiresCrewMode: true },
-    { key: 'supervisors', route: '/admin/supervisors', title: 'Supervisores', description: 'Asignaciones de trabajadores y paños', icon: 'shield-checkmark', color: colors.orange, available: true },
+    { key: 'workers', route: '/admin/workers', title: 'Trabajadores', description: 'Personal de campo y badges QR', icon: 'people', color: colors.primary, available: true, requiresCapability: CAPABILITIES.WORKERS_MANAGE },
+    { key: 'fields', route: '/admin/fields', title: 'Campos y Paños', description: 'Estructura productiva', icon: 'map', color: colors.blue, available: true, requiresCapability: CAPABILITIES.FIELDS_MANAGE },
+    { key: 'products', route: '/admin/products', title: 'Productos y Tarifas', description: 'Cultivos y precios por unidad', icon: 'pricetag', color: colors.violet, available: true, requiresCapability: CAPABILITIES.PRODUCTS_MANAGE },
+    { key: 'box-types', route: '/admin/box-types', title: 'Tipos de Caja', description: 'Destare y tolerancia de peso', icon: 'cube', color: colors.blue, available: true, requiresTareFlag: true, requiresCapability: CAPABILITIES.BOX_TYPES_MANAGE },
+    { key: 'crews', route: '/admin/crews', title: 'Cuadrillas', description: 'Equipos y encargados', icon: 'car', color: colors.amber, available: true, requiresCrewMode: true, requiresCapability: CAPABILITIES.CREWS_MANAGE },
+    { key: 'supervisors', route: '/admin/supervisors', title: 'Supervisores', description: 'Asignaciones de trabajadores y paños', icon: 'shield-checkmark', color: colors.orange, available: true, requiresCapability: CAPABILITIES.SUPERVISORS_MANAGE },
+    { key: 'permission-profiles', route: '/admin/permission-profiles', title: 'Perfiles de Permisos', description: 'Restringe capacidades por usuario', icon: 'shield-checkmark', color: colors.violet, available: true, requiresRbacFlag: true },
     { key: 'settings', route: '/admin/settings', title: 'Configuración', description: 'Marca, modo capataz, etiquetas', icon: 'settings', color: colors.textSecondary, available: false },
   ];
 
-  const visible = modules.filter((m) => !m.requiresCrewMode || crewModeEnabled);
+  const visible = modules.filter(
+    (m) =>
+      (!m.requiresCrewMode || crewModeEnabled) &&
+      (!m.requiresTareFlag || tareEnabled) &&
+      (!m.requiresRbacFlag || rbacEnabled) &&
+      (!m.requiresCapability || has(m.requiresCapability)),
+  );
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>

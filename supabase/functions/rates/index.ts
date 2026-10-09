@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
+import { getUser, requireRole, requirePermission, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -60,6 +60,8 @@ async function handleGetCurrent(supabase: any, productId: string | null) {
 async function handlePost(req: Request, supabase: any) {
   const roleError = requireRole(req, ['admin']);
   if (roleError) return roleError;
+  const permError = requirePermission(req, 'rates.manage');
+  if (permError) return permError;
 
   const body = await req.json();
   if (!body.product_id) return error('VALIDATION_ERROR', 'product_id es requerido', 422);

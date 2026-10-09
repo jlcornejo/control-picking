@@ -59,10 +59,25 @@ Al implementar CUALQUIER feature de usuario:
 - La lectura del estado del flag debe resolver override → default global (nunca leer solo
   el default global ignorando el override del tenant).
 
-## Nota de estado actual
+## Catálogo de flags vigentes
 
-A la fecha existen el catálogo en DB y la consola super-admin de gestión, pero aún NO hay
-un helper/hook cliente compartido (p. ej. `useFeatureFlag(key)`) que resuelva el estado
-efectivo. Al implementar la primera feature gated, crear ese helper en `packages/shared`
-(`@fundo360/shared`) y consumirlo desde `apps/web` y `apps/mobile`, en lugar de duplicar
-la lógica de resolución en cada app.
+Sembrados en `platform_feature_flags` (todos default **off** salvo indicación):
+
+| key | nombre | categoría | estrategia | notas |
+|-----|--------|-----------|-----------|-------|
+| `bluetooth_scale` | Báscula Bluetooth | cosecha | org_override | Lectura de peso desde balanza BT |
+| `offline_sync` | Sincronización Offline | infraestructura | org_override | Cola de mutaciones (default **on**) |
+| `ai_yield_prediction` | Predicción de Rendimiento (IA) | analitica | org_override | Sin implementación aún |
+| `advanced_metrics` | Métricas Avanzadas | analitica | org_override | — |
+| `disable_pdf_export` | Kill-Switch: Exportación PDF | infraestructura | kill_switch | Apaga PDFs en picos de carga |
+| `box_tare_control` | Control de Destare y Tolerancia | cosecha | org_override | KAN-6: destare + alerta de merma (ver domain-rules §24-30) |
+| `configurable_rbac` | RBAC Configurable | seguridad | org_override | KAN-5: perfiles de permisos (ver domain-rules §31-37) |
+
+## Helper de resolución (implementado)
+
+El hook `useFeatureFlag(key)` en la app móvil (`apps/mobile/src/hooks/useFeatureFlag.ts`)
+resuelve el estado efectivo (override por org → default global) y lo cachea con TanStack
+Query. Consumir SIEMPRE este helper en vez de duplicar la lógica de resolución.
+
+> Pendiente: extraer un helper compartido en `packages/shared` para reutilizarlo también
+> desde `apps/web` cuando la web consuma flags.

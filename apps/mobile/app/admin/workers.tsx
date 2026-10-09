@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { createWorkerSchema } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
 import { useOrgSettings } from '../../src/hooks/useOrgSettings';
+import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
@@ -24,6 +25,7 @@ type WorkerRow = {
   role: 'admin' | 'supervisor' | 'crew_lead' | 'worker';
   status: string;
   qr_badge_url: string | null;
+  permission_profile_id: string | null;
 };
 
 const QR_SIZE = Math.min(Dimensions.get('window').width * 0.6, 240);
@@ -50,7 +52,7 @@ export default function AdminWorkersScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('workers')
-        .select('id, full_name, national_id, phone, role, status, qr_badge_url')
+        .select('id, full_name, national_id, phone, role, status, qr_badge_url, permission_profile_id')
         .order('full_name');
       if (error) throw error;
       return data as WorkerRow[];
@@ -185,12 +187,35 @@ function WorkerFormModal({
   const isEdit = target && target !== 'new';
   const initial = isEdit ? (target as WorkerRow) : null;
 
+  const { enabled: rbacEnabled } = useFeatureFlag('configurable_rbac');
+
   const [fullName, setFullName] = useState('');
   const [nationalId, setNationalId] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState('worker');
+  const [profileId, setProfileId] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Perfiles de permisos activos de la org (solo si el flag está activo).
+  const { data: profiles } = useQuery({
+    queryKey: ['active-permission-profiles'],
+    enabled: rbacEnabled && !!target,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('permission_profiles')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name');
+      return (data || []) as { id: string; name: string }[];
+    },
+  });
+
+  // Opciones del selector de perfil: "Sin perfil" (capacidades completas) + perfiles.
+  const profileOptions = [
+    { value: '', label: 'Sin perfil (rol completo)' },
+    ...(profiles || []).map((p) => ({ value: p.id, label: p.name })),
+  ];
 
   // Reinicia el formulario cada vez que cambia el target.
   const key = target === 'new' ? 'new' : initial?.id ?? 'none';
@@ -201,6 +226,7 @@ function WorkerFormModal({
     setNationalId(initial?.national_id ?? '');
     setPhone(initial?.phone ?? '');
     setRole(initial?.role && ROLE_OPTIONS.some((r) => r.value === initial.role) ? initial.role : 'worker');
+    setProfileId(initial?.permission_profile_id ?? '');
     setErrors({});
   }
 
@@ -232,6 +258,8 @@ function WorkerFormModal({
             national_id: parsed.data.national_id ?? null,
             phone: parsed.data.phone ?? null,
             role: parsed.data.role,
+            // Perfil de permisos (RBAC configurable). Solo se escribe si el flag está activo.
+            ...(rbacEnabled ? { permission_profile_id: profileId || null } : {}),
           })
           .eq('id', initial.id);
         if (error) throw error;
@@ -244,6 +272,7 @@ function WorkerFormModal({
           phone: parsed.data.phone ?? null,
           role: parsed.data.role,
           qr_badge_url: Crypto.randomUUID(),
+          ...(rbacEnabled ? { permission_profile_id: profileId || null } : {}),
         });
         if (error) throw error;
       }
@@ -280,6 +309,11 @@ function WorkerFormModal({
             <Field label="Rol" required error={errors.role}>
               <SelectField value={role} options={ROLE_OPTIONS} onChange={setRole} hasError={!!errors.role} />
             </Field>
+            {rbacEnabled && (
+              <Field label="Perfil de permisos">
+                <SelectField value={profileId} options={profileOptions} onChange={setProfileId} />
+              </Field>
+            )}
             <SubmitButton label={isEdit ? 'Guardar cambios' : 'Crear trabajador'} loading={loading} onPress={handleSubmit} />
           </ScrollView>
         </View>

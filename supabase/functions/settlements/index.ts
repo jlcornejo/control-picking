@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
+import { getUser, requireRole, requirePermission, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -132,6 +132,8 @@ async function handleGetMy(supabase: any, url: URL) {
 async function handleGenerate(req: Request, supabase: any) {
   const roleError = requireRole(req, ['admin']);
   if (roleError) return roleError;
+  const permError = requirePermission(req, 'settlements.manage');
+  if (permError) return permError;
 
   const body = await req.json();
   if (!body.period_start || !body.period_end) {

@@ -1,5 +1,5 @@
 import { handleCors } from '../_shared/cors.ts';
-import { getUser, requireRole, createServiceClient, getOrgId } from '../_shared/auth.ts';
+import { getUser, requireRole, requirePermission, createServiceClient, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
 Deno.serve(async (req) => {
@@ -67,13 +67,15 @@ async function handleGetOne(supabase: any, workerId: string) {
 async function handlePost(req: Request, supabase: any) {
   const roleError = requireRole(req, ['admin']);
   if (roleError) return roleError;
+  const permError = requirePermission(req, 'workers.manage');
+  if (permError) return permError;
 
   const body = await req.json();
   if (!body.full_name || body.full_name.trim().length === 0) {
     return error('VALIDATION_ERROR', 'Nombre completo es requerido', 422);
   }
-  if (!body.role || !['admin', 'supervisor', 'worker'].includes(body.role)) {
-    return error('VALIDATION_ERROR', 'Rol debe ser admin, supervisor o worker', 422);
+  if (!body.role || !['admin', 'supervisor', 'crew_lead', 'worker'].includes(body.role)) {
+    return error('VALIDATION_ERROR', 'Rol debe ser admin, supervisor, crew_lead o worker', 422);
   }
 
   // Create auth user if email provided
@@ -106,6 +108,8 @@ async function handlePost(req: Request, supabase: any) {
       role: body.role,
       qr_badge_url: qrUuid, // Store QR UUID (image generation done client-side or separately)
       auth_user_id: authUserId,
+      // Perfil de permisos opcional (RBAC configurable). null = capacidades completas del rol.
+      permission_profile_id: body.permission_profile_id || null,
     })
     .select()
     .single();
@@ -117,6 +121,8 @@ async function handlePost(req: Request, supabase: any) {
 async function handlePut(req: Request, supabase: any, workerId: string | null) {
   const roleError = requireRole(req, ['admin']);
   if (roleError) return roleError;
+  const permError = requirePermission(req, 'workers.manage');
+  if (permError) return permError;
   if (!workerId) return error('VALIDATION_ERROR', 'ID requerido', 400);
 
   const body = await req.json();
@@ -125,11 +131,13 @@ async function handlePut(req: Request, supabase: any, workerId: string | null) {
   if (body.national_id !== undefined) updates.national_id = body.national_id;
   if (body.phone !== undefined) updates.phone = body.phone;
   if (body.role !== undefined) {
-    if (!['admin', 'supervisor', 'worker'].includes(body.role)) {
+    if (!['admin', 'supervisor', 'crew_lead', 'worker'].includes(body.role)) {
       return error('VALIDATION_ERROR', 'Rol inválido', 422);
     }
     updates.role = body.role;
   }
+  // Perfil de permisos: asignar (uuid) o quitar (null) el perfil del worker.
+  if (body.permission_profile_id !== undefined) updates.permission_profile_id = body.permission_profile_id || null;
   if (Object.keys(updates).length === 0) return error('VALIDATION_ERROR', 'Sin campos para actualizar', 422);
 
   const { data, error: dbError } = await supabase.from('workers').update(updates).eq('id', workerId).select().single();

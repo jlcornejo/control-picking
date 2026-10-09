@@ -3,6 +3,29 @@ import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 import { getOrgWorkday } from '../_shared/workday.ts';
 
+/**
+ * Evalúa el peso neto contra la banda de tolerancia de un tipo de caja.
+ * Réplica de `evaluateBoxTolerance` de @fundo360/shared (Deno no importa el
+ * paquete directamente). Mantener ambas en sincronía. net = max(bruto - tara, 0).
+ */
+function evaluateTolerance(
+  grossWeightKg: number,
+  box: { tare_weight_kg: number; target_net_weight_kg: number; tolerance_over: number; tolerance_under: number; tolerance_unit: string },
+) {
+  const tare = Number(box.tare_weight_kg);
+  const target = Number(box.target_net_weight_kg);
+  const net = Math.max(Math.round((grossWeightKg - tare) * 1000) / 1000, 0);
+
+  const overMargin = box.tolerance_unit === 'percent' ? (target * Number(box.tolerance_over)) / 100 : Number(box.tolerance_over);
+  const underMargin = box.tolerance_unit === 'percent' ? (target * Number(box.tolerance_under)) / 100 : Number(box.tolerance_under);
+  const maxNet = target + overMargin;
+  const minNet = Math.max(target - underMargin, 0);
+
+  const over = net > maxNet;
+  const under = net < minNet;
+  return { net, tare, over, under, out_of_tolerance: over || under };
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -120,7 +143,10 @@ async function handlePost(req: Request, supabase: any) {
   if (roleError) return roleError;
 
   const body = await req.json();
-  return await createPickingRecord(supabase, req, body.worker_id, body.block_id, body.quantity, body.row_id ?? null);
+  return await createPickingRecord(supabase, req, body.worker_id, body.block_id, body.quantity, body.row_id ?? null, {
+    boxTypeId: body.box_type_id ?? null,
+    grossWeightKg: body.gross_weight_kg ?? null,
+  });
 }
 
 /** POST /picking-records/scan — create via QR scan */
@@ -141,7 +167,10 @@ async function handleScan(req: Request, supabase: any) {
   if (workerError || !worker) return error('NOT_FOUND', 'Badge QR no reconocido', 404);
   if (worker.status !== 'active') return error('WORKER_NOT_ACTIVE', 'Trabajador no está activo', 409);
 
-  return await createPickingRecord(supabase, req, worker.id, body.block_id, body.quantity, body.row_id ?? null);
+  return await createPickingRecord(supabase, req, worker.id, body.block_id, body.quantity, body.row_id ?? null, {
+    boxTypeId: body.box_type_id ?? null,
+    grossWeightKg: body.gross_weight_kg ?? null,
+  });
 }
 
 /** PUT /picking-records/:id — correct record (same work_day only) */
@@ -204,6 +233,12 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
       work_day: original.work_day,
       recorded_by: payload.worker_id,
       original_record_id: recordId,
+      // Copiar el snapshot de destare del original para preservar la auditoría del pesaje.
+      box_type_id: original.box_type_id ?? null,
+      gross_weight_kg: original.gross_weight_kg ?? null,
+      tare_snapshot_kg: original.tare_snapshot_kg ?? null,
+      net_weight_kg: original.net_weight_kg ?? null,
+      out_of_tolerance: original.out_of_tolerance ?? false,
     });
   if (snapErr) return error('VALIDATION_ERROR', snapErr.message, 400);
 
@@ -226,10 +261,20 @@ async function createPickingRecord(
   blockId: string,
   quantity: number,
   rowId: string | null = null,
+  box: { boxTypeId: string | null; grossWeightKg: number | null } = { boxTypeId: null, grossWeightKg: null },
 ) {
   if (!workerId) return error('VALIDATION_ERROR', 'worker_id es requerido', 422);
   if (!blockId) return error('VALIDATION_ERROR', 'block_id es requerido', 422);
   if (!quantity || quantity <= 0) return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad debe ser mayor a 0', 422);
+
+  // Control de destare (opcional): box_type_id y gross_weight_kg van juntos.
+  const usesTare = box.boxTypeId != null || box.grossWeightKg != null;
+  if (usesTare && (box.boxTypeId == null || box.grossWeightKg == null)) {
+    return error('VALIDATION_ERROR', 'box_type_id y gross_weight_kg deben ir juntos', 422);
+  }
+  if (usesTare && (!Number.isFinite(Number(box.grossWeightKg)) || Number(box.grossWeightKg) <= 0)) {
+    return error('WEIGHT_MUST_BE_POSITIVE', 'Peso bruto debe ser mayor a 0', 422);
+  }
 
   // Validate worker is active
   const { data: worker, error: wErr } = await supabase
@@ -259,6 +304,29 @@ async function createPickingRecord(
     if (rowErr || !row) return error('NOT_FOUND', 'Melga no encontrada', 404);
     if (row.status !== 'active') return error('ROW_NOT_ACTIVE', 'Melga no está activa', 409);
     if (row.block_id !== blockId) return error('ROW_BLOCK_MISMATCH', 'La melga no pertenece a este paño', 409);
+  }
+
+  // Tipo de caja (opcional): si viene, debe existir, estar activa y pertenecer
+  // al mismo tenant/block-product. Se congela la tara y se evalúa la tolerancia.
+  let boxSnapshot: { box_type_id: string; gross_weight_kg: number; tare_snapshot_kg: number; net_weight_kg: number; out_of_tolerance: boolean } | null = null;
+  if (usesTare) {
+    const { data: boxType, error: boxErr } = await supabase
+      .from('box_types')
+      .select('id, status, tare_weight_kg, target_net_weight_kg, tolerance_over, tolerance_under, tolerance_unit')
+      .eq('id', box.boxTypeId)
+      .single();
+    if (boxErr || !boxType) return error('BOX_TYPE_NOT_FOUND', 'Tipo de caja no encontrado', 404);
+    if (boxType.status !== 'active') return error('BOX_TYPE_NOT_ACTIVE', 'Tipo de caja no está activo', 409);
+
+    const gross = Number(box.grossWeightKg);
+    const evalResult = evaluateTolerance(gross, boxType);
+    boxSnapshot = {
+      box_type_id: boxType.id,
+      gross_weight_kg: gross,
+      tare_snapshot_kg: evalResult.tare,
+      net_weight_kg: evalResult.net,
+      out_of_tolerance: evalResult.out_of_tolerance,
+    };
   }
 
   // Modo Capataz efectivo del campo: override del campo, o default de la organización.
@@ -297,6 +365,12 @@ async function createPickingRecord(
       quantity,
       rate_amount_snapshot: rate.amount,
       recorded_by: payload.worker_id,
+      // Snapshot de destare (null si el tenant/producto no usa control de peso).
+      box_type_id: boxSnapshot?.box_type_id ?? null,
+      gross_weight_kg: boxSnapshot?.gross_weight_kg ?? null,
+      tare_snapshot_kg: boxSnapshot?.tare_snapshot_kg ?? null,
+      net_weight_kg: boxSnapshot?.net_weight_kg ?? null,
+      out_of_tolerance: boxSnapshot?.out_of_tolerance ?? false,
     })
     .select()
     .single();
@@ -309,5 +383,7 @@ async function createPickingRecord(
     block_name: block.name || '',
     estimated_payment: Math.round(quantity * rate.amount * 100) / 100,
     crew_mode_effective: crewModeEffective,
+    // Alerta de merma: true si el peso neto quedó fuera de tolerancia (no bloqueante).
+    out_of_tolerance: boxSnapshot?.out_of_tolerance ?? false,
   }, 201);
 }

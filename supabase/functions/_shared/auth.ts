@@ -61,6 +61,33 @@ export function requireRole(req: Request, allowedRoles: string[]): Response | nu
   return null;
 }
 
+/**
+ * Check if the user has a capability (RBAC configurable, KAN-5).
+ *
+ * Semantics (mirror of the SQL has_permission()):
+ *   - Platform admin: always allowed.
+ *   - No `permissions` claim (worker without a restricting profile): allowed —
+ *     the role keeps its full capabilities.
+ *   - With `permissions` claim: the capability must be listed, else 403.
+ *
+ * Use AFTER requireRole so the base role is already enforced; this only removes
+ * capabilities a profile restricted away.
+ */
+export function requirePermission(req: Request, capability: string): Response | null {
+  const claims = decodeClaims(req);
+  if (!claims) return error('UNAUTHORIZED', 'Token inválido', 401);
+  if (claims.is_platform_admin === true) return null;
+
+  const permissions = claims.permissions;
+  // Ausencia del claim = sin restricción de perfil.
+  if (!Array.isArray(permissions)) return null;
+
+  if (!permissions.includes(capability)) {
+    return error('MISSING_CAPABILITY', 'Su perfil no tiene permiso para esta acción', 403);
+  }
+  return null;
+}
+
 /** Organization id of the current user (org_id claim). Null if none. */
 export function getOrgId(req: Request): string | null {
   const claims = decodeClaims(req);

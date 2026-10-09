@@ -48,6 +48,26 @@ Estas reglas son propiedades de correctness del sistema. Deben ser validadas con
 22. La superficie de los paños no puede exceder la superficie total del campo
 23. No se puede eliminar un campo/paño con registros de picking asociados (solo desactivar)
 
+### Destare y Tolerancia de Peso (KAN-6, feature flag `box_tare_control`)
+
+24. El peso neto se calcula como `neto = max(bruto − tara, 0)`, donde la tara proviene del tipo de caja (`box_types.tare_weight_kg`)
+25. El destare aplica solo a productos con `unit_measure = 'box'` y cuando el flag `box_tare_control` está activo para la organización
+26. **El pago NO cambia por el destare**: la liquidación sigue calculándose por `quantity` (cantidad de cajas). El peso es control de merma + auditoría, nunca altera tarifas ni liquidaciones
+27. La alerta de tolerancia es **no bloqueante**: el registro se guarda igual y se marca `out_of_tolerance` para auditoría; el supervisor decide
+28. Los pesos (`gross_weight_kg`, `tare_snapshot_kg`, `net_weight_kg`) y `out_of_tolerance` son un snapshot inmutable; una corrección (soft-update) copia estos valores a la fila de auditoría
+29. Un `box_type` referenciado por un registro debe pertenecer a la misma organización (FK compuesta `(box_type_id, organization_id)`)
+30. La banda de tolerancia se expresa en `percent` (del peso objetivo) o `kg` (absoluto); fuera de `[objetivo − tol_inferior, objetivo + tol_superior]` dispara la alerta
+
+### RBAC Configurable — Perfiles de Permisos (KAN-5, feature flag `configurable_rbac`)
+
+31. Un perfil de permisos **solo RESTRINGE** capacidades dentro de lo que el rol ya permite; **nunca amplía**
+32. Un worker **sin perfil** (`permission_profile_id IS NULL`) conserva **todas** las capacidades de su rol (comportamiento por defecto, retrocompatible)
+33. Solo el rol `admin` puede crear/editar perfiles y asignarlos; los perfiles aplican a cualquier rol
+34. El claim `permissions` del JWT se inyecta **solo** cuando el worker tiene un perfil activo; su ausencia significa "sin restricción"
+35. La capacidad se verifica en tres capas: SQL (`has_permission(cap)`), backend (`requirePermission(req, cap)`), UI (`usePermissions().has(cap)`, cosmético). La barrera real es backend + RLS
+36. El primer admin de una organización nunca lleva perfil restrictivo (debe poder gestionar el RBAC)
+37. Un `permission_profile` referenciado por un worker debe pertenecer a la misma organización (FK compuesta); al borrar el perfil, el worker vuelve a capacidades completas (`ON DELETE SET NULL`)
+
 ## Glosario Técnico → Dominio
 
 Usa este mapeo cuando nombres entidades, tablas, variables:
@@ -65,6 +85,9 @@ Usa este mapeo cuando nombres entidades, tablas, variables:
 | Liquidación | Settlement | settlements |
 | Pago | Payment | payments |
 | Badge QR | QrBadge | (field in workers) |
+| Tipo de Caja / Envase | BoxType | box_types |
+| Perfil de Permisos | PermissionProfile | permission_profiles |
+| Capacidad | Capability | (keys en CAPABILITIES, @fundo360/shared) |
 
 ## Estados de Entidades
 
@@ -84,3 +107,11 @@ Usa este mapeo cuando nombres entidades, tablas, variables:
 ### Rate Status
 - `current` — tarifa vigente para el producto
 - `historical` — tarifa anterior, usada solo para cálculos históricos
+
+### BoxType Status
+- `active` — tipo de caja disponible para seleccionar al registrar picking
+- `inactive` — oculto en el registro; los registros históricos conservan su snapshot de peso
+
+### PermissionProfile Status
+- `active` — el perfil restringe a los workers que lo tienen asignado
+- `inactive` — se ignora; los workers con este perfil vuelven a capacidades completas de su rol (igual que sin perfil)

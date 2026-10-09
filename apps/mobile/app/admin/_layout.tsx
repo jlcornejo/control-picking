@@ -23,6 +23,8 @@ export default function AdminLayout() {
       <Stack.Screen name="fields/index" options={{ title: 'Campos' }} />
       <Stack.Screen name="fields/[id]" options={{ title: 'Campo' }} />
       <Stack.Screen name="products" options={{ title: 'Productos y Tarifas' }} />
+      <Stack.Screen name="box-types" options={{ title: 'Tipos de Caja' }} />
+      <Stack.Screen name="permission-profiles" options={{ title: 'Perfiles de Permisos' }} />
       <Stack.Screen name="crews" options={{ title: 'Cuadrillas' }} />
       <Stack.Screen name="supervisors" options={{ title: 'Supervisores' }} />
     </Stack>

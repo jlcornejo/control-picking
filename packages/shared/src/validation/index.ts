@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UnitMeasure, WorkerRole } from '../types/index';
+import { UnitMeasure, WorkerRole, ToleranceUnit, ALL_CAPABILITIES } from '../types/index';
 
 /** Validation: Create a new product */
 export const createProductSchema = z.object({
@@ -33,6 +33,24 @@ export const createRateSchema = z.object({
   amount: z.number().positive('Tarifa debe ser mayor a 0'),
 });
 
+/** Validation: Create/update a box type (tare + tolerance) */
+export const createBoxTypeSchema = z.object({
+  name: z.string().min(1, 'Nombre del tipo de caja es requerido').max(100),
+  tare_weight_kg: z.number().min(0, 'La tara no puede ser negativa'),
+  target_net_weight_kg: z.number().positive('El peso objetivo debe ser mayor a 0'),
+  tolerance_over: z.number().min(0, 'La tolerancia superior no puede ser negativa').default(0),
+  tolerance_under: z.number().min(0, 'La tolerancia inferior no puede ser negativa').default(0),
+  tolerance_unit: z.nativeEnum(ToleranceUnit).default(ToleranceUnit.PERCENT),
+});
+
+/** Validation: Create/update a permission profile (RBAC configurable). */
+export const createPermissionProfileSchema = z.object({
+  name: z.string().min(1, 'Nombre del perfil es requerido').max(100),
+  capabilities: z
+    .array(z.enum(ALL_CAPABILITIES as [string, ...string[]]))
+    .min(1, 'Selecciona al menos una capacidad'),
+});
+
 /** Validation: Create a new worker */
 export const createWorkerSchema = z.object({
   full_name: z.string().min(1, 'Nombre completo es requerido').max(150),
@@ -41,23 +59,50 @@ export const createWorkerSchema = z.object({
   role: z.nativeEnum(WorkerRole),
 });
 
+/**
+ * Optional box-tare fields shared by picking create/scan schemas.
+ * Present only when the tenant uses `box_tare_control` and the product is by box.
+ * The payment is unaffected (still by `quantity`); these capture the weighing for
+ * waste control and audit. box_type_id + gross_weight_kg must come together.
+ */
+const boxTareFields = {
+  /** Box type used. When present, gross_weight_kg must be present too. */
+  box_type_id: z.string().uuid().nullable().optional(),
+  /** Gross weight measured on the scale (kg), tare included. */
+  gross_weight_kg: z.number().positive('Peso bruto debe ser mayor a 0').nullable().optional(),
+};
+
+/** Both box-tare fields must be provided together (or neither). */
+const bothOrNeitherBoxTare = (d: { box_type_id?: string | null; gross_weight_kg?: number | null }): boolean =>
+  (d.box_type_id == null) === (d.gross_weight_kg == null);
+const boxTareRefinement: { message: string; path: (string | number)[] } = {
+  message: 'box_type_id y gross_weight_kg deben ir juntos',
+  path: ['gross_weight_kg'],
+};
+
 /** Validation: Create a picking record */
-export const createPickingRecordSchema = z.object({
-  worker_id: z.string().uuid(),
-  block_id: z.string().uuid(),
-  /** Optional row (melga). When present it must belong to block_id (checked server-side). */
-  row_id: z.string().uuid().nullable().optional(),
-  quantity: z.number().positive('Cantidad debe ser mayor a 0'),
-});
+export const createPickingRecordSchema = z
+  .object({
+    worker_id: z.string().uuid(),
+    block_id: z.string().uuid(),
+    /** Optional row (melga). When present it must belong to block_id (checked server-side). */
+    row_id: z.string().uuid().nullable().optional(),
+    quantity: z.number().positive('Cantidad debe ser mayor a 0'),
+    ...boxTareFields,
+  })
+  .refine(bothOrNeitherBoxTare, boxTareRefinement);
 
 /** Validation: Create picking record via QR scan */
-export const scanPickingRecordSchema = z.object({
-  qr_code: z.string().uuid('QR code inválido'),
-  block_id: z.string().uuid(),
-  /** Optional row (melga). When present it must belong to block_id (checked server-side). */
-  row_id: z.string().uuid().nullable().optional(),
-  quantity: z.number().positive('Cantidad debe ser mayor a 0'),
-});
+export const scanPickingRecordSchema = z
+  .object({
+    qr_code: z.string().uuid('QR code inválido'),
+    block_id: z.string().uuid(),
+    /** Optional row (melga). When present it must belong to block_id (checked server-side). */
+    row_id: z.string().uuid().nullable().optional(),
+    quantity: z.number().positive('Cantidad debe ser mayor a 0'),
+    ...boxTareFields,
+  })
+  .refine(bothOrNeitherBoxTare, boxTareRefinement);
 
 /** Validation: Generate a settlement */
 export const generateSettlementSchema = z.object({

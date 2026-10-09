@@ -66,3 +66,6 @@ TEST_USERS.md
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Stitch design review (artefactos temporales de revisión de diseño)
+.stitch-review/
