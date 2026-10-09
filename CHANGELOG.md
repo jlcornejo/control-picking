@@ -70,12 +70,26 @@ Convenciones:
   melgas y Andes Fruit sin melgas, ambos con Modo Capataz), todos los roles, 30 días de
   historial de picking, liquidaciones, pagos y feature flags.
   Script `scripts/seed-users-remote.sh` para crear/vincular los usuarios de Auth.
+- **RBAC Fase B + control de destare/tolerancia + perfiles de permisos**: catálogo de
+  tipos de caja/envase por organización (`box_types`) con tara, peso neto objetivo y banda
+  de tolerancia (feature flag `box_tare_control`); el picking guarda un snapshot de pesaje
+  (`gross_weight_kg`, `tare_snapshot_kg`, `net_weight_kg`, `out_of_tolerance`) que **no
+  altera el pago** (sigue siendo por `quantity`). Perfiles de permisos (`permission_profiles`)
+  y endurecimiento de RLS por rol. Incluye Edge Functions `box-types` y `permission-profiles`,
+  tipos/validación en `@fundo360/shared`, pantallas admin y migraciones `20260927*`.
 
 ### Cambiado
 
 - **Rediseño de la consola super-admin** al estilo del panel de plataforma (KPIs con
   `StatCard`, filtros por estado de suscripción, tabla enriquecida, banner de sesión
   auditada, Platform Audit Log con nuevas acciones etiquetadas).
+- **Iconografía profesional en la app móvil**: se reemplazaron los emojis incrustados
+  (cámara, trabajador/paño/melga, check, flechas, logo, ojo de contraseña) por íconos
+  Ionicons en registro, producción, pagos, cuadrilla, login, `PhotoCapture`, `QRScanner` y
+  el splash. Aspecto consistente en web y nativo.
+- **Etiquetas de la barra de navegación** acortadas para que no se corten en pantallas
+  angostas (Panel, Campo, Pagos, Equipo, Cuadrilla, Perfil); el encabezado de cada pantalla
+  conserva el nombre completo.
 
 ### Corregido
 
@@ -83,11 +97,29 @@ Convenciones:
   `x-client-info`) en `Access-Control-Allow-Headers`. El SDK de Supabase los envía en
   llamadas cross-origin, por lo que el preflight fallaba y la consola desplegada no cargaba
   datos. Se añadieron ambos headers y se redesplegaron las funciones.
+- **Alertas no visibles en web** (`Alert.alert` es no-op en `react-native-web`): el registro
+  de picking y otras pantallas no mostraban avisos ni confirmaciones al probar en navegador.
+  Nuevo helper `showAlert` (web usa `window.alert`/`window.confirm`; nativo usa `Alert.alert`)
+  aplicado en registro, producción, pagos, cuadrilla y `DayRosterManager`; `SuccessOverlay`
+  usa el driver JS de animación en web. En dispositivo el comportamiento nativo no cambia.
+- **El supervisor no podía registrar pagos de cuadrilla** (RLS): `payments` no tenía policy
+  de `INSERT` ni `settlements` de `UPDATE` para el supervisor, así que al pagar una
+  liquidación de cuadrilla fallaba con violación de RLS y el estado no pasaba a *pagado*.
+  Se añadieron dos policies acotadas a las cuadrillas que supervisa
+  (`supervisor_insert_crew_payments`, `supervisor_update_crew_settlements`). No relaja la
+  inmutabilidad de liquidaciones pagadas.
+- **El supervisor/encargado no veía la tarifa vigente al registrar** (RLS): `rates` solo
+  permitía lectura a admin, por lo que el registro fallaba con "Sin tarifa vigente para este
+  producto". Nueva policy `member_read_current_rates` (lectura de tarifas `current` de su
+  organización para supervisor/encargado/trabajador).
 
 ### Infra/Deploy
 
 - Migraciones aplicadas al remoto `fundo360` (`day_roster`, `day_roster_rls`,
   `worker_must_change_password`, `create_feature_flags`) vía `supabase db push`.
+- Migraciones RBAC/box-types (`20260927*`) y las de octubre (`picking_photo_evidence`,
+  `member_read_current_rates`, `supervisor_insert_crew_payments`) aplicadas al remoto
+  `fundo360` y versionadas en `supabase/migrations/`.
 - Las 19 Edge Functions desplegadas al remoto vía `supabase functions deploy`.
 - `.kiro/settings/mcp.json` dejó de versionarse (puede contener API keys); añadido a
   `.gitignore`.

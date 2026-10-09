@@ -42,16 +42,27 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 - **Roster diario trabajador–capataz** (`day_roster`): el responsable arma su equipo cada
   jornada; `picking_records.day_roster_id` congela la atribución del día.
 - **Datos de prueba del remoto** y scripts de carga de usuarios.
+- **RBAC Fase B + destare/tolerancia + perfiles de permisos**: tipos de caja/envase por
+  organización con tara y banda de tolerancia (el peso es control de merma, **no altera el
+  pago**), perfiles de permisos y RLS endurecida por rol.
 
 ### Cambiado
 
 - Rediseño de la consola super-admin (KPIs, filtros por suscripción, tabla enriquecida,
   banner de sesión auditada).
+- **Iconografía profesional** en la app móvil (íconos Ionicons en vez de emojis) y
+  **etiquetas de navegación** acortadas para que no se corten en pantallas angostas.
 
 ### Corregido
 
 - CORS de Edge Functions: se añadieron los headers `apikey` y `x-client-info` para que el
   preflight cross-origin no falle en producción.
+- **Alertas no visibles en web**: en el navegador no se veían avisos/confirmaciones del
+  registro de picking (comportamiento propio de react-native-web). En el dispositivo las
+  alertas nativas no cambian.
+- **El supervisor no podía registrar pagos de cuadrilla ni ver la tarifa vigente** al
+  registrar: faltaban permisos de acceso (RLS) para esas operaciones; se agregaron, acotados
+  a su ámbito, sin relajar la inmutabilidad de liquidaciones pagadas.
 
 ### Infra/Deploy
 

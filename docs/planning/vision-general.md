@@ -4,9 +4,17 @@ Vista única del plan de Fundo360: las **etapas**, qué está **listo** y **pend
 **estimaciones de tiempo** por tema. Reemplaza la necesidad de Jira/Confluence: toda la
 información del proyecto vive aquí, versionada y compartible por link.
 
-> **Última actualización**: 2026-10-02.
+> **Última actualización**: 2026-10-09.
 > Para el detalle de tareas en curso, ver el [Tablero](tablero.md).
 > Para el histórico de cambios, ver el [Changelog](../changelog.md).
+
+!!! success "Estado para la reunión de negocio"
+    El **flujo completo del supervisor** quedó validado de punta a punta (registro con
+    tarifa congelada, foto de respaldo, corrección con auditoría, ver producción del día,
+    registrar pago de cuadrilla, bloqueos y accesibilidad). Hay un **build Android (APK)
+    de prueba** para instalar en el teléfono y validar en terreno. Lo que bloquea el cierre
+    de alcance son las [decisiones de negocio](../legacy/decisiones-negocio.md) abiertas
+    (en especial **pago por kilo vs bandeja**).
 
 ---
 
@@ -78,8 +86,9 @@ Resumen de hitos:
 
 | Tema | Hito | Estimación | Notas |
 |------|------|-----------|-------|
-| Imágenes de respaldo (picking + pagos) | M2 | 4–6 días | Storage por tenant + captura móvil + visor web. |
-| Accesibilidad: escala de fuente | M2 | 2–3 días | Preferencia por usuario, tokens de tipografía. |
+| ~~Imágenes de respaldo (picking)~~ | M2 | ✅ Entregado | Bucket `picking-evidence` por tenant + captura móvil. Validado en terreno (web). |
+| ~~Accesibilidad: escala de fuente~~ | M2 | ✅ Entregado | Preferencia por usuario (Normal/Grande/Extra grande), persistida. |
+| Imágenes de respaldo en pagos | M2 | 2–3 días | Extender el patrón de evidencia a comprobantes de pago. |
 | Informes exportables (PDF/Excel) | M2 | 5–7 días | Catálogo de informes + exportadores. |
 | Ticketera de soporte (MVP) | M2 | 3–4 días | Formulario + bandeja del admin de plataforma. |
 | Visibilidad de cosecha del trabajador | M3 | 1–2 días | Como capacidad RBAC. |
