@@ -29,6 +29,22 @@ export const ERROR_CODES = {
   // Configurable RBAC (KAN-5)
   PERMISSION_PROFILE_NOT_FOUND: 'PERMISSION_PROFILE_NOT_FOUND',
   MISSING_CAPABILITY: 'MISSING_CAPABILITY',
+  // Product varieties & kg payment (pago-por-kilo)
+  VARIETY_NOT_FOUND: 'VARIETY_NOT_FOUND',
+  VARIETY_NOT_ACTIVE: 'VARIETY_NOT_ACTIVE',
+  VARIETY_PRODUCT_MISMATCH: 'VARIETY_PRODUCT_MISMATCH',
+  VARIETY_REQUIRED: 'VARIETY_REQUIRED',
+  VARIETY_TENANT_MISMATCH: 'VARIETY_TENANT_MISMATCH',
+  VARIETY_NAME_TAKEN: 'VARIETY_NAME_TAKEN',
+  KG_WEIGHT_REQUIRED: 'KG_WEIGHT_REQUIRED',
+  RATE_UNIT_SUBJECT_NOT_FOUND: 'RATE_UNIT_SUBJECT_NOT_FOUND',
+} as const;
+
+/** Feature flag keys (gating of user-facing features; override per tenant). */
+export const FEATURE_FLAGS = {
+  KG_PAYMENT: 'kg_payment',
+  PRODUCT_VARIETIES: 'product_varieties',
+  BOX_TARE_CONTROL: 'box_tare_control',
 } as const;
 
 /** Pagination defaults */

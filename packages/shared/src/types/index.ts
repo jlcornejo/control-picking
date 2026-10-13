@@ -91,6 +91,18 @@ export interface Product extends BaseEntity {
   status: EntityStatus;
 }
 
+/**
+ * Product variety (variedad within a product's hierarchy).
+ * A product can have N varieties; each variety can carry its own rate. A
+ * block/row references a single variety (never mixing products/varieties).
+ */
+export interface ProductVariety extends BaseEntity {
+  organization_id: string;
+  product_id: string;
+  name: string;
+  status: EntityStatus;
+}
+
 /** Field (farm/fundo) */
 export interface Field extends BaseEntity {
   organization_id: string;
@@ -141,6 +153,8 @@ export interface Block extends BaseEntity {
   organization_id: string;
   field_id: string;
   product_id: string;
+  /** Variety of the block's product. null when the product has no varieties configured. */
+  variety_id: string | null;
   name: string;
   area: number;
   status: EntityStatus;
@@ -164,6 +178,8 @@ export interface FieldRow extends BaseEntity {
 export interface Rate extends BaseEntity {
   organization_id: string;
   product_id: string;
+  /** Variety this rate applies to. null = applies to the product with no variety breakdown. */
+  variety_id: string | null;
   amount: number;
   effective_from: string;
   status: RateStatus;
@@ -217,6 +233,10 @@ export interface PickingRecord extends BaseEntity {
   row_id: string | null;
   quantity: number;
   rate_amount_snapshot: number;
+  /** Unit the payment is settled in, frozen at recording time. 'box' pays by quantity; 'kg' pays by paid_quantity_kg. */
+  payment_unit: UnitMeasure;
+  /** Payable kilograms when payment_unit = 'kg'. null when paid by box. Immutable snapshot. */
+  paid_quantity_kg: number | null;
   recorded_at: string;
   work_day: string;
   recorded_by: string;
@@ -249,6 +269,20 @@ export interface Settlement extends BaseEntity {
   total_amount: number;
   status: SettlementStatus;
   generated_at: string;
+}
+
+/** One line of a settlement breakdown (per block/row/variety grouping). */
+export interface SettlementBreakdownLine {
+  work_day: string;
+  block_name: string;
+  row_name: string | null;
+  product_name: string;
+  variety_name: string | null;
+  payment_unit: UnitMeasure;
+  /** Payable base (boxes when 'box', kilograms when 'kg'). */
+  base: number;
+  rate: number;
+  subtotal: number;
 }
 
 /** Payment (actual payment against a settlement) */
@@ -356,6 +390,45 @@ export function evaluateBoxTolerance(
     under,
     out_of_tolerance: over || under,
   };
+}
+
+/** Minimal picking shape needed to compute payment. */
+export interface PickingPaymentInput {
+  payment_unit: UnitMeasure;
+  quantity: number;
+  paid_quantity_kg: number | null;
+  rate_amount_snapshot: number;
+}
+
+/**
+ * Payable base for a picking record: kilograms when paid by kg, otherwise the
+ * box quantity. Single source of truth shared by the backend and clients so the
+ * displayed and settled amounts always agree.
+ */
+export function pickingPayableBase(record: PickingPaymentInput): number {
+  return record.payment_unit === UnitMeasure.KG
+    ? Number(record.paid_quantity_kg ?? 0)
+    : Number(record.quantity);
+}
+
+/**
+ * Payable subtotal for a picking record = base * rate, rounded to 2 decimals.
+ */
+export function pickingSubtotal(record: PickingPaymentInput): number {
+  return Math.round(pickingPayableBase(record) * Number(record.rate_amount_snapshot) * 100) / 100;
+}
+
+/**
+ * Resolve a feature flag's effective value: a per-tenant override (true/false)
+ * wins over the global value; otherwise fall back to the global value, defaulting
+ * to false when it is unset.
+ */
+export function resolveFeatureFlag(
+  globalEnabled?: boolean | null,
+  orgOverride?: boolean | null,
+): boolean {
+  if (orgOverride === true || orgOverride === false) return orgOverride;
+  return globalEnabled ?? false;
 }
 
 // ============================================================

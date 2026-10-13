@@ -14,10 +14,18 @@ export const createFieldSchema = z.object({
   total_area: z.number().positive('Superficie debe ser mayor a 0'),
 });
 
+/** Validation: Create a new product variety (variedad under a product) */
+export const createProductVarietySchema = z.object({
+  product_id: z.string().uuid(),
+  name: z.string().min(1, 'Nombre de la variedad es requerido').max(100),
+});
+
 /** Validation: Create a new block */
 export const createBlockSchema = z.object({
   name: z.string().min(1, 'Nombre del paño es requerido').max(100),
   product_id: z.string().uuid(),
+  /** Variety of the block's product. Optional; required server-side when the product has varieties. */
+  variety_id: z.string().uuid().nullable().optional(),
   area: z.number().positive('Superficie del paño debe ser mayor a 0'),
 });
 
@@ -31,6 +39,8 @@ export const createFieldRowSchema = z.object({
 /** Validation: Create a new rate */
 export const createRateSchema = z.object({
   amount: z.number().positive('Tarifa debe ser mayor a 0'),
+  /** Variety this rate applies to. Optional; null = product-level rate. */
+  variety_id: z.string().uuid().nullable().optional(),
 });
 
 /** Validation: Create/update a box type (tare + tolerance) */
@@ -70,6 +80,16 @@ const boxTareFields = {
   box_type_id: z.string().uuid().nullable().optional(),
   /** Gross weight measured on the scale (kg), tare included. */
   gross_weight_kg: z.number().positive('Peso bruto debe ser mayor a 0').nullable().optional(),
+  /**
+   * Payable kilograms entered manually for kg payment. Rounded to 3 decimals by
+   * the client. Mutually exclusive with gross_weight_kg (box-tare weighing).
+   */
+  manual_kg: z
+    .number()
+    .positive('Kilos deben ser mayor a 0')
+    .transform((kg) => Math.round(kg * 1000) / 1000)
+    .nullable()
+    .optional(),
 };
 
 /** Both box-tare fields must be provided together (or neither). */
@@ -78,6 +98,14 @@ const bothOrNeitherBoxTare = (d: { box_type_id?: string | null; gross_weight_kg?
 const boxTareRefinement: { message: string; path: (string | number)[] } = {
   message: 'box_type_id y gross_weight_kg deben ir juntos',
   path: ['gross_weight_kg'],
+};
+
+/** manual_kg (kg payment) and gross_weight_kg (box weighing) are mutually exclusive. */
+const manualKgExclusive = (d: { manual_kg?: number | null; gross_weight_kg?: number | null }): boolean =>
+  !(d.manual_kg != null && d.gross_weight_kg != null);
+const manualKgRefinement: { message: string; path: (string | number)[] } = {
+  message: 'manual_kg y gross_weight_kg son mutuamente excluyentes',
+  path: ['manual_kg'],
 };
 
 /** Validation: Create a picking record */
@@ -90,7 +118,8 @@ export const createPickingRecordSchema = z
     quantity: z.number().positive('Cantidad debe ser mayor a 0'),
     ...boxTareFields,
   })
-  .refine(bothOrNeitherBoxTare, boxTareRefinement);
+  .refine(bothOrNeitherBoxTare, boxTareRefinement)
+  .refine(manualKgExclusive, manualKgRefinement);
 
 /** Validation: Create picking record via QR scan */
 export const scanPickingRecordSchema = z
@@ -102,7 +131,8 @@ export const scanPickingRecordSchema = z
     quantity: z.number().positive('Cantidad debe ser mayor a 0'),
     ...boxTareFields,
   })
-  .refine(bothOrNeitherBoxTare, boxTareRefinement);
+  .refine(bothOrNeitherBoxTare, boxTareRefinement)
+  .refine(manualKgExclusive, manualKgRefinement);
 
 /** Validation: Generate a settlement */
 export const generateSettlementSchema = z.object({

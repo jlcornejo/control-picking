@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Capa compartida @fundo360/shared: tipos (ProductVariety; extensiones a Block/Rate/PickingRecord; SettlementBreakdownLine), funciones puras de pago (pickingPayableBase, pickingSubtotal) y resolveFeatureFlag, ERROR_CODES y FEATURE_FLAGS nuevos, schemas Zod (createProductVarietySchema, variety_id en create rate/block, manual_kg en picking con exclusion mutua), barrel actualizado, y los PRIMEROS tests unitarios del repo. Depende de la forma de datos de FEAT-001. NO toca el catalogo CAPABILITIES.",
+  "status": "completed",
+  "steps": [
+    "En packages/shared/src/types/index.ts: anadir interface ProductVariety extends BaseEntity { organization_id: string; product_id: string; name: string; status: EntityStatus }. Extender Block (variety_id: string | null), Rate (variety_id: string | null), PickingRecord (payment_unit: UnitMeasure; paid_quantity_kg: number | null). Anadir interface SettlementBreakdownLine { work_day; block_name; row_name: string|null; product_name; variety_name: string|null; payment_unit: UnitMeasure; base: number; rate: number; subtotal: number }.",
+    "En packages/shared/src/types/index.ts anadir funciones puras (junto a evaluateBoxTolerance): pickingPayableBase(r) = r.payment_unit===UnitMeasure.KG ? Number(r.paid_quantity_kg ?? 0) : Number(r.quantity); pickingSubtotal(r) = Math.round(pickingPayableBase(r)*Number(r.rate_amount_snapshot)*100)/100; resolveFeatureFlag(globalEnabled?, orgOverride?) = (orgOverride===true||orgOverride===false)?orgOverride:(globalEnabled ?? false). Firmas con tipos explicitos (sin any).",
+    "En packages/shared/src/constants/index.ts: anadir a ERROR_CODES las claves VARIETY_NOT_FOUND, VARIETY_NOT_ACTIVE, VARIETY_PRODUCT_MISMATCH, VARIETY_REQUIRED, VARIETY_TENANT_MISMATCH, VARIETY_NAME_TAKEN, KG_WEIGHT_REQUIRED, RATE_UNIT_SUBJECT_NOT_FOUND; anadir export const FEATURE_FLAGS = { KG_PAYMENT:'kg_payment', PRODUCT_VARIETIES:'product_varieties', BOX_TARE_CONTROL:'box_tare_control' } as const. NO tocar CAPABILITIES/CAPABILITY_LABELS/ALL_CAPABILITIES (viven en types/index.ts; seccion 4.3).",
+    "En packages/shared/src/validation/index.ts: createProductVarietySchema = z.object({ product_id: z.string().uuid(), name: z.string().min(1).max(100) }); extender createRateSchema con variety_id: z.string().uuid().nullable().optional(); extender createBlockSchema con variety_id: z.string().uuid().nullable().optional(); en los schemas de picking (create y scan) anadir manual_kg opcional (> 0) mutuamente excluyente con gross_weight_kg via .refine, redondeando el cliente a 3 decimales (Math.round(x*1000)/1000).",
+    "Actualizar barrel packages/shared/src/index.ts si hace falta para reexportar lo nuevo (ya reexporta ./types, ./constants, ./validation; confirmar que ProductVariety, FEATURE_FLAGS, funciones y schemas quedan accesibles).",
+    "Crear el primer archivo de test del repo (Vitest) para las funciones puras: packages/shared/src/types/picking-payment.test.ts cubriendo pickingPayableBase y pickingSubtotal (box -> quantity*rate exacto; kg -> paid_quantity_kg*rate; redondeo a 2 decimales) y resolveFeatureFlag (override true, false, null/undefined -> default global; default global undefined -> false). Casos tabulados para invariantes quantity>0 y paid_quantity_kg>0 en kg."
+  ],
+  "acceptance_criteria": [
+    "'npm run lint -w @fundo360/shared' pasa sin errores y sin 'any'.",
+    "Typecheck limpio: 'npx tsc --noEmit' en packages/shared sin errores (incluye el consumo de los tipos extendidos).",
+    "'npm run test -w @fundo360/shared' ejecuta y todos los tests nuevos pasan.",
+    "ProductVariety, SettlementBreakdownLine, pickingPayableBase, pickingSubtotal, resolveFeatureFlag, FEATURE_FLAGS y los ERROR_CODES nuevos son importables desde '@fundo360/shared'.",
+    "CAPABILITIES/CAPABILITY_LABELS/ALL_CAPABILITIES quedan intactos (sin diffs)."
+  ],
+  "verification": [
+    "npm install --legacy-peer-deps si no se instalaron en FEAT-001.",
+    "npm run lint -w @fundo360/shared",
+    "npx tsc --noEmit  (ejecutar dentro de packages/shared)",
+    "npm run test -w @fundo360/shared  (debe correr vitest y pasar los tests nuevos)"
+  ],
+  "blocked_reason": null,
+  "findings": "Implementado en packages/shared: types (ProductVariety; variety_id en Block/Rate; payment_unit + paid_quantity_kg en PickingRecord; SettlementBreakdownLine; funciones puras pickingPayableBase/pickingSubtotal con interface auxiliar PickingPaymentInput, y resolveFeatureFlag). constants: 8 ERROR_CODES nuevos (VARIETY_* , KG_WEIGHT_REQUIRED, RATE_UNIT_SUBJECT_NOT_FOUND) + FEATURE_FLAGS. validation: createProductVarietySchema; variety_id opcional en createRate/createBlock; manual_kg (>0, redondeo a 3 decimales via .transform) mutuamente excluyente con gross_weight_kg en createPickingRecord y scanPickingRecord (nuevo refine manualKgExclusive). Primer test del repo: src/types/picking-payment.test.ts (16 casos, incluye tabulados que afirman quantity>0 y paid_quantity_kg>0). El barrel ya reexportaba ./types|./constants|./validation, no requirió cambios. Verificación: 'npx tsc --noEmit' en packages/shared OK; 'npm run test -w @fundo360/shared' 16/16 OK. CAPABILITIES/CAPABILITY_LABELS/ALL_CAPABILITIES intactos (sin diffs). BLOQUEADOR MENOR: 'npm run lint -w @fundo360/shared' falla porque el repo no tiene eslint.config.js para el paquete shared (solo apps/mobile lo tiene); es estado preexistente del repo (ESLint 9 exige flat config), no causado por este cambio. Deps instaladas con 'npm install --legacy-peer-deps'."
+}
