@@ -82,10 +82,10 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Producción de muestra de la cuadrilla (registrada por el encargado). Cada
 -- registro congela el roster del día (day_roster_id) bajo el que se cosechó.
-INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rate_amount_snapshot, work_day, recorded_by, day_roster_id) VALUES
-  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fd-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 22, 1200, org_workday((SELECT id FROM organizations WHERE slug='sur-berries')), 'aa0000fe-0000-0000-0000-000000000001', 'd5000001-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fc-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 19, 1200, org_workday((SELECT id FROM organizations WHERE slug='sur-berries')), 'aa0000fe-0000-0000-0000-000000000001', 'd5000002-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fb-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 25, 1200, org_workday((SELECT id FROM organizations WHERE slug='sur-berries')), 'aa0000fe-0000-0000-0000-000000000001', 'd5000003-0000-0000-0000-000000000001');
+INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rate_amount_snapshot, work_day, recorded_by, day_roster_id, payment_unit) VALUES
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fd-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 22, 1200, org_workday((SELECT id FROM organizations WHERE slug='sur-berries')), 'aa0000fe-0000-0000-0000-000000000001', 'd5000001-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fc-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 19, 1200, org_workday((SELECT id FROM organizations WHERE slug='sur-berries')), 'aa0000fe-0000-0000-0000-000000000001', 'd5000002-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='sur-berries'), 'aa0000fb-0000-0000-0000-000000000001', 'ee0000ff-0000-0000-0000-000000000001', 25, 1200, org_workday((SELECT id FROM organizations WHERE slug='sur-berries')), 'aa0000fe-0000-0000-0000-000000000001', 'd5000003-0000-0000-0000-000000000001', 'box');
 
 -- ------------------------------------------------------------
 -- Liquidaciones de sur-berries (modelo en dos niveles)
@@ -184,13 +184,13 @@ INSERT INTO day_roster (id, organization_id, work_day, worker_id, lead_id, crew_
 ON CONFLICT (id) DO NOTHING;
 
 -- Sample picking records (today). Cada registro congela el roster del día.
-INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rate_amount_snapshot, work_day, recorded_by, day_roster_id) VALUES
-  ((SELECT id FROM organizations WHERE slug='default'), 'aa000010-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 12, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000010-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='default'), 'aa000010-0000-0000-0000-000000000001', 'ee000002-0000-0000-0000-000000000001', 8, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000010-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='default'), 'aa000011-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 15, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000011-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='default'), 'aa000012-0000-0000-0000-000000000001', 'ee000002-0000-0000-0000-000000000001', 10, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000012-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='default'), 'aa000013-0000-0000-0000-000000000001', 'ee000003-0000-0000-0000-000000000001', 5, 2000, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000013-0000-0000-0000-000000000001'),
-  ((SELECT id FROM organizations WHERE slug='default'), 'aa000014-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 18, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000014-0000-0000-0000-000000000001');
+INSERT INTO picking_records (organization_id, worker_id, block_id, quantity, rate_amount_snapshot, work_day, recorded_by, day_roster_id, payment_unit) VALUES
+  ((SELECT id FROM organizations WHERE slug='default'), 'aa000010-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 12, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000010-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='default'), 'aa000010-0000-0000-0000-000000000001', 'ee000002-0000-0000-0000-000000000001', 8, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000010-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='default'), 'aa000011-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 15, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000011-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='default'), 'aa000012-0000-0000-0000-000000000001', 'ee000002-0000-0000-0000-000000000001', 10, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000012-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='default'), 'aa000013-0000-0000-0000-000000000001', 'ee000003-0000-0000-0000-000000000001', 5, 2000, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000013-0000-0000-0000-000000000001', 'box'),
+  ((SELECT id FROM organizations WHERE slug='default'), 'aa000014-0000-0000-0000-000000000001', 'ee000001-0000-0000-0000-000000000001', 18, 1500, org_workday((SELECT id FROM organizations WHERE slug='default')), 'aa000002-0000-0000-0000-000000000001', 'd5000014-0000-0000-0000-000000000001', 'box');
 
 -- ------------------------------------------------------------
 -- Liquidaciones de 'default' (pago directo, SIN modo capataz)
