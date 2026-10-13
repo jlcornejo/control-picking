@@ -26,6 +26,28 @@ function evaluateTolerance(
   return { net, tare, over, under, out_of_tolerance: over || under };
 }
 
+/**
+ * Base pagable de un registro de picking. Réplica de `pickingPayableBase` de
+ * @fundo360/shared (Deno no importa el paquete). Mantener en sincronía con shared.
+ * kg => paid_quantity_kg; box => quantity.
+ */
+function pickingPayableBase(record: { payment_unit: string; quantity: number; paid_quantity_kg: number | null }): number {
+  return record.payment_unit === 'kg' ? Number(record.paid_quantity_kg ?? 0) : Number(record.quantity);
+}
+
+/**
+ * Subtotal pagable = base * tarifa, redondeado a 2 decimales. Réplica de
+ * `pickingSubtotal` de @fundo360/shared. Mantener en sincronía con shared.
+ */
+function pickingSubtotal(record: { payment_unit: string; quantity: number; paid_quantity_kg: number | null; rate_amount_snapshot: number }): number {
+  return Math.round(pickingPayableBase(record) * Number(record.rate_amount_snapshot) * 100) / 100;
+}
+
+/** Redondeo a 3 decimales para kilos (base de pago kg manual). */
+function round3(x: number): number {
+  return Math.round(x * 1000) / 1000;
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -98,7 +120,7 @@ async function handleGetMy(req: Request, supabase: any, url: URL, todayOnly: boo
   const today = await getOrgWorkday(supabase, orgId);
 
   let query = supabase.from('picking_records')
-    .select('id, block_id, row_id, quantity, rate_amount_snapshot, recorded_at, work_day, blocks(name), field_rows(name, row_number)');
+    .select('id, block_id, row_id, quantity, payment_unit, paid_quantity_kg, rate_amount_snapshot, recorded_at, work_day, blocks(name), field_rows(name, row_number)');
 
   if (todayOnly) {
     query = query.eq('work_day', today);
@@ -115,23 +137,34 @@ async function handleGetMy(req: Request, supabase: any, url: URL, todayOnly: boo
   const { data, error: dbError } = await query;
   if (dbError) return error('VALIDATION_ERROR', dbError.message, 400);
 
-  // Calculate totals
-  const totalUnits = (data || []).reduce((sum: number, r: any) => sum + Number(r.quantity), 0);
-  const estimatedEarnings = (data || []).reduce(
-    (sum: number, r: any) => sum + Number(r.quantity) * Number(r.rate_amount_snapshot), 0
+  const rows = data || [];
+
+  // No mezclar unidades: totales segmentados por unidad de pago.
+  const totalsByUnit = rows.reduce(
+    (acc: { box: number; kg: number }, r: any) => {
+      if (r.payment_unit === 'kg') acc.kg += Number(r.paid_quantity_kg ?? 0);
+      else acc.box += Number(r.quantity);
+      return acc;
+    },
+    { box: 0, kg: 0 },
   );
+
+  // estimated_earnings suma $ globalmente con pickingSubtotal (base por unidad).
+  const estimatedEarnings = rows.reduce((sum: number, r: any) => sum + pickingSubtotal(r), 0);
 
   return success({
     work_day: today,
-    total_units: totalUnits,
+    totals_by_unit: { box: totalsByUnit.box, kg: Math.round(totalsByUnit.kg * 1000) / 1000 },
     estimated_earnings: Math.round(estimatedEarnings * 100) / 100,
-    records: (data || []).map((r: any) => ({
+    records: rows.map((r: any) => ({
       id: r.id,
       block_name: r.blocks?.name || '',
       row_name: r.field_rows?.name || null,
       quantity: Number(r.quantity),
+      payment_unit: r.payment_unit,
+      base: pickingPayableBase(r),
       rate: Number(r.rate_amount_snapshot),
-      subtotal: Math.round(Number(r.quantity) * Number(r.rate_amount_snapshot) * 100) / 100,
+      subtotal: pickingSubtotal(r),
       recorded_at: r.recorded_at,
     })),
   });
@@ -143,10 +176,19 @@ async function handlePost(req: Request, supabase: any) {
   if (roleError) return roleError;
 
   const body = await req.json();
-  return await createPickingRecord(supabase, req, body.worker_id, body.block_id, body.quantity, body.row_id ?? null, {
-    boxTypeId: body.box_type_id ?? null,
-    grossWeightKg: body.gross_weight_kg ?? null,
-  });
+  return await createPickingRecord(
+    supabase,
+    req,
+    body.worker_id,
+    body.block_id,
+    body.quantity,
+    body.row_id ?? null,
+    {
+      boxTypeId: body.box_type_id ?? null,
+      grossWeightKg: body.gross_weight_kg ?? null,
+    },
+    { manualKg: body.manual_kg ?? null },
+  );
 }
 
 /** POST /picking-records/scan — create via QR scan */
@@ -167,10 +209,19 @@ async function handleScan(req: Request, supabase: any) {
   if (workerError || !worker) return error('NOT_FOUND', 'Badge QR no reconocido', 404);
   if (worker.status !== 'active') return error('WORKER_NOT_ACTIVE', 'Trabajador no está activo', 409);
 
-  return await createPickingRecord(supabase, req, worker.id, body.block_id, body.quantity, body.row_id ?? null, {
-    boxTypeId: body.box_type_id ?? null,
-    grossWeightKg: body.gross_weight_kg ?? null,
-  });
+  return await createPickingRecord(
+    supabase,
+    req,
+    worker.id,
+    body.block_id,
+    body.quantity,
+    body.row_id ?? null,
+    {
+      boxTypeId: body.box_type_id ?? null,
+      grossWeightKg: body.gross_weight_kg ?? null,
+    },
+    { manualKg: body.manual_kg ?? null },
+  );
 }
 
 /** PUT /picking-records/:id — correct record (same work_day only) */
@@ -180,11 +231,8 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
   if (!recordId) return error('VALIDATION_ERROR', 'ID requerido', 400);
 
   const body = await req.json();
-  if (!body.quantity || body.quantity <= 0) {
-    return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad debe ser mayor a 0', 422);
-  }
 
-  // Get original record
+  // Leer el original PRIMERO para conocer payment_unit y ramificar la corrección.
   const { data: original, error: origError } = await supabase
     .from('picking_records')
     .select('*')
@@ -192,6 +240,17 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
     .single();
 
   if (origError) return error('NOT_FOUND', 'Registro no encontrado', 404);
+
+  // Ramificar la validación del nuevo valor según la unidad de pago (inmutable).
+  if (original.payment_unit === 'kg') {
+    if (!body.paid_quantity_kg || body.paid_quantity_kg <= 0) {
+      return error('KG_WEIGHT_REQUIRED', 'paid_quantity_kg debe ser mayor a 0', 422);
+    }
+  } else {
+    if (!body.quantity || body.quantity <= 0) {
+      return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad debe ser mayor a 0', 422);
+    }
+  }
 
   // Tenant: el organization_id se toma del token del usuario que registra (nunca del cliente)
   const orgId = getOrgId(req);
@@ -217,10 +276,9 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
   //      al original (original_record_id = recordId). Este snapshot queda EXCLUIDO
   //      de los totales (todas las consultas filtran original_record_id IS NULL)
   //      y visible solo en el historial de Registros como "Corrección".
-  //   2) Se EDITA el original in-place con la nueva cantidad. El original mantiene
+  //   2) Se EDITA el original in-place con el nuevo valor. El original mantiene
   //      su id y original_record_id=NULL, por lo que sigue contando con el valor
-  //      corregido. Se conserva la tarifa original (regla 14: la tarifa aplicada es
-  //      la vigente al momento del registro, no la actual).
+  //      corregido. Se conserva la tarifa original (regla 14) y payment_unit nunca cambia.
   const { error: snapErr } = await supabase
     .from('picking_records')
     .insert({
@@ -230,6 +288,10 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
       row_id: original.row_id,
       quantity: original.quantity,
       rate_amount_snapshot: original.rate_amount_snapshot,
+      // payment_unit y paid_quantity_kg son NOT NULL-consistentes: copiarlos del
+      // original o el CHECK chk_picking_paid_kg falla.
+      payment_unit: original.payment_unit,
+      paid_quantity_kg: original.paid_quantity_kg ?? null,
       work_day: original.work_day,
       recorded_by: payload.worker_id,
       original_record_id: recordId,
@@ -242,9 +304,15 @@ async function handlePut(req: Request, supabase: any, recordId: string | null) {
     });
   if (snapErr) return error('VALIDATION_ERROR', snapErr.message, 400);
 
+  // Actualizar el original según la unidad: box toca quantity; kg toca
+  // paid_quantity_kg (sin tocar quantity). rate_amount_snapshot y payment_unit intactos.
+  const updates = original.payment_unit === 'kg'
+    ? { paid_quantity_kg: round3(Number(body.paid_quantity_kg)) }
+    : { quantity: body.quantity };
+
   const { data, error: dbError } = await supabase
     .from('picking_records')
-    .update({ quantity: body.quantity })
+    .update(updates)
     .eq('id', recordId)
     .select()
     .single();
@@ -262,37 +330,47 @@ async function createPickingRecord(
   quantity: number,
   rowId: string | null = null,
   box: { boxTypeId: string | null; grossWeightKg: number | null } = { boxTypeId: null, grossWeightKg: null },
+  kg: { manualKg: number | null } = { manualKg: null },
 ) {
   if (!workerId) return error('VALIDATION_ERROR', 'worker_id es requerido', 422);
   if (!blockId) return error('VALIDATION_ERROR', 'block_id es requerido', 422);
-  if (!quantity || quantity <= 0) return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad debe ser mayor a 0', 422);
+
+  const hasGross = box.grossWeightKg != null || box.boxTypeId != null;
+  const hasManualKg = kg.manualKg != null;
+
+  // No se pueden combinar pesaje por caja y kg manual en el mismo registro.
+  if (hasGross && hasManualKg) {
+    return error('VALIDATION_ERROR', 'No combine gross_weight_kg (caja) con manual_kg', 422);
+  }
 
   // Control de destare (opcional): box_type_id y gross_weight_kg van juntos.
-  const usesTare = box.boxTypeId != null || box.grossWeightKg != null;
-  if (usesTare && (box.boxTypeId == null || box.grossWeightKg == null)) {
+  if (hasGross && (box.boxTypeId == null || box.grossWeightKg == null)) {
     return error('VALIDATION_ERROR', 'box_type_id y gross_weight_kg deben ir juntos', 422);
   }
-  if (usesTare && (!Number.isFinite(Number(box.grossWeightKg)) || Number(box.grossWeightKg) <= 0)) {
+  if (hasGross && (!Number.isFinite(Number(box.grossWeightKg)) || Number(box.grossWeightKg) <= 0)) {
     return error('WEIGHT_MUST_BE_POSITIVE', 'Peso bruto debe ser mayor a 0', 422);
   }
 
   // Validate worker is active
   const { data: worker, error: wErr } = await supabase
     .from('workers')
-    .select('id, status')
+    .select('id, status, full_name')
     .eq('id', workerId)
     .single();
   if (wErr || !worker) return error('NOT_FOUND', 'Trabajador no encontrado', 404);
   if (worker.status !== 'active') return error('WORKER_NOT_ACTIVE', 'Trabajador no está activo', 409);
 
-  // Validate block is active and get product_id + campo (para resolver crew_mode)
+  // Validate block is active y traer product_id + variety_id + unit_measure del
+  // producto + campo (para resolver crew_mode). NO eliminar el join de crew_mode.
   const { data: block, error: bErr } = await supabase
     .from('blocks')
-    .select('id, status, product_id, name, field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled))')
+    .select('id, status, product_id, variety_id, name, field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)), products!fk_blocks_product_org(unit_measure)')
     .eq('id', blockId)
     .single();
   if (bErr || !block) return error('NOT_FOUND', 'Paño no encontrado', 404);
   if (block.status !== 'active') return error('BLOCK_NOT_ACTIVE', 'Paño no está activo', 409);
+
+  const paymentUnit: string = block.products?.unit_measure ?? 'box';
 
   // Melga (opcional): si viene, debe existir, estar activa y pertenecer a ESTE block.
   if (rowId) {
@@ -306,10 +384,10 @@ async function createPickingRecord(
     if (row.block_id !== blockId) return error('ROW_BLOCK_MISMATCH', 'La melga no pertenece a este paño', 409);
   }
 
-  // Tipo de caja (opcional): si viene, debe existir, estar activa y pertenecer
-  // al mismo tenant/block-product. Se congela la tara y se evalúa la tolerancia.
+  // Tipo de caja (opcional): si viene, debe existir, estar activa. Se congela la
+  // tara y se evalúa la tolerancia (base de kg con destare).
   let boxSnapshot: { box_type_id: string; gross_weight_kg: number; tare_snapshot_kg: number; net_weight_kg: number; out_of_tolerance: boolean } | null = null;
-  if (usesTare) {
+  if (hasGross) {
     const { data: boxType, error: boxErr } = await supabase
       .from('box_types')
       .select('id, status, tare_weight_kg, target_net_weight_kg, tolerance_over, tolerance_under, tolerance_unit')
@@ -330,20 +408,54 @@ async function createPickingRecord(
   }
 
   // Modo Capataz efectivo del campo: override del campo, o default de la organización.
-  // Nota (Req. 8.5): el registro de producción NO cambia según crew_mode; este valor
-  // es informativo y se usa en la liquidación (Fase 3), sin duplicar el picking_record.
   const fieldCrewMode = block.field?.crew_mode_enabled;
   const orgCrewMode = block.field?.organization?.crew_mode_enabled ?? false;
   const crewModeEffective = fieldCrewMode === null || fieldCrewMode === undefined ? orgCrewMode : fieldCrewMode;
 
-  // Get current rate for the product
-  const { data: rate, error: rErr } = await supabase
+  // Resolver la tarifa vigente del SUJETO del block: con variedad -> tarifa de la
+  // variedad; sin variedad -> tarifa de producto (variety_id IS NULL). La vieja
+  // consulta product_id-only + .single() habría lanzado PGRST116 al coexistir ambas.
+  let rateQuery = supabase
     .from('rates')
     .select('amount')
     .eq('product_id', block.product_id)
-    .eq('status', 'current')
-    .single();
-  if (rErr || !rate) return error('NOT_FOUND', 'No hay tarifa vigente para este producto', 404);
+    .eq('status', 'current');
+  rateQuery = block.variety_id ? rateQuery.eq('variety_id', block.variety_id) : rateQuery.is('variety_id', null);
+  const { data: rate, error: rErr } = await rateQuery.single();
+  if (rErr || !rate) return error('NOT_FOUND', 'No hay tarifa vigente para este sujeto', 404);
+
+  // Ramas por unidad de pago (enforzadas aquí, no en Zod):
+  //   box -> comportamiento actual intacto: paga por quantity.
+  //   kg con caja -> paid_quantity_kg = net (max(gross-tare,0)); quantity = nro cajas.
+  //   kg manual   -> paid_quantity_kg = round3(manual_kg); quantity = 1.
+  let effectiveQuantity = Number(quantity);
+  let paidQuantityKg: number | null = null;
+
+  if (paymentUnit === 'kg') {
+    if (hasGross) {
+      // kg con destare: la base de pago es el peso neto.
+      const net = boxSnapshot!.net_weight_kg;
+      if (net <= 0) return error('KG_WEIGHT_REQUIRED', 'El peso neto debe ser mayor a 0', 422);
+      paidQuantityKg = net;
+      // quantity = número de cajas (debe ser > 0).
+      if (!effectiveQuantity || effectiveQuantity <= 0) {
+        return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad de cajas debe ser mayor a 0', 422);
+      }
+    } else {
+      // kg manual: la base de pago la trae manual_kg.
+      if (kg.manualKg == null || !Number.isFinite(Number(kg.manualKg)) || Number(kg.manualKg) <= 0) {
+        return error('KG_WEIGHT_REQUIRED', 'manual_kg debe ser mayor a 0', 422);
+      }
+      paidQuantityKg = round3(Number(kg.manualKg));
+      effectiveQuantity = 1;
+    }
+  } else {
+    // box: comportamiento actual. quantity > 0, paid_quantity_kg NULL.
+    if (!effectiveQuantity || effectiveQuantity <= 0) {
+      return error('QUANTITY_MUST_BE_POSITIVE', 'Cantidad debe ser mayor a 0', 422);
+    }
+    paidQuantityKg = null;
+  }
 
   // Decode JWT for recorded_by
   const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
@@ -362,7 +474,9 @@ async function createPickingRecord(
       worker_id: workerId,
       block_id: blockId,
       row_id: rowId,
-      quantity,
+      quantity: effectiveQuantity,
+      payment_unit: paymentUnit,
+      paid_quantity_kg: paidQuantityKg,
       rate_amount_snapshot: rate.amount,
       recorded_by: payload.worker_id,
       // Snapshot de destare (null si el tenant/producto no usa control de peso).
@@ -377,11 +491,19 @@ async function createPickingRecord(
 
   if (dbError) return error('VALIDATION_ERROR', dbError.message, 400);
 
+  // estimated_payment vía pickingSubtotal replicado (base por unidad).
+  const estimatedPayment = pickingSubtotal({
+    payment_unit: paymentUnit,
+    quantity: effectiveQuantity,
+    paid_quantity_kg: paidQuantityKg,
+    rate_amount_snapshot: Number(rate.amount),
+  });
+
   return success({
     ...data,
     worker_name: worker.full_name || '',
     block_name: block.name || '',
-    estimated_payment: Math.round(quantity * rate.amount * 100) / 100,
+    estimated_payment: estimatedPayment,
     crew_mode_effective: crewModeEffective,
     // Alerta de merma: true si el peso neto quedó fuera de tolerancia (no bloqueante).
     out_of_tolerance: boxSnapshot?.out_of_tolerance ?? false,

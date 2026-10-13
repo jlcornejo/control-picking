@@ -3,6 +3,12 @@ import { getUser, requireRole, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 import { getOrgWorkday } from '../_shared/workday.ts';
 
+// Select embebido de blocks con variedad. Las FKs compuestas de tenant requieren
+// el HINT del nombre de constraint en PostgREST (sin él arriesga PGRST200):
+//   products!fk_blocks_product_org / product_varieties!fk_blocks_variety_org.
+const BLOCK_SELECT =
+  '*, products!fk_blocks_product_org(name, unit_measure), product_varieties!fk_blocks_variety_org(name), fields(name)';
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -37,7 +43,7 @@ async function handleGetList(supabase: any, url: URL) {
   const fieldId = url.searchParams.get('field_id');
   const status = url.searchParams.get('status') || 'active';
 
-  let query = supabase.from('blocks').select('*, products(name, unit_measure), fields(name)', { count: 'exact' });
+  let query = supabase.from('blocks').select(BLOCK_SELECT, { count: 'exact' });
   if (fieldId) query = query.eq('field_id', fieldId);
   if (status !== 'all') query = query.eq('status', status);
   query = query.order('name', { ascending: true });
@@ -54,11 +60,47 @@ async function handleGetList(supabase: any, url: URL) {
 async function handleGetOne(supabase: any, blockId: string) {
   const { data, error: dbError } = await supabase
     .from('blocks')
-    .select('*, products(name, unit_measure), fields(name)')
+    .select(BLOCK_SELECT)
     .eq('id', blockId)
     .single();
   if (dbError) return error('NOT_FOUND', 'Paño no encontrado', 404);
   return success(data);
+}
+
+/**
+ * Validación espejo del trigger validate_block_variety para devolver un 422
+ * legible antes de llegar a la DB. El trigger M3 es la barrera dura.
+ *   - producto con variedades activas -> variety_id obligatorio y del producto.
+ *   - producto sin variedades activas -> variety_id debe ser NULL.
+ */
+async function validateVariety(
+  supabase: any,
+  orgId: string,
+  productId: string,
+  varietyId: string | null,
+): Promise<Response | null> {
+  // ¿El producto tiene al menos una variedad activa?
+  const { count } = await supabase
+    .from('product_varieties')
+    .select('*', { count: 'exact', head: true })
+    .eq('product_id', productId)
+    .eq('status', 'active');
+  const hasActiveVarieties = (count ?? 0) > 0;
+
+  if (varietyId) {
+    const { data: variety, error: vErr } = await supabase
+      .from('product_varieties')
+      .select('product_id')
+      .eq('id', varietyId)
+      .single();
+    if (vErr || !variety) return error('VARIETY_NOT_FOUND', 'Variedad no encontrada', 404);
+    if (variety.product_id !== productId) {
+      return error('VARIETY_PRODUCT_MISMATCH', 'La variedad no pertenece al producto del paño', 422);
+    }
+  } else if (hasActiveVarieties) {
+    return error('VARIETY_REQUIRED', 'El producto tiene variedades; debe elegir una', 422);
+  }
+  return null;
 }
 
 async function handlePost(req: Request, supabase: any, url: URL) {
@@ -75,10 +117,14 @@ async function handlePost(req: Request, supabase: any, url: URL) {
   const orgId = getOrgId(req);
   if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
+  const varietyId: string | null = body.variety_id ?? null;
+  const varietyError = await validateVariety(supabase, orgId, body.product_id, varietyId);
+  if (varietyError) return varietyError;
+
   const { data, error: dbError } = await supabase
     .from('blocks')
-    .insert({ organization_id: orgId, name: body.name.trim(), field_id: body.field_id, product_id: body.product_id, area: body.area })
-    .select('*, products(name, unit_measure), fields(name)')
+    .insert({ organization_id: orgId, name: body.name.trim(), field_id: body.field_id, product_id: body.product_id, variety_id: varietyId, area: body.area })
+    .select(BLOCK_SELECT)
     .single();
   if (dbError) return error('VALIDATION_ERROR', dbError.message, 400);
   return success(data, 201);
@@ -89,17 +135,36 @@ async function handlePut(req: Request, supabase: any, blockId: string | null) {
   if (roleError) return roleError;
   if (!blockId) return error('VALIDATION_ERROR', 'ID requerido', 400);
 
+  const orgId = getOrgId(req);
+  if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
+
   const body = await req.json();
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.product_id !== undefined) updates.product_id = body.product_id;
+  if (body.variety_id !== undefined) updates.variety_id = body.variety_id ?? null;
   if (body.area !== undefined) {
     if (body.area <= 0) return error('VALIDATION_ERROR', 'Superficie debe ser mayor a 0', 422);
     updates.area = body.area;
   }
   if (Object.keys(updates).length === 0) return error('VALIDATION_ERROR', 'Sin campos para actualizar', 422);
 
-  const { data, error: dbError } = await supabase.from('blocks').update(updates).eq('id', blockId).select('*, products(name, unit_measure)').single();
+  // Si cambia product_id o variety_id, revalidar la pareja (espejo del trigger).
+  if (body.product_id !== undefined || body.variety_id !== undefined) {
+    const { data: current, error: cErr } = await supabase
+      .from('blocks')
+      .select('product_id, variety_id')
+      .eq('id', blockId)
+      .single();
+    if (cErr || !current) return error('NOT_FOUND', 'Paño no encontrado', 404);
+
+    const nextProduct = body.product_id !== undefined ? body.product_id : current.product_id;
+    const nextVariety = body.variety_id !== undefined ? (body.variety_id ?? null) : current.variety_id;
+    const varietyError = await validateVariety(supabase, orgId, nextProduct, nextVariety);
+    if (varietyError) return varietyError;
+  }
+
+  const { data, error: dbError } = await supabase.from('blocks').update(updates).eq('id', blockId).select(BLOCK_SELECT).single();
   if (dbError) return error('NOT_FOUND', 'Paño no encontrado', 404);
   return success(data);
 }

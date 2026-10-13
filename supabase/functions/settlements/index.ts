@@ -2,6 +2,24 @@ import { handleCors } from '../_shared/cors.ts';
 import { getUser, requireRole, requirePermission, getOrgId } from '../_shared/auth.ts';
 import { success, error } from '../_shared/response.ts';
 
+/**
+ * Base pagable de un registro de picking. Réplica de `pickingPayableBase` de
+ * @fundo360/shared (Deno no importa el paquete). Mantener en sincronía con shared.
+ * kg => paid_quantity_kg; box => quantity.
+ */
+function pickingPayableBase(record: { payment_unit: string; quantity: number; paid_quantity_kg: number | null }): number {
+  return record.payment_unit === 'kg' ? Number(record.paid_quantity_kg ?? 0) : Number(record.quantity);
+}
+
+/**
+ * Subtotal pagable = base * tarifa, redondeado a 2 decimales. Réplica de
+ * `pickingSubtotal` de @fundo360/shared. Mantener en sincronía con shared.
+ * Para box reproduce EXACTO quantity * rate_amount_snapshot (regresión cero).
+ */
+function pickingSubtotal(record: { payment_unit: string; quantity: number; paid_quantity_kg: number | null; rate_amount_snapshot: number }): number {
+  return Math.round(pickingPayableBase(record) * Number(record.rate_amount_snapshot) * 100) / 100;
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -68,25 +86,35 @@ async function handleGetOne(supabase: any, settlementId: string) {
 
   if (sErr) return error('NOT_FOUND', 'Liquidación no encontrada', 404);
 
-  // Get breakdown: picking records in the period
+  // Get breakdown: picking records in the period. Se embebe la variedad del block
+  // vía el HINT de la FK compuesta (product_varieties!fk_blocks_variety_org) para
+  // evitar PGRST200.
   const { data: records } = await supabase
     .from('picking_records')
-    .select('work_day, quantity, rate_amount_snapshot, blocks(name, products(name)), field_rows(name)')
+    .select('work_day, quantity, payment_unit, paid_quantity_kg, rate_amount_snapshot, blocks(name, variety_id, products!fk_blocks_product_org(name), product_varieties!fk_blocks_variety_org(name)), field_rows(name)')
     .eq('worker_id', settlement.worker_id)
     .gte('work_day', settlement.period_start)
     .lte('work_day', settlement.period_end)
     .is('original_record_id', null)
     .order('work_day', { ascending: true });
 
-  const breakdown = (records || []).map((r: any) => ({
-    work_day: r.work_day,
-    block_name: r.blocks?.name || '',
-    row_name: r.field_rows?.name || null,
-    product_name: r.blocks?.products?.name || '',
-    quantity: Number(r.quantity),
-    rate: Number(r.rate_amount_snapshot),
-    subtotal: Math.round(Number(r.quantity) * Number(r.rate_amount_snapshot) * 100) / 100,
-  }));
+  const unitsByUnit = { box: 0, kg: 0 };
+  const breakdown = (records || []).map((r: any) => {
+    const base = pickingPayableBase(r);
+    if (r.payment_unit === 'kg') unitsByUnit.kg += Number(r.paid_quantity_kg ?? 0);
+    else unitsByUnit.box += Number(r.quantity);
+    return {
+      work_day: r.work_day,
+      block_name: r.blocks?.name || '',
+      row_name: r.field_rows?.name || null,
+      product_name: r.blocks?.products?.name || '',
+      variety_name: r.blocks?.product_varieties?.name || null,
+      payment_unit: r.payment_unit,
+      base,
+      rate: Number(r.rate_amount_snapshot),
+      subtotal: pickingSubtotal(r),
+    };
+  });
 
   // Get payments made
   const { data: payments } = await supabase
@@ -100,6 +128,7 @@ async function handleGetOne(supabase: any, settlementId: string) {
   return success({
     ...settlement,
     breakdown,
+    units_by_unit: { box: unitsByUnit.box, kg: Math.round(unitsByUnit.kg * 1000) / 1000 },
     payments: payments || [],
     total_paid: totalPaid,
     balance: Math.round((Number(settlement.total_amount) - totalPaid) * 100) / 100,
@@ -146,10 +175,13 @@ async function handleGenerate(req: Request, supabase: any) {
   // Traer los registros del período con el contexto necesario para clasificar:
   // - crew del trabajador (workers.crew_id)
   // - crew_mode efectivo del campo del block (field override ?? org default)
+  // - unidad de pago y kilos pagables para el cálculo por unidad.
   const { data: records } = await supabase
     .from('picking_records')
     .select(`
       quantity,
+      payment_unit,
+      paid_quantity_kg,
       rate_amount_snapshot,
       worker:workers!picking_records_worker_id_fkey(id, crew_id),
       block:blocks(field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)))
@@ -158,13 +190,18 @@ async function handleGenerate(req: Request, supabase: any) {
     .lte('work_day', body.period_end)
     .is('original_record_id', null);
 
-  // Agregar montos por sujeto de pago
+  // Agregar montos por sujeto de pago + totales segmentados por unidad.
   const workerTotals = new Map<string, number>();
   const crewTotals = new Map<string, number>();
+  const unitsByUnit = { box: 0, kg: 0 };
+  let totalAmountGlobal = 0;
 
   for (const r of records || []) {
-    const amount = Number(r.quantity) * Number(r.rate_amount_snapshot);
+    const amount = pickingSubtotal(r);
+    if (r.payment_unit === 'kg') unitsByUnit.kg += Number(r.paid_quantity_kg ?? 0);
+    else unitsByUnit.box += Number(r.quantity);
     if (amount <= 0) continue;
+    totalAmountGlobal += amount;
 
     const fieldMode = r.block?.field?.crew_mode_enabled;
     const orgMode = r.block?.field?.organization?.crew_mode_enabled ?? false;
@@ -242,7 +279,11 @@ async function handleGenerate(req: Request, supabase: any) {
     if (!sErr && settlement) results.push(settlement);
   }
 
-  return success(results, 201);
+  return success({
+    settlements: results,
+    total_amount: Math.round(totalAmountGlobal * 100) / 100,
+    units_by_unit: { box: unitsByUnit.box, kg: Math.round(unitsByUnit.kg * 1000) / 1000 },
+  }, 201);
 }
 
 /**
@@ -272,6 +313,8 @@ async function handleCrewGenerate(req: Request, supabase: any) {
     .from('picking_records')
     .select(`
       quantity,
+      payment_unit,
+      paid_quantity_kg,
       rate_amount_snapshot,
       worker:workers!picking_records_worker_id_fkey(id, crew_id),
       block:blocks(field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)))
@@ -281,14 +324,20 @@ async function handleCrewGenerate(req: Request, supabase: any) {
     .is('original_record_id', null);
 
   const workerTotals = new Map<string, number>();
-  for (const r of records || []) {
-    const amount = Number(r.quantity) * Number(r.rate_amount_snapshot);
-    if (amount <= 0) continue;
+  const unitsByUnit = { box: 0, kg: 0 };
+  let totalAmountGlobal = 0;
 
+  for (const r of records || []) {
     const fieldMode = r.block?.field?.crew_mode_enabled;
     const orgMode = r.block?.field?.organization?.crew_mode_enabled ?? false;
     const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgMode : fieldMode;
     if (!crewModeEffective) continue; // solo producción en modo capataz
+
+    const amount = pickingSubtotal(r);
+    if (r.payment_unit === 'kg') unitsByUnit.kg += Number(r.paid_quantity_kg ?? 0);
+    else unitsByUnit.box += Number(r.quantity);
+    if (amount <= 0) continue;
+    totalAmountGlobal += amount;
 
     const wId = r.worker?.id;
     if (wId) workerTotals.set(wId, (workerTotals.get(wId) ?? 0) + amount);
@@ -324,5 +373,9 @@ async function handleCrewGenerate(req: Request, supabase: any) {
     if (!sErr && settlement) results.push(settlement);
   }
 
-  return success(results, 201);
+  return success({
+    settlements: results,
+    total_amount: Math.round(totalAmountGlobal * 100) / 100,
+    units_by_unit: { box: unitsByUnit.box, kg: Math.round(unitsByUnit.kg * 1000) / 1000 },
+  }, 201);
 }
