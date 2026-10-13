@@ -19,6 +19,11 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Documentación de RBAC configurable y capacidades**: se documentó en
+  [Reglas de negocio](dominio/reglas-de-negocio.md) la capa de perfiles de permisos
+  (reglas 34-39), el estado `PermissionProfile` y el catálogo completo de capacidades
+  (`workers.manage`, `fields.manage`, `rates.manage`, etc.). Antes solo vivía en el código
+  (`CAPABILITIES` de `@fundo360/shared`); ahora está en la doc publicable del sitio.
 - **Set de pruebas manuales por perfil**: casos paso a paso para validar la app móvil
   (Supervisor, Admin, Encargado, Trabajador). Ver la sección [Pruebas](pruebas/vision-general.md).
 - **Actualizaciones OTA (`expo-updates`)** en la app móvil: a partir del próximo build, los

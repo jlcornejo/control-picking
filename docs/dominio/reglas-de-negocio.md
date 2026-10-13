@@ -52,6 +52,17 @@ Estas reglas son propiedades de correctness del sistema. Nunca deben violarse y 
 32. Los datos financieros (montos, tarifas) son invisibles para el rol trabajador, excepto su propio estimado.
 33. Solo el Administrador de Plataforma gestiona Organizaciones y suscripciones.
 
+### RBAC configurable — Perfiles de permisos
+
+Capa opcional sobre el RBAC por rol, activable con el feature flag `configurable_rbac`. Permite afinar qué puede hacer cada usuario **dentro** de lo que su rol ya autoriza.
+
+34. Un perfil de permisos **solo RESTRINGE** capacidades dentro de lo que el rol ya permite; **nunca amplía** lo que el rol no autoriza.
+35. Un trabajador **sin perfil** conserva **todas** las capacidades de su rol (comportamiento por defecto, retrocompatible).
+36. Solo el rol Administrador puede crear, editar y asignar perfiles; un mismo perfil puede aplicarse a cualquier rol.
+37. El primer Administrador de una Organización nunca lleva perfil restrictivo (debe poder gestionar el RBAC de su organización).
+38. La capacidad se verifica en tres capas: base de datos (RLS), backend (Edge Function) e interfaz (solo cosmético). La barrera real de seguridad es backend + RLS; la UI solo oculta lo que no corresponde.
+39. Un perfil pertenece a una sola Organización; al borrarlo, los trabajadores que lo tenían vuelven a las capacidades completas de su rol.
+
 ### Estructura de campo
 
 34. Un paño pertenece a exactamente un campo.
@@ -121,3 +132,35 @@ Cuando el Modo Capataz está activo, el Encargado queda **entre** el Supervisor 
 
 - `current` — tarifa vigente para el producto.
 - `historical` — tarifa anterior, usada solo para cálculos históricos.
+
+### PermissionProfile
+
+- `active` — el perfil restringe a los trabajadores que lo tienen asignado.
+- `inactive` — se ignora; los trabajadores con este perfil vuelven a las capacidades completas de su rol (igual que si no tuvieran perfil).
+
+## Capacidades (perfiles de permisos)
+
+Las **capacidades** son las acciones de gestión que un perfil de permisos puede habilitar o restringir cuando el feature flag `configurable_rbac` está activo (ver reglas 34-39). Un perfil es un conjunto de capacidades que **acota** a un trabajador dentro de lo que su rol ya autoriza; nunca le concede algo que su rol no permita.
+
+Catálogo de capacidades disponibles:
+
+| Capacidad | Qué habilita |
+|-----------|--------------|
+| `workers.manage` | Gestionar trabajadores (crear, editar, estado, Badge QR) |
+| `fields.manage` | Gestionar campos y paños |
+| `products.manage` | Gestionar productos |
+| `rates.manage` | Gestionar tarifas |
+| `box_types.manage` | Gestionar tipos de caja (envases) |
+| `crews.manage` | Gestionar cuadrillas |
+| `supervisors.manage` | Gestionar supervisores y sus asignaciones |
+| `settlements.manage` | Gestionar liquidaciones |
+| `payments.manage` | Gestionar pagos |
+| `metrics.view` | Ver métricas y dashboard |
+| `reports.export` | Exportar informes |
+| `settings.manage` | Gestionar configuración de la organización |
+
+!!! note "Dónde viven las capacidades"
+    El catálogo canónico está en código (`CAPABILITIES` en `@fundo360/shared`), que es la fuente única consumida por backend, base de datos e interfaz. Esta tabla es la referencia de negocio; ante cualquier diferencia, el código manda.
+
+!!! warning "La UI no es la barrera de seguridad"
+    La verificación de capacidades ocurre en tres capas (base de datos vía RLS, backend en la Edge Function, e interfaz). La interfaz solo oculta lo que no corresponde por comodidad visual: **la barrera real es backend + RLS**. Nunca se debe confiar en el ocultamiento de la UI para proteger una acción.

@@ -15,6 +15,12 @@ Convenciones:
 
 ### Añadido
 
+- **Documentación de RBAC configurable y capacidades** (`docs/dominio/reglas-de-negocio.md`):
+  se añadió la subsección de invariantes "RBAC configurable — Perfiles de permisos"
+  (reglas 34-39), el estado de entidad `PermissionProfile` y una nueva sección "Capacidades
+  (perfiles de permisos)" con el catálogo completo (`workers.manage`, `fields.manage`,
+  `rates.manage`, etc.). Antes esto solo existía en steering y en código
+  (`CAPABILITIES` de `@fundo360/shared`); ahora queda en la doc publicable del sitio.
 - **Set de pruebas manuales por perfil** (`docs/pruebas/`): casos paso a paso para
   Supervisor/Anotador (requisito mínimo de terreno), Administrador, Encargado y Trabajador,
   más la guía de preparación del entorno (web contra remoto) y usuarios de prueba.
