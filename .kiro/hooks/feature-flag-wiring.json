@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Amarre de feature flags",
+      "trigger": "PostFileSave",
+      "description": "Al guardar una migración o seed que registra un feature flag en platform_feature_flags, recuerda verificar que el flag quede amarrado de punta a punta: sembrado en el catálogo, consumido por código y correctamente gestionable desde el panel de administración.",
+      "matcher": "supabase/(migrations/.*|seed)\\.sql$",
+      "action": {
+        "type": "agent",
+        "prompt": "Si este archivo registra o modifica un feature flag (INSERT/UPDATE sobre platform_feature_flags, o un key nuevo), verifica el contrato de amarre completo antes de dar la tarea por terminada. Un flag solo cuenta como \"conectado\" si cumple las TRES capas:\n\n1. CATÁLOGO: el flag está sembrado en platform_feature_flags vía esta migración/seed, con key en snake_case (^[a-z0-9]+(_[a-z0-9]+)*$), name, description, category, strategy (org_override salvo razón para global/kill_switch) y un default seguro (normalmente enabled=false hasta validar).\n\n2. CÓDIGO: existe al menos un punto de consumo que lee el estado EFECTIVO del flag (override por org → default global) y muestra/oculta/activa el comportamiento. En web usar el hook useFeatureFlag; en mobile apps/mobile/src/hooks/useFeatureFlag.ts; en Edge Functions resolver vía resolveFeatureFlag de @fundo360/shared. Un flag cuyo key no aparezca consumido en ningún lado es un \"flag muerto\": no debe mergearse.\n\n3. PANEL DE ADMINISTRACIÓN: el flag queda gestionable desde la consola super-admin (/platform/feature-flags) solo para activar/desactivar el default global y gestionar overrides por organización. El catálogo (key/name/category/strategy) lo define SIEMPRE el equipo de desarrollo por migración/seed, NUNCA se crea ni se renombra desde la consola (la Edge Function platform-feature-flags rechaza POST con 403 y limita PATCH a description/enabled). No reintroducir creación/edición de identidad de flags desde la UI.\n\nSi falta cualquiera de las tres capas, complétala o avísalo explícitamente. Revisa el steering .kiro/steering/feature-flags.md para el detalle del contrato."
+      }
+    }
+  ]
+}
