@@ -1,0 +1,29 @@
+{
+  "project_type": "Monorepo Turborepo npm workspaces: apps/web (Next.js 14 App Router), apps/mobile (Expo Router + React Native), packages/shared (@fundo360/shared, TS + Zod), supabase/ (migraciones SQL + Edge Functions Deno)",
+  "language": "TypeScript (strict mode, sin any). SQL puro para migraciones. Deno para Edge Functions.",
+  "build_system": "npm workspaces + Turborepo. Root scripts: turbo dev/build/lint/test. Instalar deps con 'npm install --legacy-peer-deps' si faltan (el root NO tiene node_modules instalado). shared no tiene build propio (main: src/index.ts). Supabase CLI 2.109.0 presente.",
+  "test_framework": "Vitest ('vitest --run') por paquete. NO existe ningun archivo de test en el repo todavia; shared crea los primeros. No hay vitest.config.* en el repo (config por defecto).",
+  "build_command": "npm run build (turbo). Por workspace: 'npm run build -w web'. Typecheck shared: 'npx tsc --noEmit' en packages/shared.",
+  "test_command": "npm run test -w @fundo360/shared (vitest --run). Lint: 'npm run lint' o '-w <workspace>'.",
+  "verification_instructions": "1) npm install --legacy-peer-deps si faltan deps. 2) Migraciones: con contenedores (Rancher Desktop en modo dockerd/moby, docker.sock responde OK) 'npx supabase db reset' aplica M1-M5 en orden; sin contenedores, revisar SQL contra migraciones existentes. 3) shared: npm run lint + npx tsc --noEmit + npm run test. 4) Edge Functions: Deno NO esta instalado (no deno check); verificar con supabase start local o revision + build de clientes. 5) web: npm run build -w web. mobile: npm run lint -w mobile. macOS NO tiene 'timeout' - no envolver comandos.",
+  "snapshot_or_generated_files": "docs via tbls/mkdocs (npm run db:docs / docs:build) - no requeridos para que compile el codigo. No hay archivos generados que se chequeen al commit para el codigo TS/SQL.",
+  "environment_constraints": "macOS, zsh. NO existe el comando 'timeout' en macOS. Rancher Desktop (nerdctl/containerd) como runtime; para Supabase CLI debe estar en modo dockerd(moby). docker.sock responde OK ahora. Deno no instalado. npm 10.9.8, node >=18. Trabajar SOLO en el worktree /.worktrees/pago-por-kilo (rama feature/pago-por-kilo). Rutas relativas resuelven en el worktree.",
+  "contribution_requirements": "Steering: tech (ingles para codigo/identificadores, espanol para UI/negocio; naming kebab-case archivos, snake_case DB, UUID PKs, API response {success,data,meta}|{success,error}; paginacion default 20 max 100; sin any, strict). database-migrations (UUID PK, snake_case, created_at/updated_at, indice en toda FK, FK compuesta de tenant con UNIQUE(id,organization_id), RLS, trigger set_organization_id; CHECK cantidad>0, tarifa>0). El design.md override consciente de las reglas 1 y 3 de ese steering: migraciones son SQL puro (.sql) aplicadas con 'supabase db reset', reversibilidad como comentario de encabezado. domain-rules (quantity>0, rate>0, settlements paid inmutables, RBAC admin-only para gestion). documentation (actualizar docs vivos + CHANGELOG + tablero). feature-flags (toda feature de usuario detras de flag con override por tenant).",
+  "key_patterns": "Snapshots inmutables congelados al registrar (rate_amount_snapshot, tare_snapshot_kg, net_weight_kg; se anaden payment_unit, paid_quantity_kg). Edge Functions NO importan @fundo360/shared ni Zod (limitacion Deno): las funciones puras se REPLICAN inline con comentario 'mantener en sincronia' (patron ya usado por evaluateBoxTolerance en picking-records). Autorizacion de gestion con requireRole(req,['admin']) (products/blocks NO usan requirePermission). FK compuestas de tenant requieren hint de nombre de constraint en el select de PostgREST (p.ej. products!fk_blocks_product_org(...)). RLS espeja box_types (admin_all / member_read_active). unit_measure enum('box','kg') YA existe en products.",
+  "relevant_files": [
+    "supabase/migrations/20260927000001_create_box_types_and_tare.sql (patron a espejar para product_varieties)",
+    "supabase/migrations/20260913000002_create_feature_flags.sql (platform_feature_flags / organization_feature_flags)",
+    "supabase/migrations/20261002000003_supervisor_insert_crew_payments_rls.sql (ultima migracion existente; timestamps nuevos > 20261002000003)",
+    "supabase/functions/picking-records/index.ts (create/scan/put/getMy; evaluateTolerance inline; resuelve rate por product_id)",
+    "supabase/functions/settlements/index.ts (3 puntos de calculo quantity*rate: handleGenerate ~l166, handleCrewGenerate ~l285, breakdown handleGetOne ~l88)",
+    "supabase/functions/rates/index.ts, supabase/functions/blocks/index.ts (patron requireRole admin; FK compuesta)",
+    "supabase/functions/box-types/index.ts, supabase/functions/products/index.ts (patron CRUD para varieties)",
+    "packages/shared/src/types/index.ts (UnitMeasure enum l43; Block l140; Rate l164; PickingRecord l212; evaluateBoxTolerance l329; CAPABILITIES l370 - NO tocar)",
+    "packages/shared/src/constants/index.ts (ERROR_CODES l2; FEATURE_FLAGS no existe aun)",
+    "packages/shared/src/validation/index.ts, packages/shared/src/index.ts (barrel)",
+    "apps/mobile/src/hooks/useFeatureFlag.ts (hook existente a refactorizar con resolveFeatureFlag)",
+    "apps/web/src/hooks/ (crear useFeatureFlag.ts)",
+    "CHANGELOG.md, docs/planning/tablero.md, docs/changelog.md, docs/dominio/reglas-de-negocio.md, docs/api/vision-general.md, docs/legacy/decisiones-negocio.md"
+  ],
+  "directory_structure": "apps/web (Next.js dashboard), apps/mobile (Expo app, pantallas en app/), packages/shared (types/constants/validation/index), supabase/migrations (*.sql timestamped), supabase/functions/<modulo>/index.ts (+ _shared/ con cors, auth [requireRole/getUser/getOrgId], response [success/error], workday). docs/ (mkdocs). .agents/tasks/pago-por-kilo (design.md, requirements.md, plan.md, estos artefactos FEAT)."
+}

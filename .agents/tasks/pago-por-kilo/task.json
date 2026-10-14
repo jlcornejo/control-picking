@@ -1,0 +1,7 @@
+{
+  "task_id": "task-pago-por-kilo",
+  "task_description": "Pago por kilo (coexistencia box/kg via products.unit_measure) + variedades de producto con tarifa por variedad, destare conectado al pago por kilo, gating por feature flags con override por tenant, y no-regresion del pago por caja. Deriva del design.md APROBADO (Rev. 4).",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

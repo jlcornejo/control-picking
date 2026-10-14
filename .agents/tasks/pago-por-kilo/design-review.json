@@ -1,0 +1,18 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "location": "design.md §5.4 (GET /varieties)",
+      "problem": "product_id es obligatorio (422 si falta) pero no se especifica validación de formato UUID antes de consultar; un UUID mal formado podría filtrarse como error de DB genérico.",
+      "fix": "Documentar que product_id se valida como UUID (z.string().uuid() en cliente / check en la función) y que un UUID mal formado también devuelve VALIDATION_ERROR 422."
+    },
+    {
+      "severity": "NIT",
+      "location": "design.md §4.3",
+      "problem": "Referencia por número de línea frágil ('types/index.ts, líneas ~370–406'); correcta hoy pero envejece mal.",
+      "fix": "Al implementar, referir por nombre de símbolo (CAPABILITIES/CAPABILITY_LABELS) sin número de línea."
+    }
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.worktrees/pago-por-kilo/.agents/tasks/pago-por-kilo/design-review.md"
+}
