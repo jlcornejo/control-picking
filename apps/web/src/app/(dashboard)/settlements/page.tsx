@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { generateSettlementPDF } from '@/components/settlement/SettlementPDF';
 import { PageTransition } from '@/components/ui/animations';
 import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 
 export default function SettlementsPage() {
   const [showGenerate, setShowGenerate] = useState(false);
@@ -19,6 +20,9 @@ export default function SettlementsPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { enabled: canExport } = useFeatureFlag('report_export');
+  const { enabled: pdfExportDisabled } = useFeatureFlag('disable_pdf_export');
+  const showPdfExport = canExport && !pdfExportDisabled;
 
   const { data, isLoading } = useQuery({
     queryKey: ['settlements'],
@@ -171,7 +175,7 @@ export default function SettlementsPage() {
         emptyMessage="No hay liquidaciones generadas"
         searchPlaceholder="Buscar por trabajador..."
         searchKeys={['workers']}
-        actions={(row: any) => (
+        actions={showPdfExport ? (row: any) => (
           <button
             onClick={() => handleExportPDF(row)}
             disabled={exporting === row.id}
@@ -179,7 +183,7 @@ export default function SettlementsPage() {
           >
             {exporting === row.id ? '...' : '↓ PDF'}
           </button>
-        )}
+        ) : undefined}
       />
 
       <Modal open={showGenerate} onClose={() => setShowGenerate(false)} title="Generar Liquidaciones">

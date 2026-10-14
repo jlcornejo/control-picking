@@ -12,6 +12,8 @@ import { motion } from 'framer-motion';
 import { PageTransition } from '@/components/ui/animations';
 import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 import { formatUnit, unitLabel } from '@/lib/format';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
+import { toCSV, downloadBlob, type CsvColumn } from '@/lib/export/csv';
 
 function localDate(offset = 0) {
   const d = new Date();
@@ -29,6 +31,7 @@ export default function RecordsPage() {
   const [filterBlock, setFilterBlock] = useState('');
   const [correctRow, setCorrectRow] = useState<any | null>(null);
   const [correctQty, setCorrectQty] = useState('');
+  const { enabled: canExport } = useFeatureFlag('report_export');
 
   const correctMutation = useMutation({
     mutationFn: async () => {
@@ -81,7 +84,7 @@ export default function RecordsPage() {
     queryFn: async () => {
       let query = supabase
         .from('picking_records')
-        .select('id, worker_id, block_id, quantity, payment_unit, paid_quantity_kg, rate_amount_snapshot, recorded_at, work_day, original_record_id')
+        .select('id, worker_id, block_id, quantity, payment_unit, paid_quantity_kg, net_weight_kg, rate_amount_snapshot, recorded_at, work_day, original_record_id')
         .gte('work_day', dateFrom)
         .lte('work_day', dateTo)
         .order('recorded_at', { ascending: false });
@@ -97,12 +100,16 @@ export default function RecordsPage() {
       const blockIds = [...new Set((data || []).map(r => r.block_id))];
 
       const [{ data: workers }, { data: blocks }] = await Promise.all([
-        supabase.from('workers').select('id, full_name').in('id', workerIds.length ? workerIds : ['x']),
-        supabase.from('blocks').select('id, name').in('id', blockIds.length ? blockIds : ['x']),
+        supabase.from('workers').select('id, full_name, national_id').in('id', workerIds.length ? workerIds : ['x']),
+        supabase.from('blocks').select('id, name, products!fk_blocks_product_org(name), product_varieties!fk_blocks_variety_org(name)').in('id', blockIds.length ? blockIds : ['x']),
       ]);
 
-      const workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
-      const blockMap = Object.fromEntries((blocks || []).map(b => [b.id, b.name]));
+      const workerMap = Object.fromEntries((workers || []).map(w => [w.id, w]));
+      const blockMap = Object.fromEntries((blocks || []).map(b => [b.id, {
+        name: b.name,
+        product: (b as any).products?.name ?? '',
+        variety: (b as any).product_varieties?.name ?? '',
+      }]));
 
       return (data || []).map(r => {
         const payload = {
@@ -113,8 +120,11 @@ export default function RecordsPage() {
         };
         return {
           ...r,
-          worker_name: workerMap[r.worker_id] || '—',
-          block_name: blockMap[r.block_id] || '—',
+          worker_name: workerMap[r.worker_id]?.full_name || '—',
+          national_id: workerMap[r.worker_id]?.national_id ?? null,
+          block_name: blockMap[r.block_id]?.name || '—',
+          product: blockMap[r.block_id]?.product ?? '',
+          variety: blockMap[r.block_id]?.variety ?? '',
           base: pickingPayableBase(payload),
           total: pickingSubtotal(payload),
           is_correction: !!r.original_record_id,
@@ -150,6 +160,31 @@ export default function RecordsPage() {
   const totalAmount = (records || []).reduce((s, r) => s + r.total, 0);
   const totalRecords = (records || []).length;
   const hasKg = (records || []).some(r => r.payment_unit === 'kg');
+
+  function handleExportCsv() {
+    try {
+      const rows = records || [];
+      const columns: CsvColumn<(typeof rows)[number]>[] = [
+        { header: 'Fecha', value: (r) => r.work_day },
+        { header: 'Trabajador', value: (r) => r.worker_name },
+        { header: 'RUT', value: (r) => r.national_id ?? '' },
+        { header: 'Paño', value: (r) => r.block_name },
+        { header: 'Producto', value: (r) => r.product },
+        { header: 'Variedad', value: (r) => r.variety },
+        { header: 'Cantidad', value: (r) => r.base },
+        { header: 'Unidad', value: (r) => (r.payment_unit === 'kg' ? 'Kilo' : 'Caja') },
+        { header: 'Peso neto (kg)', value: (r) => (r.net_weight_kg === null ? '' : Number(r.net_weight_kg)) },
+        { header: 'Tarifa', value: (r) => Number(r.rate_amount_snapshot) },
+        { header: 'Monto estimado', value: (r) => r.total },
+        { header: 'Tipo', value: (r) => (r.original_record_id === null ? 'Original' : 'Corrección') },
+      ];
+      const blob = toCSV(rows, columns);
+      downloadBlob(blob, `produccion-${dateFrom}_${dateTo}.csv`);
+    } catch (err) {
+      console.error(err);
+      toast('Error al exportar CSV', 'error');
+    }
+  }
 
   const columns = [
     { key: 'work_day', label: 'Fecha', render: (row: any) => (
@@ -194,6 +229,15 @@ export default function RecordsPage() {
       <PageHeader
         title="Registros de Picking"
         description="Historial completo de producción"
+        action={canExport ? (
+          <button
+            onClick={handleExportCsv}
+            disabled={totalRecords === 0}
+            className="rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
+          >
+            Exportar CSV
+          </button>
+        ) : undefined}
       />
 
       {/* Filters */}

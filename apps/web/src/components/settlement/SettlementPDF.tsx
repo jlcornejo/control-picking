@@ -2,6 +2,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatNumber, formatUnit } from '@/lib/format';
 
 interface SettlementRecord {
   work_day: string;
@@ -157,8 +158,22 @@ export function generateSettlementPDF(data: SettlementPDFData): void {
     margin: { left: 14, right: 14 },
   });
 
+  // Per-unit summary: boxes come from non-kg records, kilos from kg records.
+  const boxes = data.records
+    .filter(r => r.payment_unit !== 'kg')
+    .reduce((s, r) => s + (r.base ?? r.quantity), 0);
+  const kg = data.records
+    .filter(r => r.payment_unit === 'kg')
+    .reduce((s, r) => s + (r.base ?? r.quantity), 0);
+
   // Total
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  const summaryY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Cajas: ${formatNumber(boxes)} · Kilos: ${formatUnit(kg, 'kg')}`, 14, summaryY);
+
+  const finalY = summaryY + 10;
   doc.setDrawColor(27, 94, 32);
   doc.setLineWidth(0.5);
   doc.line(14, finalY - 4, 196, finalY - 4);

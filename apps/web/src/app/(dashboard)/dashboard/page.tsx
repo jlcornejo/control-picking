@@ -10,6 +10,9 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Package, DollarSign, Users, Grid3X3 } from 'lucide-react';
 import { AnimatedCounter, FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { KpiCardSkeleton, ChartSkeleton, RankingSkeleton } from '@/components/ui/skeletons';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
+import { toCSV, downloadBlob, type CsvColumn } from '@/lib/export/csv';
+import { useToast } from '@/components/ui/Toast';
 
 function localDate(offset = 0) {
   const d = new Date();
@@ -20,6 +23,8 @@ function localDate(offset = 0) {
 export default function DashboardHome() {
   const supabase = createClient();
   const today = localDate(0);
+  const { toast } = useToast();
+  const { enabled: canExport } = useFeatureFlag('report_export');
 
   // Selected date for filtering (defaults to today)
   const [selectedDate, setSelectedDate] = useState(today);
@@ -45,12 +50,12 @@ export default function DashboardHome() {
     refetchInterval: isViewingToday ? 30000 : false,
   });
 
-  const { data: ranking, isLoading: rankingLoading } = useQuery({
+  const { data: rankingData, isLoading: rankingLoading } = useQuery({
     queryKey: ['dashboard-ranking', selectedDate],
     queryFn: async () => {
       const { data } = await supabase
         .from('picking_records')
-        .select('worker_id, quantity')
+        .select('worker_id, quantity, payment_unit, paid_quantity_kg')
         .eq('work_day', selectedDate)
         .is('original_record_id', null);
       const byWorker: Record<string, { id: string; name: string; units: number }> = {};
@@ -65,10 +70,20 @@ export default function DashboardHome() {
           if (byWorker[w.id]) byWorker[w.id]!.name = w.full_name;
         }
       }
-      return Object.values(byWorker).sort((a, b) => b.units - a.units).slice(0, 10);
+      return {
+        ranking: Object.values(byWorker).sort((a, b) => b.units - a.units).slice(0, 10),
+        rows: (data || []).map(r => ({
+          worker_id: r.worker_id,
+          quantity: Number(r.quantity),
+          payment_unit: r.payment_unit,
+          paid_quantity_kg: r.paid_quantity_kg === null ? null : Number(r.paid_quantity_kg),
+        })),
+      };
     },
     refetchInterval: isViewingToday ? 30000 : false,
   });
+  const ranking = rankingData?.ranking ?? [];
+  const rawRows = rankingData?.rows ?? [];
 
   const { data: weeklyTrend, isLoading: trendLoading } = useQuery({
     queryKey: ['dashboard-weekly-trend', selectedDate],
@@ -167,6 +182,38 @@ export default function DashboardHome() {
   });
 
   const maxUnits = Math.max(...(ranking || []).map(w => w.units), 1);
+
+  function handleExportRankingCsv() {
+    try {
+      // Aggregate raw rows per worker, segmenting boxes and kilos (never mixed).
+      const byWorker = new Map<string, { boxes: number; kg: number }>();
+      for (const r of rawRows) {
+        const entry = byWorker.get(r.worker_id) ?? { boxes: 0, kg: 0 };
+        if (r.payment_unit === 'kg') {
+          entry.kg += r.paid_quantity_kg ?? 0;
+        } else {
+          entry.boxes += r.quantity;
+        }
+        byWorker.set(r.worker_id, entry);
+      }
+      type RankRow = { position: number; name: string; boxes: number; kg: number };
+      const exportRows: RankRow[] = ranking.map((w, idx) => {
+        const agg = byWorker.get(w.id);
+        return { position: idx + 1, name: w.name, boxes: agg?.boxes ?? 0, kg: agg?.kg ?? 0 };
+      });
+      const columns: CsvColumn<RankRow>[] = [
+        { header: 'Posición', value: (r) => r.position },
+        { header: 'Trabajador', value: (r) => r.name },
+        { header: 'Producción (cajas)', value: (r) => r.boxes },
+        { header: 'Producción (kg)', value: (r) => r.kg },
+      ];
+      const blob = toCSV(exportRows, columns);
+      downloadBlob(blob, `ranking-${selectedDate}.csv`);
+    } catch (err) {
+      console.error(err);
+      toast('Error al exportar CSV', 'error');
+    }
+  }
 
   function openWorkerDrill(worker: { id: string; name: string; units: number }) {
     setDrilldown({ type: 'worker', title: `Detalle — ${worker.name}`, data: { workerId: worker.id } });
@@ -332,7 +379,18 @@ export default function DashboardHome() {
 
       {/* Ranking */}
       <FadeIn delay={0.35} className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Ranking {isViewingToday ? 'del día' : `— ${selectedDate}`}</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Ranking {isViewingToday ? 'del día' : `— ${selectedDate}`}</h2>
+          {canExport && (
+            <button
+              onClick={handleExportRankingCsv}
+              disabled={ranking.length === 0}
+              className="rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
+            >
+              Exportar CSV
+            </button>
+          )}
+        </div>
         {rankingLoading ? (
           <RankingSkeleton rows={5} />
         ) : (
