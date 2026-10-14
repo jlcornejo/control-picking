@@ -15,6 +15,18 @@ Convenciones:
 
 ### Añadido
 
+- **Informes exportables en el dashboard web** (feature flag `report_export`, override por
+  organización, default **off**): descarga de informes desde la consola de cliente sin
+  salir del navegador.
+  - **PDF de liquidaciones** (`/settlements`): el PDF de cada liquidación incluye un resumen
+    por unidad (cajas / kilos) además del total, sin alterar el cálculo del pago.
+  - **CSV de producción** (`/records`): exporta el detalle de registros de picking con
+    formato chileno (separador `;`, decimales con coma y BOM para abrir en Excel es-CL).
+  - **CSV de ranking segmentado** (`/dashboard`): exporta el ranking de cosecheros con las
+    cantidades separadas por unidad (cajas / kilos).
+  - **Kill-switch `disable_pdf_export`**: conectado a la exportación PDF; al activarlo se
+    oculta solo el botón de PDF (las descargas CSV siguen disponibles). Con `report_export`
+    apagado los tres botones quedan ocultos y las páginas funcionan con normalidad.
 - **Pago por kilo y variedades de producto** (feature flags `kg_payment` y
   `product_varieties`, override por organización). Coexiste con el pago por caja sin
   regresión: con ambos flags off, web y móvil funcionan como hoy (solo caja, sin UI de

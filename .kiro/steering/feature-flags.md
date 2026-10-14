@@ -98,6 +98,7 @@ Sembrados en `platform_feature_flags` (todos default **off** salvo indicación):
 | `picking_photo_evidence` | Foto de respaldo en registro | cosecha | org_override | Foto comprobante al registrar picking (Storage por tenant) |
 | `kg_payment` | Pago por kilo | cosecha | org_override | Pago por kilo coexistiendo con pago por caja; base = peso neto o kg manual |
 | `product_varieties` | Variedades de producto | cosecha | org_override | Catálogo de variedades bajo producto + tarifa por variedad |
+| `report_export` | Informes exportables | analitica | org_override | PDF de liquidaciones + CSV de producción/rankings (default **off**) |
 
 ## Helpers de resolución (implementados)
 

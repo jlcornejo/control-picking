@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-004",
+  "type": "docs",
+  "description": "Documentar M2-03: changelog, tablero de planning y catalogo de flags en steering. Depende de FEAT-003 (refleja lo implementado). No toca codigo de la app ni invariantes de dominio.",
+  "status": "completed",
+  "steps": [
+    "Anadir en la seccion Sin publicar de CHANGELOG.md y de docs/changelog.md una entrada feat describiendo: informes exportables en el dashboard web (PDF de liquidaciones con resumen por unidad, CSV de produccion en /records, CSV de ranking segmentado en /dashboard), el nuevo flag report_export (org_override, default off) y la conexion del kill-switch disable_pdf_export al PDF.",
+    "Actualizar la fila M2-03 en docs/planning/tablero.md (mover de pendiente a hecho/en curso segun la convencion del tablero; conservar el enlace a Backlog).",
+    "Anadir report_export al catalogo de flags vigentes de .kiro/steering/feature-flags.md: fila key report_export, nombre Informes exportables, categoria analitica, estrategia org_override, nota breve (PDF liquidaciones + CSV produccion/rankings, default off)."
+  ],
+  "acceptance_criteria": [
+    "CHANGELOG.md y docs/changelog.md tienen la entrada en Sin publicar describiendo la feature y el flag.",
+    "docs/planning/tablero.md refleja el nuevo estado de M2-03.",
+    ".kiro/steering/feature-flags.md lista report_export en la tabla de flags vigentes."
+  ],
+  "verification": [
+    "Revisar que las entradas existen y son coherentes con lo implementado en FEAT-001 a FEAT-003.",
+    "Opcional si el entorno lo permite: npm run docs:build (mkdocs --strict) sin errores."
+  ],
+  "blocked_reason": null,
+  "findings": "Docs-only. (1) CHANGELOG.md y docs/changelog.md: entrada en [Sin publicar] > Anadido describiendo informes exportables (PDF liquidaciones con resumen por unidad en /settlements, CSV produccion en /records con formato es-CL ;/coma/BOM, CSV ranking segmentado en /dashboard), flag report_export (org_override, default off) y el amarre del kill-switch disable_pdf_export al PDF. Entrada detallada con sub-bullets en el CHANGELOG raiz y condensada a un bullet en docs/changelog.md para respetar el estilo de cada archivo. (2) docs/planning/tablero.md: M2-03 movido de 'Por hacer' a 'Hecho' (fila nueva con enlace a Backlog preservado). (3) .kiro/steering/feature-flags.md: anadida fila report_export (Informes exportables, categoria analitica, estrategia org_override, nota PDF/CSV default off) al catalogo de flags vigentes. Coherente con la migracion 20261004000001_feature_flag_report_export.sql (org_override, enabled=false). Verificacion: npm run docs:build no ejecutado (opcional, no bloqueante)."
+}

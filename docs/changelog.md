@@ -19,6 +19,14 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Informes exportables en el dashboard web** (feature flag `report_export`, override por
+  organización, default **off**): PDF de liquidaciones con resumen por unidad (cajas /
+  kilos) además del total en `/settlements`, CSV de producción en `/records` (formato
+  chileno: separador `;`, decimales con coma y BOM para Excel es-CL) y CSV de ranking de
+  cosecheros segmentado por unidad en `/dashboard`. Las exportaciones no alteran el cálculo
+  del pago. El kill-switch `disable_pdf_export` oculta solo el botón de PDF (los CSV siguen
+  disponibles); con `report_export` apagado los tres botones quedan ocultos y las páginas
+  funcionan con normalidad.
 - **Pago por kilo y variedades de producto** (feature flags `kg_payment` y
   `product_varieties`, override por organización). Convive con el pago por caja sin cambiar
   su comportamiento: con ambos flags apagados, web y móvil funcionan como hoy (solo caja).
