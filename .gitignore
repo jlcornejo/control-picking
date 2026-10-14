@@ -69,3 +69,6 @@ TEST_USERS.md
 
 # Stitch design review (artefactos temporales de revisión de diseño)
 .stitch-review/
+
+# Screenshots de evidencia de reviews de UI (transitorios, no versionar)
+.agents/tasks/**/*.png
