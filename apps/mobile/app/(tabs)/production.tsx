@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal, TextInput } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
 import { localDate } from '../../src/utils/date';
@@ -32,7 +33,7 @@ export default function ProductionScreen() {
     queryFn: async () => {
       let query = supabase
         .from('picking_records')
-        .select('id, quantity, rate_amount_snapshot, recorded_at, work_day, block_id, worker_id')
+        .select('id, quantity, payment_unit, paid_quantity_kg, rate_amount_snapshot, recorded_at, work_day, block_id, worker_id')
         .eq('work_day', selectedDate)
         .is('original_record_id', null)
         .order('recorded_at', { ascending: false });
@@ -68,20 +69,38 @@ export default function ProductionScreen() {
         workerMap = Object.fromEntries((workers || []).map(w => [w.id, w.full_name]));
       }
 
-      const enriched = (records || []).map(r => ({
-        ...r,
-        block_name: blockMap[r.block_id]?.name || '—',
-        unit: blockMap[r.block_id]?.unit || 'box',
-        product: blockMap[r.block_id]?.product || '—',
-        field_name: blockMap[r.block_id]?.field || '—',
-        worker_name: workerMap[r.worker_id] || '',
-      }));
+      const enriched = (records || []).map(r => {
+        // Unidad de pago: la del registro (payment_unit) es la autoridad; si por
+        // compatibilidad faltara, se cae a la unidad del producto del paño.
+        const unit = (r.payment_unit as string) || blockMap[r.block_id]?.unit || 'box';
+        const payload = {
+          payment_unit: unit as UnitMeasure,
+          quantity: Number(r.quantity),
+          paid_quantity_kg: r.paid_quantity_kg === null || r.paid_quantity_kg === undefined ? null : Number(r.paid_quantity_kg),
+          rate_amount_snapshot: Number(r.rate_amount_snapshot),
+        };
+        return {
+          ...r,
+          block_name: blockMap[r.block_id]?.name || '—',
+          unit,
+          base: pickingPayableBase(payload),
+          subtotal: pickingSubtotal(payload),
+          product: blockMap[r.block_id]?.product || '—',
+          field_name: blockMap[r.block_id]?.field || '—',
+          worker_name: workerMap[r.worker_id] || '',
+        };
+      });
+
+      // Totales segmentados: nunca se suman cajas con kilos.
+      const totalBoxes = enriched.filter(r => r.unit !== 'kg').reduce((s, r) => s + Number(r.quantity), 0);
+      const totalKg = enriched.filter(r => r.unit === 'kg').reduce((s, r) => s + Number(r.paid_quantity_kg ?? 0), 0);
 
       return {
         records: enriched,
-        totalUnits: enriched.reduce((s, r) => s + Number(r.quantity), 0),
-        totalEarnings: enriched.reduce((s, r) => s + Number(r.quantity) * Number(r.rate_amount_snapshot), 0),
-        hasBoxes: enriched.some(r => r.unit === 'box'),
+        totalBoxes,
+        totalKg,
+        totalEarnings: enriched.reduce((s, r) => s + r.subtotal, 0),
+        hasBoxes: enriched.some(r => r.unit !== 'kg'),
         hasKg: enriched.some(r => r.unit === 'kg'),
       };
     },
@@ -99,17 +118,23 @@ export default function ProductionScreen() {
   const correctMutation = useMutation({
     mutationFn: async () => {
       if (!correctRecord) throw new Error('Sin registro');
-      const qty = parseFloat(correctQty);
-      if (!qty || qty <= 0) throw new Error('La cantidad debe ser mayor a 0');
+      const value = parseFloat(correctQty);
+      const isKg = correctRecord.unit === 'kg';
+      if (!value || value <= 0) throw new Error(isKg ? 'Los kilos deben ser mayores a 0' : 'La cantidad debe ser mayor a 0');
       if (correctRecord.work_day !== localDate(0)) throw new Error('Solo se puede corregir un registro del día actual');
+
+      const newKg = isKg ? Math.round(value * 1000) / 1000 : null;
 
       if (online) {
         // 1) Snapshot de auditoría con los valores VIEJOS, apuntando al original.
         //    organization_id lo completa el trigger set_organization_id.
+        //    payment_unit y paid_quantity_kg se copian (NOT NULL / CHECK).
         const { error: snapErr } = await supabase.from('picking_records').insert({
           worker_id: correctRecord.worker_id,
           block_id: correctRecord.block_id,
           quantity: correctRecord.quantity,
+          payment_unit: correctRecord.payment_unit,
+          paid_quantity_kg: correctRecord.paid_quantity_kg,
           rate_amount_snapshot: correctRecord.rate_amount_snapshot,
           work_day: correctRecord.work_day,
           recorded_by: worker?.id,
@@ -117,9 +142,11 @@ export default function ProductionScreen() {
         });
         if (snapErr) throw snapErr;
 
-        // 2) Editar el original in-place con la nueva cantidad (conserva la tarifa).
+        // 2) Editar el original in-place. kg -> paid_quantity_kg; caja -> quantity.
+        //    rate_amount_snapshot y payment_unit nunca cambian.
+        const patch = isKg ? { paid_quantity_kg: newKg } : { quantity: value };
         const { error: updErr } = await supabase.from('picking_records')
-          .update({ quantity: qty })
+          .update(patch)
           .eq('id', correctRecord.id);
         if (updErr) throw updErr;
         return { queued: false };
@@ -133,10 +160,13 @@ export default function ProductionScreen() {
           old_worker_id: correctRecord.worker_id,
           old_block_id: correctRecord.block_id,
           old_quantity: Number(correctRecord.quantity),
+          old_payment_unit: correctRecord.payment_unit,
+          old_paid_quantity_kg: correctRecord.paid_quantity_kg === null || correctRecord.paid_quantity_kg === undefined ? null : Number(correctRecord.paid_quantity_kg),
           old_rate_amount_snapshot: Number(correctRecord.rate_amount_snapshot),
           work_day: correctRecord.work_day,
           recorded_by: worker?.id ?? null,
-          new_quantity: qty,
+          new_quantity: isKg ? Number(correctRecord.quantity) : value,
+          new_paid_quantity_kg: newKg,
         },
       });
       return { queued: true };
@@ -169,17 +199,31 @@ export default function ProductionScreen() {
     })
   ).current;
 
-  const unitLabel = data?.hasBoxes && data?.hasKg ? 'unidades' : data?.hasKg ? 'kilos' : 'cajas';
+  // Formato de kilos (hasta 3 decimales, sin ceros finales forzados).
+  const formatKg = (n: number) => (Math.round(n * 1000) / 1000).toLocaleString('es-CL', { maximumFractionDigits: 3 });
+  const showKg = !!data?.hasKg;
+  const showBoxes = !!data?.hasBoxes || !showKg;
 
   return (
     <View style={s.container}>
-      {/* Summary header */}
+      {/* Summary header — totales segmentados por unidad (cajas / kilos). */}
       <LinearGradient colors={['#047857', '#059669', '#10b981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.header}>
         <View style={s.headerTop}>
-          <View style={s.headerStat}>
-            <Text style={s.headerValue}>{formatNumber(data?.totalUnits || 0)}</Text>
-            <Text style={s.headerUnit}>{unitLabel}</Text>
-          </View>
+          {showBoxes && (
+            <View style={s.headerStat}>
+              <Text style={s.headerValue}>{formatNumber(data?.totalBoxes || 0)}</Text>
+              <Text style={s.headerUnit}>cajas</Text>
+            </View>
+          )}
+          {showKg && (
+            <>
+              {showBoxes && <View style={s.headerDivider} />}
+              <View style={s.headerStat}>
+                <Text style={s.headerValue}>{formatKg(data?.totalKg || 0)}</Text>
+                <Text style={s.headerUnit}>kilos</Text>
+              </View>
+            </>
+          )}
           <View style={s.headerDivider} />
           <View style={s.headerStat}>
             <Text style={s.headerMoney}>{formatMoney(data?.totalEarnings || 0)}</Text>
@@ -223,9 +267,9 @@ export default function ProductionScreen() {
               <Text style={s.cardTime}>{new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
             <View style={s.cardRight}>
-              <Text style={s.cardQty}>{Number(item.quantity)}</Text>
+              <Text style={s.cardQty}>{item.unit === 'kg' ? formatKg(Number(item.base)) : Number(item.base)}</Text>
               <Text style={s.cardUnit}>{item.unit === 'kg' ? 'kg' : 'cj'}</Text>
-              <Text style={s.cardEarn}>{formatMoney(Number(item.quantity) * Number(item.rate_amount_snapshot))}</Text>
+              <Text style={s.cardEarn}>{formatMoney(Number(item.subtotal))}</Text>
             </View>
           </AnimatedCard>
           </TouchableOpacity>
@@ -259,9 +303,9 @@ export default function ProductionScreen() {
               <View style={s.detailBody}>
                 {/* Amount highlight */}
                 <View style={s.detailHighlight}>
-                  <Text style={s.detailHighlightQty}>{Number(selectedRecord.quantity)}</Text>
+                  <Text style={s.detailHighlightQty}>{selectedRecord.unit === 'kg' ? formatKg(Number(selectedRecord.base)) : Number(selectedRecord.base)}</Text>
                   <Text style={s.detailHighlightUnit}>{selectedRecord.unit === 'kg' ? 'kilos' : 'cajas'}</Text>
-                  <Text style={s.detailHighlightAmount}>{formatMoney(Number(selectedRecord.quantity) * Number(selectedRecord.rate_amount_snapshot))}</Text>
+                  <Text style={s.detailHighlightAmount}>{formatMoney(Number(selectedRecord.subtotal))}</Text>
                 </View>
 
                 {/* Detail rows */}
@@ -279,11 +323,11 @@ export default function ProductionScreen() {
                 {canCorrect && selectedRecord.work_day === localDate(0) && (
                   <TouchableOpacity
                     style={s.correctBtn}
-                    onPress={() => { setCorrectQty(String(Number(selectedRecord.quantity))); setCorrectRecord(selectedRecord); }}
+                    onPress={() => { setCorrectQty(String(Number(selectedRecord.base))); setCorrectRecord(selectedRecord); }}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="create-outline" size={18} color={colors.primary} />
-                    <Text style={s.correctBtnText}>Corregir cantidad</Text>
+                    <Text style={s.correctBtnText}>{selectedRecord.unit === 'kg' ? 'Corregir kilos' : 'Corregir cantidad'}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -308,8 +352,8 @@ export default function ProductionScreen() {
                 <Text style={s.correctInfo}>
                   {correctRecord.worker_name ? `${correctRecord.worker_name} · ` : ''}{correctRecord.block_name}
                 </Text>
-                <Text style={s.correctInfoSub}>Cantidad actual: {Number(correctRecord.quantity)} {correctRecord.unit === 'kg' ? 'kg' : 'cajas'}</Text>
-                <Text style={s.correctLabel}>Nueva cantidad</Text>
+                <Text style={s.correctInfoSub}>Cantidad actual: {correctRecord.unit === 'kg' ? formatKg(Number(correctRecord.base)) : Number(correctRecord.base)} {correctRecord.unit === 'kg' ? 'kg' : 'cajas'}</Text>
+                <Text style={s.correctLabel}>{correctRecord.unit === 'kg' ? 'Nuevos kilos' : 'Nueva cantidad'}</Text>
                 <TextInput
                   style={s.correctInput}
                   value={correctQty}

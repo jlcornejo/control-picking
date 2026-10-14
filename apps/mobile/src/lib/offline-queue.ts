@@ -27,9 +27,19 @@ export type PickingInsertJob = {
     block_id: string;
     row_id: string | null;
     quantity: number;
+    // Unidad de pago y base en kg (null para caja; CHECK chk_picking_paid_kg).
+    payment_unit?: 'box' | 'kg';
+    paid_quantity_kg?: number | null;
     rate_amount_snapshot: number;
     work_day: string;
     recorded_by: string | null;
+    // Snapshot de destare (puede venir del flujo de registro).
+    box_type_id?: string | null;
+    gross_weight_kg?: number | null;
+    tare_snapshot_kg?: number | null;
+    net_weight_kg?: number | null;
+    out_of_tolerance?: boolean;
+    day_roster_id?: string | null;
   };
 };
 
@@ -41,11 +51,14 @@ export type PickingCorrectionJob = {
     old_worker_id: string;
     old_block_id: string;
     old_quantity: number;
+    old_payment_unit?: 'box' | 'kg';
+    old_paid_quantity_kg?: number | null;
     old_rate_amount_snapshot: number;
     work_day: string;
     recorded_by: string | null;
-    // Nuevo valor a aplicar al original
+    // Nuevos valores a aplicar al original (kg -> paid_quantity_kg; caja -> quantity).
     new_quantity: number;
+    new_paid_quantity_kg?: number | null;
   };
 };
 
@@ -111,8 +124,15 @@ function validateJob(job: QueuedJobBody): void {
   if (job.type === 'picking_insert') {
     if (!(job.payload.quantity > 0)) throw new Error('La cantidad debe ser mayor a 0');
     if (!(job.payload.rate_amount_snapshot > 0)) throw new Error('La tarifa debe ser mayor a 0');
+    // Pago por kilo: la base pagada debe ser > 0 (CHECK chk_picking_paid_kg).
+    if (job.payload.payment_unit === 'kg' && !((job.payload.paid_quantity_kg ?? 0) > 0)) {
+      throw new Error('Los kilos deben ser mayores a 0');
+    }
   } else if (job.type === 'picking_correction') {
     if (!(job.payload.new_quantity > 0)) throw new Error('La cantidad debe ser mayor a 0');
+    if (job.payload.old_payment_unit === 'kg' && !((job.payload.new_paid_quantity_kg ?? 0) > 0)) {
+      throw new Error('Los kilos deben ser mayores a 0');
+    }
   } else if (job.type === 'payment_insert') {
     if (!(job.payload.amount > 0)) throw new Error('El monto debe ser mayor a 0');
     const hasWorker = !!job.payload.worker_id;
@@ -135,36 +155,55 @@ async function runJob(job: QueuedJob): Promise<void> {
   validateJob(job);
 
   if (job.type === 'picking_insert') {
+    const p = job.payload;
     const { error } = await supabase.from('picking_records').insert({
-      worker_id: job.payload.worker_id,
-      block_id: job.payload.block_id,
-      row_id: job.payload.row_id ?? null,
-      quantity: job.payload.quantity,
-      rate_amount_snapshot: job.payload.rate_amount_snapshot,
-      work_day: job.payload.work_day,
-      recorded_by: job.payload.recorded_by,
+      worker_id: p.worker_id,
+      block_id: p.block_id,
+      row_id: p.row_id ?? null,
+      quantity: p.quantity,
+      // Unidad de pago y base en kg (null para caja).
+      payment_unit: p.payment_unit ?? 'box',
+      paid_quantity_kg: p.paid_quantity_kg ?? null,
+      rate_amount_snapshot: p.rate_amount_snapshot,
+      work_day: p.work_day,
+      recorded_by: p.recorded_by,
+      // Snapshot de destare y atribución del día (si vinieron en el payload).
+      box_type_id: p.box_type_id ?? null,
+      gross_weight_kg: p.gross_weight_kg ?? null,
+      tare_snapshot_kg: p.tare_snapshot_kg ?? null,
+      net_weight_kg: p.net_weight_kg ?? null,
+      out_of_tolerance: p.out_of_tolerance ?? false,
+      day_roster_id: p.day_roster_id ?? null,
     });
     if (error) throw error;
     return;
   }
 
   if (job.type === 'picking_correction') {
+    const p = job.payload;
     // 1) Snapshot de auditoría con los valores VIEJOS apuntando al original.
+    //    payment_unit y paid_quantity_kg se copian (NOT NULL / CHECK).
     const { error: snapErr } = await supabase.from('picking_records').insert({
-      worker_id: job.payload.old_worker_id,
-      block_id: job.payload.old_block_id,
-      quantity: job.payload.old_quantity,
-      rate_amount_snapshot: job.payload.old_rate_amount_snapshot,
-      work_day: job.payload.work_day,
-      recorded_by: job.payload.recorded_by,
-      original_record_id: job.payload.original_id,
+      worker_id: p.old_worker_id,
+      block_id: p.old_block_id,
+      quantity: p.old_quantity,
+      payment_unit: p.old_payment_unit ?? 'box',
+      paid_quantity_kg: p.old_paid_quantity_kg ?? null,
+      rate_amount_snapshot: p.old_rate_amount_snapshot,
+      work_day: p.work_day,
+      recorded_by: p.recorded_by,
+      original_record_id: p.original_id,
     });
     if (snapErr) throw snapErr;
-    // 2) Editar el original in-place con la nueva cantidad (conserva la tarifa).
+    // 2) Editar el original in-place. kg -> paid_quantity_kg; caja -> quantity.
+    //    rate_amount_snapshot y payment_unit nunca cambian.
+    const patch = p.old_payment_unit === 'kg'
+      ? { paid_quantity_kg: p.new_paid_quantity_kg }
+      : { quantity: p.new_quantity };
     const { error: updErr } = await supabase
       .from('picking_records')
-      .update({ quantity: job.payload.new_quantity })
-      .eq('id', job.payload.original_id);
+      .update(patch)
+      .eq('id', p.original_id);
     if (updErr) throw updErr;
     return;
   }

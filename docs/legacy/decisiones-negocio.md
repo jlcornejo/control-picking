@@ -11,22 +11,6 @@ se decide implementarla y lo que necesitamos **confirmar con el cliente**.
 
 ## Decisiones abiertas
 
-### 1. Pago: ¿por kilo o por bandeja?
-
-!!! danger "Prioridad crítica — define el modelo de datos"
-    Es la decisión de mayor impacto. Conviene resolverla primero.
-
-- **Contexto**: en el legacy, el detalle de cosecha muestra una columna **"KILOS PAGO"** y
-  los subtotales están en **kilos**. Eso sugiere que el pago al cosechero es **por kilo**.
-- **Hoy en Fundo360**: el pago se calcula por **cantidad** (número de cajas/bandejas); el
-  peso se usa solo como control de merma, no para pagar.
-- **Pregunta para negocio**: ¿Al cosechero se le paga **por kilo recolectado** o **por
-  bandeja/caja entregada**?
-- **Impacto**:
-    - Si es **por bandeja** → el modelo actual ya sirve.
-    - Si es **por kilo** → el producto se mide en kg, la cantidad registrada son kilos y la
-      tarifa es $/kg. Es un ajuste de modelo que conviene cerrar antes de construir nada más.
-
 ### 2. Calidad: ¿afecta la tarifa?
 
 - **Contexto**: el legacy clasifica la cosecha en **Comercial, IQF, Bulk, Proceso** y lo
@@ -55,20 +39,32 @@ se decide implementarla y lo que necesitamos **confirmar con el cliente**.
 - **Recomendación**: para una **primera** prueba en terreno probablemente se pueda salir
   **sin** esto, si el objetivo es validar registro + pago. Confirmar con el cliente.
 
-### 4. Variedad por cuartel
-
-- **Contexto**: el legacy guarda en cada cuartel la **variedad** (Heritage y Regina son
-  frambuesa; Navajo es mora) y la **superficie**.
-- **Hoy en Fundo360**: el paño (`block`) tiene nombre, área y producto, pero **no** variedad.
-- **Pregunta para negocio**: ¿Usan la **variedad** para reportes o pago, o es solo un dato de
-  referencia que no miran?
-- **Impacto**: bajo. Si la quieren, es **un campo de texto** en el paño.
-
 ---
 
 ## Decisiones cerradas
 
 Registradas para no volver a discutirlas.
+
+### 1. Pago por kilo — además de por bandeja/caja
+
+- **Decisión**: se **implementa el pago por kilo** y **coexiste** con el pago por caja. El
+  producto define su unidad (`products.unit_measure` = `box` | `kg`). En productos por kg,
+  la base pagable son los kilos netos (`paid_quantity_kg`) y la tarifa es $/kg; en productos
+  por caja, el pago sigue siendo por cantidad de cajas, sin cambios.
+- **Gating**: detrás del feature flag `kg_payment` (override por organización). Con el flag
+  apagado, la plataforma funciona solo con caja, como antes.
+- **Captura en kg**: con destare, el peso neto (`bruto − tara`) es la base pagada; sin
+  destare, se capturan los kilos manualmente. El `rate_amount_snapshot` se congela al
+  registrar (inmutable), igual que en caja.
+
+### 4. Variedad bajo el producto
+
+- **Decisión**: se **implementan variedades** como un nivel bajo el producto
+  (producto → variedad). Un paño (`block`) puede tener **un solo** producto/variedad y, si
+  el producto tiene variedades, la variedad del paño es **obligatoria**. Cada variedad puede
+  tener su **propia tarifa** (tarifa por sujeto: producto o variedad).
+- **Gating**: detrás del feature flag `product_varieties` (override por organización). Con el
+  flag apagado, no hay UI de variedades y los paños operan solo con producto.
 
 ### Contratista / furgón = Encargado de cuadrilla
 
@@ -101,10 +97,10 @@ Registradas para no volver a discutirlas.
 
 | # | Decisión | Estado | Impacto si va |
 |---|----------|:------:|---------------|
-| 1 | Pago por kilo vs bandeja | 🔴 Abierta | Alto — define el modelo |
+| 1 | Pago por kilo (coexiste con caja) | ✅ Cerrada (implementada) | Alto — definió el modelo |
 | 2 | Calidad afecta tarifa | 🟡 Abierta | Alto si afecta tarifa |
 | 3 | Lote/guía de despacho | 🟡 Abierta | Muy alto si va |
-| 4 | Variedad por cuartel | 🟢 Abierta | Bajo (un campo) |
+| 4 | Variedad bajo el producto | ✅ Cerrada (implementada) | Variedad + tarifa por variedad |
 | — | Contratista = cuadrilla | ✅ Cerrada | — |
 | — | Tipo cosecha | ✅ Cerrada (descartada) | — |
 | — | Anotador = supervisor | ✅ Cerrada | — |

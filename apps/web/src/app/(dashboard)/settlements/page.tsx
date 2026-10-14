@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { generateSettlementPDF } from '@/components/settlement/SettlementPDF';
 import { PageTransition } from '@/components/ui/animations';
+import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 
 export default function SettlementsPage() {
   const [showGenerate, setShowGenerate] = useState(false);
@@ -52,7 +53,7 @@ export default function SettlementsPage() {
       // incluye el nombre del trabajador para el desglose por persona.
       const { data: records } = await supabase
         .from('picking_records')
-        .select('work_day, quantity, rate_amount_snapshot, block_id, worker_id, workers!fk_picking_worker_org(full_name)')
+        .select('work_day, quantity, payment_unit, paid_quantity_kg, rate_amount_snapshot, block_id, worker_id, workers!fk_picking_worker_org(full_name)')
         .in('worker_id', workerIds.length ? workerIds : ['00000000-0000-0000-0000-000000000000'])
         .gte('work_day', settlement.period_start)
         .lte('work_day', settlement.period_end)
@@ -63,10 +64,14 @@ export default function SettlementsPage() {
       const blockIds = [...new Set((records || []).map(r => r.block_id))];
       const { data: blocks } = await supabase
         .from('blocks')
-        .select('id, name, products(name)')
+        .select('id, name, products!fk_blocks_product_org(name), product_varieties!fk_blocks_variety_org(name)')
         .in('id', blockIds.length ? blockIds : ['x']);
 
-      const blockMap = Object.fromEntries((blocks || []).map(b => [b.id, { name: b.name, product: (b as any).products?.name || '' }]));
+      const blockMap = Object.fromEntries((blocks || []).map(b => [b.id, {
+        name: b.name,
+        product: (b as any).products?.name || '',
+        variety: (b as any).product_varieties?.name || null,
+      }]));
 
       // Fetch payments for this settlement
       const { data: payments } = await supabase
@@ -86,15 +91,26 @@ export default function SettlementsPage() {
         status: settlement.status,
         generatedAt: settlement.generated_at,
         payeeType: settlement.payee_type,
-        records: (records || []).map(r => ({
-          work_day: r.work_day,
-          worker_name: (r as any).workers?.full_name || '—',
-          block_name: blockMap[r.block_id]?.name || '—',
-          product_name: blockMap[r.block_id]?.product || '—',
-          quantity: Number(r.quantity),
-          rate: Number(r.rate_amount_snapshot),
-          subtotal: Number(r.quantity) * Number(r.rate_amount_snapshot),
-        })),
+        records: (records || []).map(r => {
+          const payload = {
+            payment_unit: r.payment_unit as UnitMeasure,
+            quantity: Number(r.quantity),
+            paid_quantity_kg: r.paid_quantity_kg === null ? null : Number(r.paid_quantity_kg),
+            rate_amount_snapshot: Number(r.rate_amount_snapshot),
+          };
+          return {
+            work_day: r.work_day,
+            worker_name: (r as any).workers?.full_name || '—',
+            block_name: blockMap[r.block_id]?.name || '—',
+            product_name: blockMap[r.block_id]?.product || '—',
+            variety_name: blockMap[r.block_id]?.variety || null,
+            payment_unit: r.payment_unit,
+            base: pickingPayableBase(payload),
+            quantity: Number(r.quantity),
+            rate: Number(r.rate_amount_snapshot),
+            subtotal: pickingSubtotal(payload),
+          };
+        }),
         payments: (payments || []).map(p => ({
           date: new Date(p.paid_at).toLocaleDateString('es-CL'),
           amount: Number(p.amount),
@@ -197,8 +213,11 @@ function GenerateForm({ onSuccess }: { onSuccess: () => void }) {
 
     setLoading(false);
 
-    // La Edge Function responde { success, data: [...] }
-    const generated = Array.isArray(data?.data) ? data.data.length : 0;
+    // La Edge Function responde { success, data: { settlements: [...], total_amount, units_by_unit } }
+    // (contrato de FEAT-003). Compat: si llegara un array plano, también se cuenta.
+    const payload = data?.data;
+    const settlements = Array.isArray(payload) ? payload : payload?.settlements;
+    const generated = Array.isArray(settlements) ? settlements.length : 0;
     if (!error && generated > 0) {
       toast(`${generated} liquidación(es) generada(s)`, 'success');
       setTimeout(onSuccess, 800);

@@ -41,7 +41,7 @@ export default function RegisterScreen() {
   const [qrInput, setQrInput] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<{ id: string; full_name: string; day_roster_id: string | null } | null>(null);
-  const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; product_name?: string; unit_measure?: 'box' | 'kg' } | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<{ id: string; name: string; product_id: string; variety_id?: string | null; product_name?: string; unit_measure?: 'box' | 'kg' } | null>(null);
   const [selectedRow, setSelectedRow] = useState<SelectedRow>(null);
   const [rowChoices, setRowChoices] = useState<{ id: string; name: string; row_number: number | null }[]>([]);
   const [quantity, setQuantity] = useState('');
@@ -50,6 +50,8 @@ export default function RegisterScreen() {
   // flag box_tare_control está activo y el producto del paño se mide por caja.
   const [selectedBoxType, setSelectedBoxType] = useState<BoxTypeOption | null>(null);
   const [grossWeight, setGrossWeight] = useState('');
+  // Pago por kilo sin destare: kilos capturados manualmente (manual_kg).
+  const [manualKg, setManualKg] = useState('');
   // Foto de respaldo (evidencia): uri local de la foto tomada y visor de cámara.
   // Solo cuando el flag picking_photo_evidence está activo.
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -57,18 +59,24 @@ export default function RegisterScreen() {
 
   const { enabled: tareEnabled } = useFeatureFlag('box_tare_control');
   const { enabled: photoEnabled } = useFeatureFlag('picking_photo_evidence');
+  // Pago por kilo: si el flag está off, no se ofrecen productos kg (CA-21).
+  const { enabled: kgEnabled } = useFeatureFlag('kg_payment');
 
   const { data: blocks } = useQuery({
-    queryKey: ['my-blocks'],
+    queryKey: ['my-blocks', kgEnabled],
     queryFn: async () => {
-      const { data } = await supabase.from('blocks').select('id, name, product_id, products(name, unit_measure)').eq('status', 'active').order('name');
-      return (data || []).map((b: any) => ({
-        id: b.id,
-        name: b.name,
-        product_id: b.product_id,
-        product_name: b.products?.name,
-        unit_measure: b.products?.unit_measure as 'box' | 'kg' | undefined,
-      }));
+      const { data } = await supabase.from('blocks').select('id, name, product_id, variety_id, products!fk_blocks_product_org(name, unit_measure)').eq('status', 'active').order('name');
+      return (data || [])
+        .map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          product_id: b.product_id,
+          variety_id: (b.variety_id ?? null) as string | null,
+          product_name: b.products?.name,
+          unit_measure: b.products?.unit_measure as 'box' | 'kg' | undefined,
+        }))
+        // Con kg_payment off, los paños de productos kg no se ofrecen al anotador.
+        .filter((b: any) => kgEnabled || b.unit_measure !== 'kg');
     },
   });
 
@@ -144,7 +152,7 @@ export default function RegisterScreen() {
   // Selecciona un paño y decide el siguiente paso: si el paño tiene melgas
   // activas, ofrece elegir melga; si no tiene, salta directo a la cantidad.
   // Así el nivel melga aparece solo cuando el cliente/campo realmente lo usa.
-  async function chooseBlock(block: { id: string; name: string; product_id: string; product_name?: string; unit_measure?: 'box' | 'kg' }) {
+  async function chooseBlock(block: { id: string; name: string; product_id: string; variety_id?: string | null; product_name?: string; unit_measure?: 'box' | 'kg' }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedBlock(block);
     setSelectedRow(null);
@@ -160,17 +168,29 @@ export default function RegisterScreen() {
     setStep(rows.length > 0 ? 'select-row' : 'quantity');
   }
 
-  // ¿Aplica el control de destare en este registro? Solo si el flag está activo,
-  // el producto del paño se mide por caja y hay tipos de caja configurados.
+  const isKgBlock = selectedBlock?.unit_measure === 'kg';
+
+  // ¿Aplica el control de destare (caja) en este registro? Solo si el flag está
+  // activo, el producto del paño se mide por caja y hay tipos de caja configurados.
   const tareApplies = tareEnabled && selectedBlock?.unit_measure === 'box' && (boxTypes?.length ?? 0) > 0;
+
+  // Pago por kilo con destare: el paño es kg, el flag box_tare_control está on y
+  // hay tipos de caja. Se pesa la caja y el servidor deriva el neto (paid_kg).
+  const kgTareApplies = isKgBlock && tareEnabled && (boxTypes?.length ?? 0) > 0;
+
+  // Pago por kilo manual: el paño es kg y NO hay destare -> se capturan los kilos.
+  const kgManualApplies = isKgBlock && !kgTareApplies;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const qty = parseFloat(quantity);
-      if (!selectedWorker || !selectedBlock || qty <= 0) throw new Error('Datos incompletos');
+      if (!selectedWorker || !selectedBlock) throw new Error('Datos incompletos');
+
+      const paymentUnit: 'box' | 'kg' = isKgBlock ? 'kg' : 'box';
+      const round3 = (x: number) => Math.round(x * 1000) / 1000;
 
       // Destare (opcional): si aplica y el supervisor eligió caja + pesó, se
-      // calcula el neto y se marca fuera de tolerancia. El pago NO cambia (por qty).
+      // calcula el neto y se marca fuera de tolerancia. En productos por caja el
+      // pago sigue siendo por qty; en productos por kg el neto ES la base pagada.
       let boxFields: {
         box_type_id: string | null;
         gross_weight_kg: number | null;
@@ -179,29 +199,70 @@ export default function RegisterScreen() {
         out_of_tolerance: boolean;
       } = { box_type_id: null, gross_weight_kg: null, tare_snapshot_kg: null, net_weight_kg: null, out_of_tolerance: false };
 
-      if (tareApplies && selectedBoxType) {
-        const gross = parseFloat(grossWeight);
-        if (!Number.isFinite(gross) || gross <= 0) throw new Error('Ingresa el peso bruto de la caja');
-        const evalResult = evaluateBoxTolerance(gross, selectedBoxType.tare_weight_kg, selectedBoxType);
-        boxFields = {
-          box_type_id: selectedBoxType.id,
-          gross_weight_kg: gross,
-          tare_snapshot_kg: selectedBoxType.tare_weight_kg,
-          net_weight_kg: evalResult.net_weight_kg,
-          out_of_tolerance: evalResult.out_of_tolerance,
-        };
+      // Cantidad (quantity) y base pagable en kg (paid_quantity_kg) según unidad.
+      let qty: number;
+      let paidQuantityKg: number | null = null;
+
+      if (isKgBlock) {
+        if (kgTareApplies) {
+          // kg con destare: se pesa la caja; paid_kg = neto = max(bruto - tara, 0).
+          if (!selectedBoxType) throw new Error('Selecciona el tipo de caja');
+          const gross = parseFloat(grossWeight);
+          if (!Number.isFinite(gross) || gross <= 0) throw new Error('Ingresa el peso bruto de la caja');
+          const ev = evaluateBoxTolerance(gross, selectedBoxType.tare_weight_kg, selectedBoxType);
+          const net = round3(Math.max(ev.net_weight_kg, 0));
+          if (net <= 0) throw new Error('El peso neto debe ser mayor a 0');
+          boxFields = {
+            box_type_id: selectedBoxType.id,
+            gross_weight_kg: gross,
+            tare_snapshot_kg: selectedBoxType.tare_weight_kg,
+            net_weight_kg: ev.net_weight_kg,
+            out_of_tolerance: ev.out_of_tolerance,
+          };
+          paidQuantityKg = net;
+          qty = 1; // una caja pesada
+        } else {
+          // kg manual: paid_kg = round3(manual_kg); quantity = 1.
+          const kg = parseFloat(manualKg);
+          if (!Number.isFinite(kg) || kg <= 0) throw new Error('Ingresa los kilos recolectados');
+          paidQuantityKg = round3(kg);
+          qty = 1;
+        }
+      } else {
+        // Producto por caja: comportamiento actual intacto.
+        qty = parseFloat(quantity);
+        if (!Number.isFinite(qty) || qty <= 0) throw new Error('Ingresa la cantidad de cajas');
+
+        if (tareApplies && selectedBoxType) {
+          const gross = parseFloat(grossWeight);
+          if (!Number.isFinite(gross) || gross <= 0) throw new Error('Ingresa el peso bruto de la caja');
+          const evalResult = evaluateBoxTolerance(gross, selectedBoxType.tare_weight_kg, selectedBoxType);
+          boxFields = {
+            box_type_id: selectedBoxType.id,
+            gross_weight_kg: gross,
+            tare_snapshot_kg: selectedBoxType.tare_weight_kg,
+            net_weight_kg: evalResult.net_weight_kg,
+            out_of_tolerance: evalResult.out_of_tolerance,
+          };
+        }
       }
 
-      // Resolver la tarifa vigente: online consulta directa; offline usa la
-      // caché de tarifas. En ambos casos debe ser > 0 (rate_amount_snapshot).
+      // Resolver la tarifa vigente del SUJETO del paño (variedad si la tiene, o
+      // producto). online consulta directa; offline usa la caché por producto.
+      // En ambos casos debe ser > 0 (rate_amount_snapshot).
       let rateAmount: number | undefined;
       if (online) {
-        const { data: rate } = await supabase.from('rates').select('amount').eq('product_id', selectedBlock.product_id).eq('status', 'current').single();
+        let rq = supabase.from('rates').select('amount').eq('product_id', selectedBlock.product_id).eq('status', 'current');
+        rq = selectedBlock.variety_id ? rq.eq('variety_id', selectedBlock.variety_id) : rq.is('variety_id', null);
+        const { data: rate } = await rq.single();
         rateAmount = rate ? Number(rate.amount) : ratesByProduct?.[selectedBlock.product_id];
       } else {
         rateAmount = ratesByProduct?.[selectedBlock.product_id];
       }
       if (!rateAmount || rateAmount <= 0) throw new Error('Sin tarifa vigente para este producto');
+
+      // Base pagable (cajas o kg) para estimar el total con la tarifa cacheada.
+      const payableBase = paymentUnit === 'kg' ? (paidQuantityKg ?? 0) : qty;
 
       // Id del registro generado en cliente: permite correlacionar la foto de
       // respaldo (ruta {org}/{recordId}/{uuid}.jpg) con el registro antes de
@@ -238,6 +299,9 @@ export default function RegisterScreen() {
         block_id: selectedBlock.id,
         row_id: selectedRow?.id ?? null,
         quantity: qty,
+        // Unidad de pago y base en kg (null para caja; CHECK chk_picking_paid_kg).
+        payment_unit: paymentUnit,
+        paid_quantity_kg: paidQuantityKg,
         rate_amount_snapshot: rateAmount,
         work_day: await tenantWorkday(0),
         recorded_by: currentWorker?.id ?? null,
@@ -247,16 +311,20 @@ export default function RegisterScreen() {
         ...boxFields,
       };
 
+      // Total estimado = base pagable (cajas o kg) * tarifa (misma fórmula que
+      // pickingSubtotal de @fundo360/shared; mantener en sincronía).
+      const estimatedTotal = Math.round(payableBase * rateAmount * 100) / 100;
+
       if (online) {
         // Incluye el id de cliente y la ruta de la foto (si se subió).
         const { error } = await supabase.from('picking_records').insert({ ...record, id: recordId, backup_image_path: backupImagePath });
         if (error) throw error;
-        return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: false, outOfTolerance: boxFields.out_of_tolerance, netWeight: boxFields.net_weight_kg, photoSkippedOffline, hasPhoto: !!backupImagePath };
+        return { base: payableBase, unit: paymentUnit, total: estimatedTotal, workerName: selectedWorker.full_name, queued: false, outOfTolerance: boxFields.out_of_tolerance, netWeight: boxFields.net_weight_kg, photoSkippedOffline, hasPhoto: !!backupImagePath };
       }
 
       // Offline: encolar para sincronizar al reconectar.
       await enqueue({ type: 'picking_insert', payload: record });
-      return { qty, total: qty * rateAmount, workerName: selectedWorker.full_name, queued: true, outOfTolerance: boxFields.out_of_tolerance, netWeight: boxFields.net_weight_kg, photoSkippedOffline, hasPhoto: false };
+      return { base: payableBase, unit: paymentUnit, total: estimatedTotal, workerName: selectedWorker.full_name, queued: true, outOfTolerance: boxFields.out_of_tolerance, netWeight: boxFields.net_weight_kg, photoSkippedOffline, hasPhoto: false };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['production'] });
@@ -280,8 +348,10 @@ export default function RegisterScreen() {
         showAlert('Foto no adjuntada', 'El registro se guardó, pero la foto de respaldo requiere conexión. Vuelve a adjuntarla con señal si es necesario.');
       }
 
+      const unitWord = data.unit === 'kg' ? 'kg' : 'cajas';
+      const baseLabel = `${data.base} ${unitWord}`;
       setSuccessData({
-        title: data.queued ? `${data.qty} unidades en espera` : `${data.qty} unidades registradas`,
+        title: data.queued ? `${baseLabel} en espera` : `${baseLabel} registradas`,
         subtitle: data.queued
           ? `${data.workerName} → se sincronizará al reconectar`
           : `${data.workerName} → ${formatMoney(data.total)}`,
@@ -290,8 +360,8 @@ export default function RegisterScreen() {
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
   });
 
-  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
-  function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
+  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
+  function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
 
   if (showScanner) return <QRScanner onScan={handleQRScanned} onClose={() => setShowScanner(false)} />;
   if (showPhoto) return <PhotoCapture onCapture={(uri) => { setPhotoUri(uri); setShowPhoto(false); }} onClose={() => setShowPhoto(false)} />;
@@ -430,6 +500,17 @@ export default function RegisterScreen() {
     );
   }
 
+  // ¿Se puede confirmar? Depende de la unidad y del control de destare:
+  //  - kg manual: kilos > 0.
+  //  - kg/caja con destare: tipo de caja elegido + peso bruto > 0.
+  //  - caja sin destare: cantidad de cajas > 0.
+  const grossOk = parseFloat(grossWeight) > 0;
+  const canSubmit = kgManualApplies
+    ? parseFloat(manualKg) > 0
+    : kgTareApplies
+      ? !!selectedBoxType && grossOk
+      : (parseFloat(quantity) > 0 && (!tareApplies || !selectedBoxType || grossOk));
+
   // QUANTITY
   return (
     <View style={s.container}>
@@ -454,11 +535,25 @@ export default function RegisterScreen() {
       </View>
 
       <View style={s.center}>
-        <TextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
-          value={quantity} onChangeText={setQuantity} keyboardType="numeric" autoFocus selectTextOnFocus />
-        <Text style={s.unitLabel}>cajas / kilos</Text>
+        {/* kg manual: se capturan los kilos. kg con destare: la base la deriva el
+            peso de la caja (no se escribe cantidad). Caja: cantidad de cajas. */}
+        {kgManualApplies ? (
+          <>
+            <TextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
+              value={manualKg} onChangeText={setManualKg} keyboardType="numeric" autoFocus selectTextOnFocus />
+            <Text style={s.unitLabel}>kilos</Text>
+          </>
+        ) : kgTareApplies ? (
+          <Text style={s.unitLabel}>Pesa la caja para registrar los kilos</Text>
+        ) : (
+          <>
+            <TextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
+              value={quantity} onChangeText={setQuantity} keyboardType="numeric" autoFocus selectTextOnFocus />
+            <Text style={s.unitLabel}>cajas</Text>
+          </>
+        )}
 
-        {tareApplies && (
+        {(tareApplies || kgTareApplies) && (
           <View style={s.tareBox}>
             <Text style={s.tareLabel}>Tipo de caja</Text>
             <View style={s.tareChips}>
@@ -529,9 +624,9 @@ export default function RegisterScreen() {
           <Text style={s.backBtnText}>{rowChoices.length > 0 ? 'Melga' : 'Paño'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.confirmBtn, s.chipRow, (!quantity || parseFloat(quantity) <= 0 || (tareApplies && selectedBoxType && !(parseFloat(grossWeight) > 0))) && { opacity: 0.4 }]}
+          style={[s.confirmBtn, s.chipRow, (!canSubmit || submitMutation.isPending) && { opacity: 0.4 }]}
           onPress={() => submitMutation.mutate()}
-          disabled={!quantity || parseFloat(quantity) <= 0 || (tareApplies && !!selectedBoxType && !(parseFloat(grossWeight) > 0)) || submitMutation.isPending} activeOpacity={0.85}>
+          disabled={!canSubmit || submitMutation.isPending} activeOpacity={0.85}>
           {submitMutation.isPending ? (
             <Text style={s.confirmBtnText}>...</Text>
           ) : (

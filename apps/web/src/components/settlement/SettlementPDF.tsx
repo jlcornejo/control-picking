@@ -8,9 +8,28 @@ interface SettlementRecord {
   worker_name?: string;
   block_name: string;
   product_name: string;
+  variety_name?: string | null;
+  /** 'box' | 'kg'. Determina la unidad mostrada y la base pagada. */
+  payment_unit?: string;
+  /** Base pagada: cajas o kilos según payment_unit. */
+  base?: number;
   quantity: number;
   rate: number;
   subtotal: number;
+}
+
+/** Celda "Cant." según la unidad de pago (cajas enteras o kilos con decimales). */
+function formatQty(r: SettlementRecord): string {
+  const base = r.base ?? r.quantity;
+  if (r.payment_unit === 'kg') {
+    return `${(Math.round(base * 1000) / 1000).toLocaleString('es-CL', { maximumFractionDigits: 3 })} kg`;
+  }
+  return `${Math.round(base).toLocaleString('es-CL')} cajas`;
+}
+
+/** Producto + variedad (si la hay) para el PDF. */
+function formatProduct(r: SettlementRecord): string {
+  return r.variety_name ? `${r.product_name} · ${r.variety_name}` : r.product_name;
 }
 
 interface SettlementPDFData {
@@ -106,16 +125,16 @@ export function generateSettlementPDF(data: SettlementPDFData): void {
           r.work_day,
           r.worker_name || '—',
           r.block_name,
-          r.product_name,
-          String(r.quantity),
+          formatProduct(r),
+          formatQty(r),
           `$${r.rate.toLocaleString()}`,
           `$${r.subtotal.toLocaleString()}`,
         ]
       : [
           r.work_day,
           r.block_name,
-          r.product_name,
-          String(r.quantity),
+          formatProduct(r),
+          formatQty(r),
           `$${r.rate.toLocaleString()}`,
           `$${r.subtotal.toLocaleString()}`,
         ]),

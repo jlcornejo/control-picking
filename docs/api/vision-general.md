@@ -70,9 +70,9 @@ Todos los endpoints `GET` que retornan listas soportan (default 20, máximo 100)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/api/fields/:fieldId/blocks` | Listar paños de un campo |
-| POST | `/api/fields/:fieldId/blocks` | Crear paño (admin) |
-| GET | `/api/blocks/:id` | Detalle de paño |
-| PUT | `/api/blocks/:id` | Modificar paño (admin) |
+| POST | `/api/fields/:fieldId/blocks` | Crear paño (admin). Acepta `variety_id`; obligatorio si el producto tiene variedades |
+| GET | `/api/blocks/:id` | Detalle de paño (incluye producto y variedad) |
+| PUT | `/api/blocks/:id` | Modificar paño (admin). Un paño = un solo producto/variedad |
 | PATCH | `/api/blocks/:id/status` | Activar/Desactivar (admin) |
 
 ### Products (Productos)
@@ -80,16 +80,31 @@ Todos los endpoints `GET` que retornan listas soportan (default 20, máximo 100)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/api/products` | Listar productos |
-| POST | `/api/products` | Crear producto (admin) |
+| POST | `/api/products` | Crear producto (admin). `unit_measure` = `box` \| `kg` (kg bajo flag `kg_payment`) |
 | PUT | `/api/products/:id` | Modificar producto (admin) |
 
-### Rates (Tarifas)
+### Product Varieties (Variedades)
+
+Variedades bajo el producto (flag `product_varieties`). Baja soft por estado; sin DELETE
+físico. `product_id` es obligatorio en el listado.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/api/products/:productId/rates` | Historial de tarifas |
-| POST | `/api/products/:productId/rates` | Crear nueva tarifa (admin) |
-| GET | `/api/products/:productId/rates/current` | Tarifa vigente |
+| GET | `/api/varieties?product_id=X[&status=active\|all]` | Listar variedades de un producto |
+| GET | `/api/varieties/:id` | Detalle de variedad |
+| POST | `/api/varieties` | Crear variedad (admin). Nombre activo duplicado → `VARIETY_NAME_TAKEN` |
+| PUT | `/api/varieties/:id` | Renombrar / activar / desactivar (admin) |
+
+### Rates (Tarifas)
+
+La tarifa aplica a un **sujeto**: el producto (`variety_id` nulo) o una variedad concreta.
+El historial (`current`/`historical`) se acota al sujeto.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/products/:productId/rates[?variety_id=Y]` | Historial de tarifas del sujeto |
+| POST | `/api/products/:productId/rates` | Crear nueva tarifa (admin). Acepta `variety_id` opcional |
+| GET | `/api/products/:productId/rates/current[?variety_id=Y]` | Tarifa vigente del sujeto |
 
 ### Workers (Trabajadores)
 
@@ -107,11 +122,15 @@ Todos los endpoints `GET` que retornan listas soportan (default 20, máximo 100)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/api/picking-records` | Listar registros (filtrable por fecha, paño, trabajador) |
-| POST | `/api/picking-records` | Crear registro (supervisor) |
-| PUT | `/api/picking-records/:id` | Corregir registro (supervisor, misma jornada) |
-| GET | `/api/picking-records/my` | Mis registros (trabajador autenticado) |
+| POST | `/api/picking-records` | Crear registro (supervisor). Según unidad del paño: caja (`quantity`) o kg (destare → neto, o `manual_kg`) |
+| PUT | `/api/picking-records/:id` | Corregir registro (supervisor, misma jornada). kg corrige `paid_quantity_kg`; caja corrige `quantity` |
+| GET | `/api/picking-records/my` | Mis registros (trabajador). Totales segmentados `totals_by_unit:{box,kg}` |
 | GET | `/api/picking-records/my/today` | Mis registros de hoy (trabajador) |
-| POST | `/api/picking-records/scan` | Registro por escaneo QR (supervisor) |
+| POST | `/api/picking-records/scan` | Registro por escaneo QR (supervisor). Mismas ramas caja/kg |
+
+> **Unidad y base de pago**: el paño define la unidad (`box` | `kg`). En caja se paga por
+> `quantity`; en kg la base pagada es `paid_quantity_kg` (neto del destare, o kilos
+> manuales). `payment_unit` y `rate_amount_snapshot` son inmutables tras crear el registro.
 
 ### Settlements (Liquidaciones)
 

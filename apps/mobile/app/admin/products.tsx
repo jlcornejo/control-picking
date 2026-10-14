@@ -6,8 +6,9 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { createProductSchema } from '@fundo360/shared';
+import { createProductSchema, FEATURE_FLAGS } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
+import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { formatMoney } from '../../src/utils/format';
 import { EmptyState } from '../../src/components/EmptyState';
@@ -39,6 +40,9 @@ export default function AdminProductsScreen() {
   const [search, setSearch] = useState('');
   const [formProduct, setFormProduct] = useState<ProductRow | 'new' | null>(null);
   const [rateProduct, setRateProduct] = useState<ProductRow | null>(null);
+  const [varietyProduct, setVarietyProduct] = useState<ProductRow | null>(null);
+  const { enabled: varietiesEnabled } = useFeatureFlag(FEATURE_FLAGS.PRODUCT_VARIETIES);
+  const { enabled: kgEnabled } = useFeatureFlag(FEATURE_FLAGS.KG_PAYMENT);
 
   const { data: products, isLoading, refetch } = useQuery({
     queryKey: ['admin-products'],
@@ -125,6 +129,11 @@ export default function AdminProductsScreen() {
                   <TouchableOpacity style={s.actionBtn} onPress={() => setRateProduct(item)}>
                     <Ionicons name="pricetag-outline" size={18} color={colors.amber} />
                   </TouchableOpacity>
+                  {varietiesEnabled && (
+                    <TouchableOpacity style={s.actionBtn} onPress={() => setVarietyProduct(item)}>
+                      <Ionicons name="leaf-outline" size={18} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity style={s.actionBtn} onPress={() => setFormProduct(item)}>
                     <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -156,6 +165,7 @@ export default function AdminProductsScreen() {
 
       <ProductFormModal
         target={formProduct}
+        kgEnabled={kgEnabled}
         onClose={() => setFormProduct(null)}
         onSaved={() => {
           setFormProduct(null);
@@ -168,19 +178,32 @@ export default function AdminProductsScreen() {
         onClose={() => setRateProduct(null)}
         onChanged={() => queryClient.invalidateQueries({ queryKey: ['admin-products'] })}
       />
+
+      {varietiesEnabled && (
+        <VarietyManagerModal
+          product={varietyProduct}
+          onClose={() => setVarietyProduct(null)}
+        />
+      )}
     </View>
   );
 }
 
 function ProductFormModal({
-  target, onClose, onSaved,
+  target, kgEnabled, onClose, onSaved,
 }: {
   target: ProductRow | 'new' | null;
+  kgEnabled: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const isEdit = target && target !== 'new';
   const initial = isEdit ? (target as ProductRow) : null;
+
+  // kg solo disponible con el flag; un producto kg existente (coexistencia)
+  // sigue mostrando la opción aunque el flag esté off.
+  const allowKg = kgEnabled || initial?.unit_measure === 'kg';
+  const unitOptions = allowKg ? UNIT_OPTIONS : UNIT_OPTIONS.filter((o) => o.value !== 'kg');
 
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('box');
@@ -199,6 +222,10 @@ function ProductFormModal({
   }
 
   async function handleSubmit() {
+    if (unit === 'kg' && !allowKg) {
+      setErrors({ unit_measure: 'El pago por kilo no está habilitado' });
+      return;
+    }
     const raw = { name: name.trim(), unit_measure: unit };
     const parsed = createProductSchema.safeParse(raw);
     if (!parsed.success) {
@@ -271,7 +298,7 @@ function ProductFormModal({
               <TextField value={name} onChangeText={setName} hasError={!!errors.name} placeholder="Arándano" />
             </Field>
             <Field label="Unidad de medida" required error={errors.unit_measure}>
-              <SelectField value={unit} options={UNIT_OPTIONS} onChange={setUnit} hasError={!!errors.unit_measure} />
+              <SelectField value={unit} options={unitOptions} onChange={setUnit} hasError={!!errors.unit_measure} />
             </Field>
             {!isEdit && (
               <Field label="Tarifa inicial ($)" error={errors.rate}>
@@ -408,6 +435,138 @@ function RateManagerModal({
   );
 }
 
+type VarietyRow = { id: string; name: string; status: string };
+
+/**
+ * Gestión de variedades de un producto (crear + activar/desactivar). La baja es
+ * soft (status). Al crear la primera variedad se avisa que los paños del
+ * producto deberán asignar variedad.
+ */
+function VarietyManagerModal({
+  product, onClose,
+}: {
+  product: ProductRow | null;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [newName, setNewName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const key = product?.id ?? 'none';
+  const [lastKey, setLastKey] = useState<string | null>(null);
+  if (product && key !== lastKey) {
+    setLastKey(key);
+    setNewName('');
+    setError(null);
+  }
+
+  const { data: varieties, isLoading, refetch } = useQuery({
+    queryKey: ['admin-varieties', product?.id],
+    enabled: !!product?.id,
+    queryFn: async () => {
+      const { data, error: dbErr } = await supabase
+        .from('product_varieties')
+        .select('id, name, status')
+        .eq('product_id', product!.id)
+        .order('name');
+      if (dbErr) throw dbErr;
+      return data as VarietyRow[];
+    },
+  });
+
+  const activeCount = (varieties || []).filter((v) => v.status === 'active').length;
+
+  async function handleCreate() {
+    const name = newName.trim();
+    if (!name) { setError('Ingrese un nombre'); return; }
+    setError(null);
+    setLoading(true);
+    try {
+      // organization_id lo completa el trigger set_organization_id desde el JWT.
+      const { error: insErr } = await supabase
+        .from('product_varieties')
+        .insert({ product_id: product!.id, name });
+      if (insErr) {
+        // Nombre activo duplicado -> índice único parcial (VARIETY_NAME_TAKEN).
+        throw new Error(insErr.code === '23505' ? 'Ya existe una variedad activa con ese nombre' : insErr.message);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (activeCount === 0) {
+        Alert.alert('Primera variedad', 'Los paños de este producto deberán asignar variedad.');
+      }
+      setNewName('');
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    } catch (e: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(e.message || 'No se pudo crear la variedad');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleStatus(v: VarietyRow) {
+    const newStatus = v.status === 'active' ? 'inactive' : 'active';
+    const { error: upErr } = await supabase
+      .from('product_varieties')
+      .update({ status: newStatus })
+      .eq('id', v.id);
+    if (upErr) { Alert.alert('Error', upErr.message); return; }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await refetch();
+    queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+  }
+
+  return (
+    <Modal visible={!!product} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
+        <View style={s.sheet}>
+          <View style={s.sheetHeader}>
+            <Text style={s.sheetTitle}>Variedades — {product?.name}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
+            {activeCount === 0 ? (
+              <Text style={s.varietyHint}>
+                Al crear la primera variedad, los paños de este producto deberán asignar una variedad.
+              </Text>
+            ) : null}
+
+            <Field label="Nueva variedad" error={error || undefined}>
+              <TextField value={newName} onChangeText={setNewName} hasError={!!error} placeholder="Ej: Duke, Legacy" />
+            </Field>
+            <SubmitButton label="Agregar variedad" loading={loading} onPress={handleCreate} />
+
+            {isLoading ? null : (varieties || []).length === 0 ? (
+              <Text style={s.varietyEmpty}>Este producto aún no tiene variedades.</Text>
+            ) : (
+              <View style={{ marginTop: spacing.xl }}>
+                <Text style={s.histTitle}>Variedades</Text>
+                {(varieties || []).map((v) => (
+                  <View key={v.id} style={s.histRow}>
+                    <Text style={s.histAmount}>{v.name}</Text>
+                    <View style={[s.histBadge, { backgroundColor: v.status === 'active' ? colors.primaryBg : colors.surface }]}>
+                      <Text style={[s.histBadgeText, v.status === 'active' && { color: colors.primary }]}>
+                        {v.status === 'active' ? 'Activa' : 'Inactiva'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => toggleStatus(v)}>
+                      <Text style={s.varietyAction}>{v.status === 'active' ? 'Desactivar' : 'Activar'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   searchRow: {
@@ -441,4 +600,7 @@ const s = StyleSheet.create({
   histDate: { fontSize: 13, color: colors.textMuted },
   histBadge: { backgroundColor: colors.surface, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm },
   histBadgeText: { fontSize: 11, color: colors.textMuted },
+  varietyHint: { fontSize: 13, color: colors.textMuted, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  varietyEmpty: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg },
+  varietyAction: { fontSize: 13, fontWeight: font.semibold, color: colors.primary },
 });

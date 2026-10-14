@@ -15,6 +15,28 @@ Convenciones:
 
 ### Añadido
 
+- **Pago por kilo y variedades de producto** (feature flags `kg_payment` y
+  `product_varieties`, override por organización). Coexiste con el pago por caja sin
+  regresión: con ambos flags off, web y móvil funcionan como hoy (solo caja, sin UI de
+  variedades).
+  - **Variedades bajo el producto**: nueva jerarquía producto → variedad. Gestión
+    (crear / activar / desactivar, baja soft por estado) desde web (`/products` → acción
+    "Variedades") y móvil (admin de productos). Al crear la primera variedad se avisa que
+    los paños del producto deberán asignar variedad.
+  - **Tarifa por sujeto**: la gestión de tarifas permite elegir el sujeto (producto o una
+    variedad), con historial acotado al sujeto (la tarifa vigente del sujeto pasa a
+    histórica al cambiarla). `rate_amount_snapshot` de registros pasados no cambia.
+  - **Paño con variedad obligatoria**: si el producto tiene variedades, el formulario de
+    paño exige elegir variedad (un paño = un solo producto/variedad); si no, el campo se
+    oculta. El anotador no elige variedad: la determina el paño.
+  - **Registro en kg**: el móvil ramifica según la unidad del paño. kg con destare captura
+    tipo de caja + peso bruto y el neto es la base pagada (`paid_quantity_kg`); kg sin
+    destare captura kilos manuales. El pago por caja no cambia. La base pagable y el
+    subtotal se calculan con `pickingPayableBase`/`pickingSubtotal` de `@fundo360/shared`.
+  - **Totales segmentados**: registros, producción, liquidaciones y PDF muestran la unidad
+    correcta (cajas / kilos) y nunca mezclan cajas con kilos en los totales.
+  - **Resolución de flags con override**: web y móvil resuelven los feature flags con
+    `resolveFeatureFlag` de `@fundo360/shared` (override por organización → default global).
 - **Documentación de RBAC configurable y capacidades** (`docs/dominio/reglas-de-negocio.md`):
   se añadió la subsección de invariantes "RBAC configurable — Perfiles de permisos"
   (reglas 34-39), el estado de entidad `PermissionProfile` y una nueva sección "Capacidades

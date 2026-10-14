@@ -11,6 +11,8 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { FormField } from '@/components/ui/FormField';
 import { useFormValidation } from '@/hooks/useFormValidation';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
+import { FEATURE_FLAGS } from '@fundo360/shared';
 import { z } from 'zod';
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -424,8 +426,29 @@ function BlockForm({ fieldId, products, onSuccess, initial }: {
   initial?: any;
 }) {
   const [loading, setLoading] = useState(false);
+  const [productId, setProductId] = useState<string>(initial?.product_id || '');
+  const [varietyId, setVarietyId] = useState<string>(initial?.variety_id || '');
   const supabase = createClient();
   const { toast } = useToast();
+  const { enabled: varietiesEnabled } = useFeatureFlag(FEATURE_FLAGS.PRODUCT_VARIETIES);
+
+  // Variedades activas del producto seleccionado (solo si el flag está on).
+  const { data: varieties } = useQuery({
+    queryKey: ['block-form-varieties', productId],
+    enabled: varietiesEnabled && !!productId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_varieties')
+        .select('id, name')
+        .eq('product_id', productId)
+        .eq('status', 'active')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const hasVarieties = varietiesEnabled && (varieties?.length ?? 0) > 0;
 
   const blockSchema = z.object({
     name: z.string().min(1, 'Nombre es requerido').max(100, 'Máximo 100 caracteres'),
@@ -447,12 +470,26 @@ function BlockForm({ fieldId, products, onSuccess, initial }: {
     const result = validate(raw);
     if (!result.success) return;
 
+    // Si el producto tiene variedades, variety_id es obligatorio (espeja el
+    // trigger M3; aquí es un 422 legible antes de llamar al servidor).
+    if (hasVarieties && !varietyId) {
+      toast('Seleccione una variedad para este producto', 'error');
+      return;
+    }
+
     setLoading(true);
-    const payload = { name: result.data.name, product_id: result.data.product_id, area: result.data.area, field_id: fieldId };
+    const payload = {
+      name: result.data.name,
+      product_id: result.data.product_id,
+      area: result.data.area,
+      field_id: fieldId,
+      // Sin variedades disponibles -> null; con variedades -> la elegida.
+      variety_id: hasVarieties ? varietyId : null,
+    };
 
     if (initial) {
       const { error } = await supabase.from('blocks').update({
-        name: payload.name, product_id: payload.product_id, area: payload.area,
+        name: payload.name, product_id: payload.product_id, area: payload.area, variety_id: payload.variety_id,
       }).eq('id', initial.id);
       if (error) { toast('Error al actualizar', 'error'); setLoading(false); return; }
     } else {
@@ -475,7 +512,12 @@ function BlockForm({ fieldId, products, onSuccess, initial }: {
         <input name="name" defaultValue={initial?.name || ''} placeholder="Ej: Paño Norte A" onChange={() => clearField('name')} className={`${inputClass('name')} placeholder:text-muted-foreground/60`} />
       </FormField>
       <FormField label="Producto" required error={errors.product_id}>
-        <select name="product_id" defaultValue={initial?.product_id || ''} onChange={() => clearField('product_id')} className={inputClass('product_id')}>
+        <select
+          name="product_id"
+          defaultValue={initial?.product_id || ''}
+          onChange={(e) => { clearField('product_id'); setProductId(e.target.value); setVarietyId(''); }}
+          className={inputClass('product_id')}
+        >
           <option value="">Seleccione producto...</option>
           {products.map((p) => (
             <option key={p.id} value={p.id}>
@@ -484,6 +526,23 @@ function BlockForm({ fieldId, products, onSuccess, initial }: {
           ))}
         </select>
       </FormField>
+      {/* Variedad: solo visible con el flag on y si el producto tiene variedades.
+          En ese caso es obligatoria (un paño = un solo producto/variedad). */}
+      {hasVarieties && (
+        <FormField label="Variedad" required>
+          <select
+            name="variety_id"
+            value={varietyId}
+            onChange={(e) => setVarietyId(e.target.value)}
+            className={inputClass('variety_id')}
+          >
+            <option value="">Seleccione variedad...</option>
+            {(varieties || []).map((v) => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
+        </FormField>
+      )}
       <FormField label="Superficie (ha)" required error={errors.area}>
         <input name="area" type="number" step="0.01" defaultValue={initial?.area || ''} onChange={() => clearField('area')} className={inputClass('area')} />
       </FormField>

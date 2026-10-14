@@ -19,19 +19,21 @@ Estas reglas son propiedades de correctness del sistema. Nunca deben violarse y 
 8. No se puede registrar picking en un paño desactivado.
 9. La cantidad registrada nunca puede ser negativa ni cero.
 10. Un registro solo puede corregirse dentro de la misma jornada (día calendario).
-11. La corrección es un **soft-update**: el registro original se edita in-place con la nueva cantidad (sigue contando en los totales) y se conserva una fila-snapshot de auditoría con los valores previos (`original_record_id` apunta al registro corregido; queda excluida de los totales y visible solo en el historial como "Corrección"). Nunca se borra. La tarifa (`rate_amount_snapshot`) del registro no cambia al corregir (regla 14).
+11. La corrección es un **soft-update**: el registro original se edita in-place con la nueva base (cantidad de cajas o kilos pagados; sigue contando en los totales) y se conserva una fila-snapshot de auditoría con los valores previos (`original_record_id` apunta al registro corregido; queda excluida de los totales y visible solo en el historial como "Corrección"). Nunca se borra. La tarifa (`rate_amount_snapshot`) y la unidad (`payment_unit`) del registro no cambian al corregir (regla 14).
 12. El registro de producción es idéntico exista o no Modo Capataz; no se duplica.
+12a. **Unidad de pago (`payment_unit`)**: el paño define la unidad según su producto (`box` | `kg`). En productos por **caja** se paga por `quantity` (cajas, siempre > 0). En productos por **kg** la base pagada es `paid_quantity_kg` (> 0) y `quantity` cuenta cajas pesadas (o 1 en captura manual). `payment_unit` es inmutable tras crear el registro. El pago por kilo está detrás del feature flag `kg_payment` y **coexiste** con el pago por caja sin regresión.
+12b. **Destare como base de pago en kg**: cuando el producto se mide en kg y hay control de destare, el **peso neto** (`bruto − tara`, nunca < 0) ES la base pagada (`paid_quantity_kg`). Sin destare, se capturan kilos manuales. En productos por caja, el destare sigue siendo solo control de merma y no altera el pago.
 
 ### Tarifas
 
 13. Una tarifa siempre es > 0 (nunca cero ni negativa).
 14. La tarifa aplicada a un registro es la vigente al momento del registro, no la actual.
 15. El historial de tarifas es inmutable — no se borran, se crean nuevas versiones.
-16. Siempre existe exactamente una tarifa activa por producto en un momento dado.
+16. La tarifa aplica a un **sujeto**: el producto (sin variedad) o una variedad concreta. Existe exactamente una tarifa vigente por sujeto en un momento dado; el historial se acota al mismo sujeto. Cada variedad puede tener su propia tarifa.
 
 ### Liquidaciones y pagos en dos niveles
 
-17. Liquidación = Σ (cantidad_i × tarifa_vigente_i) para todos los registros del período.
+17. Liquidación = Σ (base_pagable_i × tarifa_vigente_i) para todos los registros del período, donde la base es cajas (`quantity`) para productos por caja y kilos (`paid_quantity_kg`) para productos por kg. Los totales de unidades se muestran segmentados (nunca se suman cajas con kilos).
 18. Una liquidación nunca puede ser negativa.
 19. El monto pagado nunca puede exceder el monto liquidado pendiente.
 20. Una liquidación marcada como pagada es inmutable.

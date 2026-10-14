@@ -19,6 +19,13 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Pago por kilo y variedades de producto** (feature flags `kg_payment` y
+  `product_varieties`, override por organización). Convive con el pago por caja sin cambiar
+  su comportamiento: con ambos flags apagados, web y móvil funcionan como hoy (solo caja).
+  Incluye variedades bajo el producto (gestión con baja soft), tarifa por sujeto
+  (producto o variedad con historial propio), paño con variedad obligatoria cuando el
+  producto tiene variedades, registro en kg (con destare → neto pagado, o kilos manuales),
+  y totales segmentados por unidad (cajas / kilos) en registros, producción y liquidaciones.
 - **Documentación de RBAC configurable y capacidades**: se documentó en
   [Reglas de negocio](dominio/reglas-de-negocio.md) la capa de perfiles de permisos
   (reglas 34-39), el estado `PermissionProfile` y el catálogo completo de capacidades

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { resolveFeatureFlag } from '@fundo360/shared';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -30,8 +31,10 @@ export function useFeatureFlag(key: string) {
         .eq('flag_key', key)
         .maybeSingle();
 
-      if (override) return override.enabled as boolean;
-      return (globalFlag?.enabled as boolean) ?? false;
+      return resolveFeatureFlag(
+        (globalFlag?.enabled as boolean | null | undefined) ?? null,
+        (override?.enabled as boolean | null | undefined) ?? null,
+      );
     },
     staleTime: 5 * 60 * 1000,
   });

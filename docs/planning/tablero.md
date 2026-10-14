@@ -10,7 +10,7 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
     la función de "no depender de Jira" y mantener todo en un solo lugar compartible.
 
 > **Convención de IDs**: `F-xx` (paridad/legacy), `M2-xx` / `M3-xx` (hitos del backlog).
-> **Última actualización**: 2026-10-02.
+> **Última actualización**: 2026-10-13.
 
 ---
 
@@ -18,11 +18,9 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Origen | Estimación | Prioridad |
 |----|-------|--------|-----------|:---------:|
-| F-01 | Confirmar y, si aplica, implementar **pago por kilo** | [Decisión 1](../legacy/decisiones-negocio.md#1-pago-por-kilo-o-por-bandeja) | 2–3 d | 🔴 P0 |
 | F-02 | **Calidad**: catálogo + captura en registro | [Decisión 2](../legacy/decisiones-negocio.md#2-calidad-afecta-la-tarifa) | 2–3 d | 🟡 P1 |
 | F-03 | **Calidad afecta tarifa** (tarifa por producto + calidad) | [Decisión 2](../legacy/decisiones-negocio.md#2-calidad-afecta-la-tarifa) | +3–4 d | 🟡 P1 |
 | F-04 | **Lote/guía de despacho** (si se confirma) | [Decisión 3](../legacy/decisiones-negocio.md#3-loteguia-de-despacho) | 5–8 d | 🟡 P2 |
-| F-05 | **Variedad por cuartel** (si se confirma) | [Decisión 4](../legacy/decisiones-negocio.md#4-variedad-por-cuartel) | 0,5 d | 🟢 P3 |
 | M2-01b | Imágenes de respaldo **en pagos** (pendiente) | [Backlog §5](../producto/backlog-reunion.md) | 2–3 d | 🟡 P1 |
 | M2-03 | Informes exportables (PDF / Excel) | [Backlog §8](../producto/backlog-reunion.md) | 5–7 d | 🟡 P1 |
 | M2-04 | Ticketera de soporte (MVP bandeja) | [Backlog §6](../producto/backlog-reunion.md) | 3–4 d | 🟡 P1 |
@@ -42,6 +40,8 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Entregado |
 |----|-------|-----------|
+| F-01 | **Pago por kilo** (variedades + tarifa por variedad, gating por feature flags, coexistencia con pago por caja) | ✅ |
+| F-05 | **Variedad por cuartel** (variedades bajo el producto; un paño = un producto/variedad; tarifa por variedad) | ✅ |
 | M2-01 | Imágenes de respaldo en el registro de picking (foto + Storage por tenant) | ✅ |
 | M2-02 | Accesibilidad: tamaño de texto configurable (Normal/Grande/Extra) | ✅ |
 | M1-01 | RBAC configurable (perfiles de permisos) | ✅ |
