@@ -1,0 +1,21 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Utilidad CSV pura reutilizable client-side (toCSV + downloadBlob) con tests unitarios. Sin dependencias nuevas. Independiente de FEAT-001; es prerequisito de FEAT-003 (las paginas /records y /dashboard la usan).",
+  "status": "completed",
+  "steps": [
+    "Crear apps/web/src/lib/export/csv.ts con: type CsvColumn<T> = { header: string; value: (row: T) => string | number | null | undefined }; funcion toCSV<T>(rows, columns): Blob que serializa con BOM inicial U+FEFF, separador punto y coma, fin de linea CRLF, escapado (si el campo contiene ; o comilla doble o salto de linea se envuelve en comillas dobles y las comillas internas se duplican), y null/undefined -> cadena vacia; Blob con type text/csv;charset=utf-8. Anadir downloadBlob(blob, filename): void que crea un <a download>, hace click y revoca la URL. TS strict, sin any.",
+    "Crear apps/web/src/lib/export/csv.test.ts (Vitest) cubriendo: BOM presente al inicio; separador ; entre columnas y CRLF entre filas; header en la primera fila respetando el orden de columns; escapado de campos con ;, con comillas (duplicadas) y con salto de linea; null/undefined -> celda vacia; numeros emitidos tal cual los devuelva value. downloadBlob no se testea (depende del DOM)."
+  ],
+  "acceptance_criteria": [
+    "apps/web/src/lib/export/csv.ts exporta CsvColumn, toCSV y downloadBlob tipados sin any y compila en TS strict.",
+    "npm run test -w @fundo360/web pasa los tests de csv.test.ts (BOM, separador, EOL, escapado, orden de columnas, celdas vacias).",
+    "npm run build -w @fundo360/web compila sin errores."
+  ],
+  "verification": [
+    "npm run test -w @fundo360/web — csv.test.ts en verde (si vitest requiere config por el entorno, limitar los tests a logica pura sin DOM, que es el caso).",
+    "npm run build -w @fundo360/web — sin errores de typecheck."
+  ],
+  "blocked_reason": null,
+  "findings": "Implementado csv.ts (CsvColumn<T>, toCSV, downloadBlob) y csv.test.ts (9 tests). Vitest 3 corrio zero-config sin añadir vitest.config ni dependencias; no fue necesario ajustar config. Nota de testing: Blob.text() descarta el BOM inicial (su TextDecoder lo ignora por defecto), por eso el test lee los bytes crudos con arrayBuffer() + TextDecoder({ignoreBOM:true}) para verificar el U+FEFF. Verificacion OK: `npm run test -w @fundo360/web` 9/9 en verde; `npm run build -w @fundo360/web` sin errores de typecheck (el .test.ts entra en el typecheck de next build via tsconfig include **/*.ts y compila limpio con los tipos de vitest)."
+}
