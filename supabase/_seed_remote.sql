@@ -222,7 +222,8 @@ INSERT INTO platform_feature_flags (key, name, description, category, strategy, 
   ('offline_sync', 'Sincronización Offline', 'Cola de mutaciones persistida en el dispositivo con reconexión resiliente.', 'infraestructura', 'org_override', true),
   ('ai_yield_prediction', 'Predicción de Rendimiento (IA)', 'Proyección de recolección basada en datos históricos y curvas de maduración.', 'analitica', 'org_override', false),
   ('advanced_metrics', 'Métricas Avanzadas', 'Dashboard de analítica extendida y rankings de productividad.', 'analitica', 'org_override', false),
-  ('disable_pdf_export', 'Kill-Switch: Exportación PDF', 'Interruptor de emergencia que detiene la generación de PDFs pesados en picos de carga.', 'infraestructura', 'kill_switch', false)
+  ('disable_pdf_export', 'Kill-Switch: Exportación PDF', 'Interruptor de emergencia que detiene la generación de PDFs pesados en picos de carga.', 'infraestructura', 'kill_switch', false),
+  ('report_export', 'Informes exportables', 'Habilita la exportacion de informes desde el dashboard web: PDF de liquidaciones y CSV de produccion y rankings.', 'analitica', 'org_override', false)
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO organization_feature_flags (organization_id, flag_key, enabled) VALUES

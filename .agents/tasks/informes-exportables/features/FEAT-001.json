@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Capa catalogo del feature flag report_export (org_override, default off): migracion nueva + siembra en ambos seeds, siguiendo el patron de los flags existentes. Independiente de FEAT-002. Es prerequisito de FEAT-003 (las paginas consumen el flag).",
+  "status": "completed",
+  "steps": [
+    "Crear supabase/migrations/20261004000001_feature_flag_report_export.sql con header de reversibilidad (comentario: DELETE FROM platform_feature_flags WHERE key = 'report_export';) e INSERT INTO platform_feature_flags (key, name, description, category, strategy, enabled) VALUES ('report_export', 'Informes exportables', 'Habilita la exportacion de informes desde el dashboard web: PDF de liquidaciones y CSV de produccion y rankings.', 'analitica', 'org_override', false) ON CONFLICT (key) DO NOTHING; (mismo estilo que supabase/migrations/20261003000005_feature_flags_kg_varieties.sql).",
+    "En supabase/seed.sql: localizar en el bloque VALUES de platform_feature_flags la ultima fila ('disable_pdf_export', ...'kill_switch', false) que hoy NO tiene coma final y va seguida de ON CONFLICT (key) DO NOTHING; anadir una coma al final de esa linea y, debajo, la fila ('report_export', 'Informes exportables', 'Habilita la exportacion de informes desde el dashboard web: PDF de liquidaciones y CSV de produccion y rankings.', 'analitica', 'org_override', false) manteniendo intacto el ON CONFLICT (key) DO NOTHING.",
+    "Repetir el mismo cambio en supabase/_seed_remote.sql (misma estructura: coma tras la fila disable_pdf_export + nueva fila report_export + ON CONFLICT intacto)."
+  ],
+  "acceptance_criteria": [
+    "Existe supabase/migrations/20261004000001_feature_flag_report_export.sql con el INSERT idempotente ON CONFLICT (key) DO NOTHING y strategy 'org_override', enabled false.",
+    "supabase/seed.sql y supabase/_seed_remote.sql incluyen la fila report_export con la coma correcta tras disable_pdf_export y el ON CONFLICT intacto (SQL valido).",
+    "Si hay runtime de contenedores, tras db:reset un SELECT de report_export devuelve 1 fila con enabled=false."
+  ],
+  "verification": [
+    "Preferente (si Rancher/dockerd disponible): npm run db:reset desde el worktree y confirmar via SQL que report_export existe con enabled=false.",
+    "Fallback (sin contenedores): revisar que la migracion y ambos seeds son SQL valido (coma anadida tras disable_pdf_export, nueva fila report_export, ON CONFLICT intacto); dejar constancia en findings de que no se pudo correr db:reset."
+  ],
+  "blocked_reason": null,
+  "findings": "Capa CATALOGO lista: migracion supabase/migrations/20261004000001_feature_flag_report_export.sql (INSERT idempotente ON CONFLICT DO NOTHING, strategy org_override, enabled false) + fila report_export agregada en supabase/seed.sql y supabase/_seed_remote.sql (coma anadida tras disable_pdf_export; ON CONFLICT intacto). Verificado con runtime de contenedores: `npx supabase db reset` corrio OK aplicando la migracion y sembrando sin errores; `SELECT key, strategy, enabled FROM platform_feature_flags WHERE key='report_export'` -> 1 fila (org_override, enabled=f). NOTA de amarre 3-capas (hook feature-flag-wiring): aqui solo se completa la capa 1 (catalogo). La capa 2 (CODIGO: consumo del flag efectivo via useFeatureFlag en /settlements, /records, /dashboard) corresponde a FEAT-003. La capa 3 (PANEL super-admin /platform/feature-flags) es automatica: el flag aparece por catalogo y se gestiona (enabled/overrides) sin cambios de UI. No se introduce creacion/edicion de identidad de flags desde la consola."
+}
