@@ -6,10 +6,14 @@ import { success, error } from '../_shared/response.ts';
 /**
  * Gestión de Feature Flags de plataforma (solo super-admin).
  *
+ * El catálogo de flags (key/name/category/strategy) lo define el equipo de desarrollo por
+ * migración, atado al código que consume cada flag. Desde la consola NO se crean flags
+ * (serían "flags muertos" sin efecto) ni se edita su identidad; solo se ajusta la
+ * descripción, se activa/desactiva el default global y se gestionan overrides por tenant.
+ *
  * Rutas:
  *   GET    /platform-feature-flags                       -> catálogo global (con conteo de overrides)
- *   POST   /platform-feature-flags                       -> crear flag
- *   PATCH  /platform-feature-flags/:key                  -> editar flag (name/description/category/strategy/enabled)
+ *   PATCH  /platform-feature-flags/:key                  -> editar flag (solo description/enabled)
  *   DELETE /platform-feature-flags/:key                  -> borrar flag (y sus overrides por CASCADE)
  *   GET    /platform-feature-flags/:key/overrides        -> overrides por organización de un flag
  *   PUT    /platform-feature-flags/:key/overrides/:orgId -> set override { enabled }
@@ -17,9 +21,6 @@ import { success, error } from '../_shared/response.ts';
  *
  * Todo usa service client (bypass RLS) y registra auditoría en platform_audit_log.
  */
-
-const KEY_RE = /^[a-z0-9]+(_[a-z0-9]+)*$/;
-const STRATEGIES = ['global', 'org_override', 'kill_switch'];
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -48,9 +49,14 @@ Deno.serve(async (req) => {
     }
 
     // ----- Catálogo global -----
+    // El catálogo de flags lo define el equipo de desarrollo por migración/seed,
+    // atado al código que consume cada flag. No se permite crear flags desde la
+    // consola: un flag sin código que lo lea sería un "flag muerto" sin efecto.
     if (!key) {
       if (req.method === 'GET') return await listFlags(admin);
-      if (req.method === 'POST') return await createFlag(req, admin);
+      if (req.method === 'POST') {
+        return error('FORBIDDEN', 'Los feature flags los define el equipo de desarrollo (por migración), no se crean desde la consola. Desde aquí solo se activan/desactivan y se gestionan overrides por organización.', 403);
+      }
       return error('NOT_FOUND', 'Método no soportado', 405);
     }
 
@@ -93,66 +99,23 @@ async function listFlags(admin: any) {
   return success(enriched);
 }
 
-/** POST /platform-feature-flags — crear flag */
-async function createFlag(req: Request, admin: any) {
-  const body = await req.json();
-
-  if (!body.key || typeof body.key !== 'string' || !KEY_RE.test(body.key)) {
-    return error('VALIDATION_ERROR', 'Key inválido (minúsculas, números y guion bajo)', 422);
-  }
-  if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
-    return error('VALIDATION_ERROR', 'Nombre del flag es requerido', 422);
-  }
-  if (body.strategy && !STRATEGIES.includes(body.strategy)) {
-    return error('VALIDATION_ERROR', 'Estrategia inválida', 422);
-  }
-
-  const { data, error: dbError } = await admin
-    .from('platform_feature_flags')
-    .insert({
-      key: body.key,
-      name: body.name.trim(),
-      description: body.description || null,
-      category: (body.category && String(body.category).trim()) || 'general',
-      strategy: body.strategy || 'org_override',
-      enabled: body.enabled === true,
-    })
-    .select()
-    .single();
-
-  if (dbError) {
-    if (dbError.code === '23505') return error('VALIDATION_ERROR', 'El key ya está en uso', 409);
-    return error('VALIDATION_ERROR', dbError.message, 400);
-  }
-
-  await logPlatformAction(req, admin, null, 'create_feature_flag', `platform_feature_flags:${data.key}`, {
-    key: data.key,
-    enabled: data.enabled,
-  });
-  return success(data, 201);
-}
-
-/** PATCH /platform-feature-flags/:key — editar flag */
+/**
+ * PATCH /platform-feature-flags/:key — editar flag.
+ *
+ * La identidad del flag (key, name, category, strategy) la define el equipo de
+ * desarrollo por migración, atada al código que lo consume; NO es editable desde la
+ * consola. El super-admin solo puede ajustar la `description` (texto de ayuda) y el
+ * `enabled` (default global on/off). Cualquier otro campo se ignora.
+ */
 async function updateFlag(req: Request, admin: any, key: string) {
   const body = await req.json();
   const updates: Record<string, unknown> = {};
 
-  if (body.name !== undefined) {
-    if (typeof body.name !== 'string' || body.name.trim().length === 0) {
-      return error('VALIDATION_ERROR', 'Nombre no puede estar vacío', 422);
-    }
-    updates.name = body.name.trim();
-  }
   if (body.description !== undefined) updates.description = body.description || null;
-  if (body.category !== undefined) updates.category = (String(body.category).trim()) || 'general';
-  if (body.strategy !== undefined) {
-    if (!STRATEGIES.includes(body.strategy)) return error('VALIDATION_ERROR', 'Estrategia inválida', 422);
-    updates.strategy = body.strategy;
-  }
   if (body.enabled !== undefined) updates.enabled = body.enabled === true;
 
   if (Object.keys(updates).length === 0) {
-    return error('VALIDATION_ERROR', 'No se proporcionaron campos para actualizar', 422);
+    return error('VALIDATION_ERROR', 'Solo se pueden actualizar la descripción y el estado (enabled) del flag', 422);
   }
 
   const { data, error: dbError } = await admin
