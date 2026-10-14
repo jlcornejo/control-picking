@@ -1,0 +1,32 @@
+{
+  "project_type": "Monorepo Turborepo: Next.js 15 App Router web dashboard (apps/web) + Expo React Native (apps/mobile) + Supabase (migrations + Edge Functions) + packages/shared (tipos/validacion/helpers)",
+  "language": "TypeScript strict (no any; usar unknown + type guards)",
+  "build_system": "npm workspaces + Turborepo. Build por paquete con `-w <name>`. apps/web usa Next 15 (next build). tsconfig strict con noEmit, paths '@/*' -> ./src/*.",
+  "test_framework": "Vitest 3 (zero-config, recoge src/**/*.test.ts). packages/shared ya tiene tests (p.ej. src/types/picking-payment.test.ts). apps/web tiene script `test: vitest --run` pero AUN no tiene config ni tests; vitest zero-config recoge los *.test.ts que se agreguen bajo src.",
+  "build_command": "npm run build -w @fundo360/web",
+  "test_command": "npm run test -w @fundo360/web  (y npm run test -w @fundo360/shared para shared)",
+  "verification_instructions": "1) Build/typecheck: `npm run build -w @fundo360/web` sin errores (TS strict). 2) Unit: `npm run test -w @fundo360/web` en verde para toCSV y builders puros. 3) Migracion/seed: `npm run db:reset` y comprobar `SELECT key, enabled FROM platform_feature_flags WHERE key='report_export'` -> 1 fila false; requiere Rancher Desktop en modo dockerd(moby). Si no hay runtime de contenedores, verificar por inspeccion SQL (coma anadida en seeds + ON CONFLICT intacto). 4) Manual en navegador con report_export activado para la org de prueba: /settlements genera PDF con resumen por unidad y total sin cambios; /records descarga CSV con BOM/;/formato es-CL; /dashboard descarga CSV de ranking segmentado cajas/kg; disable_pdf_export on oculta solo el boton PDF; report_export off oculta los tres botones sin romper paginas.",
+  "snapshot_or_generated_files": "null — no hay archivos generados que se chequeen al repo para esta tarea. Las migraciones son fuente; no se corre db:diff.",
+  "environment_constraints": "macOS sin comando `timeout`. Contenedores via Rancher Desktop + nerdctl (NO Docker Desktop); Supabase CLI necesita Rancher en modo dockerd(moby) y la VM encendida, si no `db:reset` falla. Si el entorno de contenedores no esta disponible, verificar migracion/seed por inspeccion SQL y validar el resto con build/test de @fundo360/web. Trabajar SIEMPRE en el worktree; nunca pushear.",
+  "contribution_requirements": "Codigo/vars/commits en ingles; UI/docs en espanol; comentarios en ingles. Conventional Commits `type(scope): description` (scopes: fields, workers, picking, payments, metrics, auth, infra). kebab-case archivos; snake_case DB; UUIDs. API response {success,data,meta}/{success,error} (no aplica aqui: sin rutas REST nuevas). Feature flags: toda feature de usuario nueva DEBE estar detras de un flag con amarre de 3 capas (catalogo via migracion/seed, codigo que lee estado efectivo via useFeatureFlag, panel admin automatico). El hook .kiro/hooks/feature-flag-wiring.json verifica el amarre al guardar migracion/seed. Paginacion/validacion/logs segun tech.md donde aplique.",
+  "key_patterns": "Flags: migracion INSERT INTO platform_feature_flags (key,name,description,category,strategy,enabled) ... ON CONFLICT (key) DO NOTHING; patron en supabase/migrations/20261003000005_feature_flags_kg_varieties.sql. Resolucion efectiva override->global via resolveFeatureFlag en @fundo360/shared, consumida por el hook apps/web/src/hooks/useFeatureFlag.ts que retorna {enabled: data ?? false, loading}; durante loading enabled=false (degradacion limpia sin flicker). PDF: generateSettlementPDF en apps/web/src/components/settlement/SettlementPDF.tsx usa jsPDF+jspdf-autotable; tiene formatQty/formatProduct locales y NO importa de @/lib/format. Formato numeros: apps/web/src/lib/format.ts (formatNumber crudo, formatUnit(x,'kg') -> '… kg', formatUnit(x,'box'|undefined) -> '… cajas', unitLabel -> 'kg'|'cajas'). /records y /settlements usan embeds con FK nombrada obligatoria: blocks ... products!fk_blocks_product_org(name), product_varieties!fk_blocks_variety_org(name); workers!fk_... . pickingPayableBase/pickingSubtotal de @fundo360/shared calculan base/subtotal desde {payment_unit,quantity,paid_quantity_kg,rate_amount_snapshot}.",
+  "relevant_files": [
+    "supabase/migrations/20261003000005_feature_flags_kg_varieties.sql (patron de migracion de flags)",
+    "supabase/migrations/20261004000001_feature_flag_report_export.sql (NUEVO)",
+    "supabase/seed.sql (bloque VALUES de platform_feature_flags termina en disable_pdf_export sin coma + ON CONFLICT)",
+    "supabase/_seed_remote.sql (idem seed.sql)",
+    "apps/web/src/lib/export/csv.ts (NUEVO: toCSV + downloadBlob)",
+    "apps/web/src/lib/export/csv.test.ts (NUEVO)",
+    "apps/web/src/lib/format.ts (formatNumber/formatUnit/unitLabel)",
+    "apps/web/src/hooks/useFeatureFlag.ts (hook de estado efectivo)",
+    "apps/web/src/components/settlement/SettlementPDF.tsx (generateSettlementPDF; SettlementPDFData NO cambia)",
+    "apps/web/src/app/(dashboard)/settlements/page.tsx (handleExportPDF + boton '↓ PDF' a gatear)",
+    "apps/web/src/app/(dashboard)/records/page.tsx (query picking_records + workerMap/blockMap; boton Exportar CSV)",
+    "apps/web/src/app/(dashboard)/dashboard/page.tsx (useQuery dashboard-ranking; boton Exportar CSV)",
+    ".kiro/steering/feature-flags.md (catalogo de flags vigentes)",
+    "CHANGELOG.md",
+    "docs/changelog.md",
+    "docs/planning/tablero.md (fila M2-03)"
+  ],
+  "directory_structure": "apps/web/src/{app/(dashboard)/{settlements,records,dashboard}/page.tsx, components/settlement/SettlementPDF.tsx, hooks/useFeatureFlag.ts, lib/{format.ts, export/ (NUEVO)}}; packages/shared/src/{index.ts exporta resolveFeatureFlag, pickingPayableBase, pickingSubtotal, UnitMeasure}; supabase/{migrations/, seed.sql, _seed_remote.sql}; docs/{changelog.md, planning/tablero.md}; .kiro/{steering/, hooks/feature-flag-wiring.json}."
+}

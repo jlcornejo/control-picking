@@ -1,0 +1,10 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "detail": "El ranking on-screen de /dashboard sigue sumando cajas y kg en el mismo contador `units` (byWorker[...].units += Number(r.quantity)); el CSV ya corrige esto segmentando por payment_unit desde las filas crudas. Es una asimetria UI vs. dato exportado documentada y declarada fuera de alcance en design.md (seccion 'Fuera de alcance'). No bloquea; queda como deuda tecnica para cuando se alinee el agregado de la vista."
+    }
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.worktrees/informes-exportables/.agents/tasks/informes-exportables/2026-10-07-093100-review.md"
+}

@@ -1,0 +1,7 @@
+{
+  "task_id": "task-informes-exportables",
+  "task_description": "M2-03 Informes exportables dashboard web: PDF de liquidaciones (resumen por unidad + gating), CSV de produccion en /records y CSV de rankings en /dashboard, client-side detras del nuevo feature flag report_export (org_override, default off) con amarre de 3 capas, mas conexion del kill-switch existente disable_pdf_export solo al PDF. Sin dependencias nuevas. Multi-tenant por RLS. Invariantes preservadas: settlements inmutables, pago sin cambios, RBAC intacto.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}
