@@ -28,7 +28,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     <div className="flex h-screen overflow-hidden">
       <PlatformNav adminName={admin.full_name || user.email || ''} />
       <main className="flex-1 overflow-y-auto">
-        <div className="p-4 lg:p-8 pt-16 lg:pt-8 max-w-6xl mx-auto">
+        <div className="p-4 lg:p-8 pt-16 lg:pt-8 max-w-screen-2xl mx-auto">
           {children}
         </div>
       </main>
