@@ -18,10 +18,10 @@ se decide implementarla y lo que necesitamos **confirmar con el cliente**.
 - **Pregunta para negocio**:
     1. ¿La **tarifa** que se paga al cosechero **cambia según la calidad**?
     2. ¿Necesitan **reportar** cuántos kilos salieron de cada calidad?
-- **Impacto**:
-    - Si no afecta tarifa ni se reporta → **dato muerto**, se descarta.
-    - Si solo se reporta volumen → calidad es un **catálogo** + un campo en el registro (bajo).
-    - Si **afecta la tarifa** → la tarifa pasa a depender de producto **+ calidad** (alto).
+- **Decisión (validada con negocio)**: la calidad **no afecta la tarifa** y **no se mide**.
+  No se reporta por calidad por ahora. Es **dato muerto → se descarta**. Las tareas F-02
+  (catálogo + captura de calidad) y F-03 (calidad afecta tarifa) quedan **descartadas**; no
+  se implementan. Si el negocio lo requiere a futuro, se reabre como feature nueva.
 
 ### 3. Lote/guía de despacho
 
@@ -98,8 +98,8 @@ Registradas para no volver a discutirlas.
 | # | Decisión | Estado | Impacto si va |
 |---|----------|:------:|---------------|
 | 1 | Pago por kilo (coexiste con caja) | ✅ Cerrada (implementada) | Alto — definió el modelo |
-| 2 | Calidad afecta tarifa | 🟡 Abierta | Alto si afecta tarifa |
-| 3 | Lote/guía de despacho | 🟡 Abierta | Muy alto si va |
+| 2 | Calidad afecta tarifa | ✅ Cerrada (descartada) | No se mide ni afecta tarifa — dato muerto |
+| 3 | Lote/guía de despacho | ✅ Cerrada (implementada) | F-04: guía por paño y cierre de campo + recepción vs despacho |
 | 4 | Variedad bajo el producto | ✅ Cerrada (implementada) | Variedad + tarifa por variedad |
 | — | Contratista = cuadrilla | ✅ Cerrada | — |
 | — | Tipo cosecha | ✅ Cerrada (descartada) | — |
