@@ -30,7 +30,7 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Origen | Nota |
 |----|-------|--------|------|
-| F-04 | **Lote/guía de despacho** (`dispatch_guides`) | [Decisión 3](../legacy/decisiones-negocio.md#3-loteguia-de-despacho) | Data layer + API + web entregados tras feature flag; no afecta el pago. |
+| — | *(sin tareas en curso)* | — | — |
 
 ---
 
@@ -38,6 +38,7 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Entregado |
 |----|-------|-----------|
+| F-04 | **Lote/guía de despacho** (`dispatch_guides`: guía por paño y cierre diario de campo, recepción vs despacho con merma, peso preciso/aprox; tras feature flag, no afecta el pago) | ✅ |
 | F-01 | **Pago por kilo** (variedades + tarifa por variedad, gating por feature flags, coexistencia con pago por caja) | ✅ |
 | F-05 | **Variedad por cuartel** (variedades bajo el producto; un paño = un producto/variedad; tarifa por variedad) | ✅ |
 | M2-03 | **Informes exportables** (PDF de liquidaciones con resumen por unidad, CSV de producción y CSV de ranking segmentado; flag `report_export`, [Backlog §8](../producto/backlog-reunion.md)) | ✅ |
