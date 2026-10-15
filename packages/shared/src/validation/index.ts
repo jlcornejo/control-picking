@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UnitMeasure, WorkerRole, ToleranceUnit, ALL_CAPABILITIES } from '../types/index';
+import { UnitMeasure, WorkerRole, ToleranceUnit, ALL_CAPABILITIES, DispatchScope } from '../types/index';
 
 /** Validation: Create a new product */
 export const createProductSchema = z.object({
@@ -197,6 +197,37 @@ export const changePasswordSchema = z
     message: 'Las contraseñas no coinciden',
     path: ['confirm_password'],
   });
+
+/** Validation: Create a dispatch guide (auto-suggested from picking). */
+export const createDispatchGuideSchema = z.object({
+  scope: z.nativeEnum(DispatchScope),
+  field_id: z.string().uuid(),
+  block_id: z.string().uuid().nullable().optional(),
+  work_day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)'),
+  guide_number: z.string().min(1, 'Número de guía requerido').max(60),
+  carrier: z.string().max(150).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+}).refine(
+  (v) => (v.scope === DispatchScope.FIELD ? !v.block_id : !!v.block_id),
+  { message: 'scope=field no lleva block_id; scope=block requiere block_id', path: ['block_id'] },
+);
+
+/** Validation: Edit a dispatch guide's content (only while status=open). */
+export const updateDispatchGuideSchema = z.object({
+  total_trays: z.number().min(0).optional(),
+  total_weight_kg: z.number().min(0).optional(),
+  guide_number: z.string().min(1).max(60).optional(),
+  carrier: z.string().max(150).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+/** Validation: Register a dispatch receipt (what the client/plant received). */
+export const createDispatchReceiptSchema = z.object({
+  received_trays: z.number().min(0, 'Bandejas recibidas no puede ser negativo'),
+  received_weight_kg: z.number().min(0, 'Peso recibido no puede ser negativo'),
+  received_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
 
 /** Validation: Pagination query params */
 export const paginationSchema = z.object({

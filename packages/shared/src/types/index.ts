@@ -45,6 +45,27 @@ export enum UnitMeasure {
   KG = 'kg',
 }
 
+/** Dispatch guide aggregation level. */
+export enum DispatchScope {
+  /** One block/paño on a day. */
+  BLOCK = 'block',
+  /** Whole-field daily close. */
+  FIELD = 'field',
+}
+
+/** Dispatch guide lifecycle. */
+export enum DispatchGuideStatus {
+  OPEN = 'open',     // editable
+  CLOSED = 'closed', // inmutable salvo reapertura
+}
+
+/** Where the guide's weight comes from. */
+export enum DispatchWeightSource {
+  SCALE = 'scale',         // todo net_weight_kg (balanza)
+  ESTIMATED = 'estimated', // todo aproximado
+  MIXED = 'mixed',         // parte balanza, parte estimado
+}
+
 /** Unit in which a box type expresses its weight tolerance */
 export enum ToleranceUnit {
   /** Tolerance is a percentage of the target net weight. */
@@ -506,4 +527,134 @@ export function hasCapability(
 ): boolean {
   if (profileCapabilities === null || profileCapabilities === undefined) return true;
   return profileCapabilities.includes(capability);
+}
+
+// ============================================================
+// Dispatch guides (F-04): guía de despacho (logística campo -> cliente)
+// ============================================================
+
+export interface DispatchGuide extends BaseEntity {
+  organization_id: string;
+  scope: DispatchScope;
+  field_id: string;
+  block_id: string | null;      // null en scope 'field'
+  work_day: string;
+  status: DispatchGuideStatus;
+  guide_number: string;
+  total_trays: number;          // bandejas despachadas
+  total_weight_kg: number;      // peso despachado
+  weight_precise: boolean;      // true = balanza
+  weight_source: DispatchWeightSource;
+  carrier: string | null;
+  notes: string | null;
+  closed_at: string | null;
+  created_by: string;
+}
+
+export interface DispatchReceipt extends BaseEntity {
+  organization_id: string;
+  guide_id: string;
+  received_trays: number;
+  received_weight_kg: number;
+  received_at: string;
+  notes: string | null;
+  recorded_by: string;
+}
+
+/** Despacho vs recepción (merma/diferencia en tránsito). */
+export interface DispatchComparison {
+  dispatched_trays: number;
+  dispatched_weight_kg: number;
+  received_trays: number;        // SUMA de dispatch_receipts (hoy 1 fila)
+  received_weight_kg: number;
+  /** dispatched - received (positivo = merma; negativo = sobrante). */
+  trays_diff: number;
+  weight_diff_kg: number;
+  /** Porcentaje de merma de peso respecto a lo despachado (0 si despachado=0). */
+  weight_shrinkage_pct: number;
+  has_receipt: boolean;          // false si aún no hay recepción
+}
+
+/** Línea sugerida al armar la guía (agregado de picking_records del grupo). */
+export interface DispatchSuggestion {
+  scope: DispatchScope;
+  field_id: string;
+  block_id: string | null;
+  work_day: string;
+  total_trays: number;
+  total_weight_kg: number;
+  weight_precise: boolean;
+  weight_source: DispatchWeightSource;
+  record_count: number;
+}
+
+/** Fila mínima de picking para agregar el contenido logístico de la guía. */
+export interface DispatchWeightInput {
+  quantity: number;                 // bandejas
+  net_weight_kg: number | null;     // peso neto de balanza (destare), si existe
+  box_type_target_net_kg: number | null; // target del box_type para estimar, si existe
+}
+
+/**
+ * Agrega peso de un conjunto de picking_records para una guía de despacho.
+ * - net_weight_kg presente -> peso preciso (balanza).
+ * - net_weight_kg ausente  -> estimado = quantity * box_type_target_net_kg (0 si no hay target).
+ * Devuelve el total de bandejas, el total de peso y la procedencia del peso.
+ */
+export function aggregateDispatchWeight(records: DispatchWeightInput[]): {
+  total_trays: number;
+  total_weight_kg: number;
+  weight_precise: boolean;
+  weight_source: DispatchWeightSource;
+} {
+  let trays = 0;
+  let weight = 0;
+  let anyScale = false;
+  let anyEstimated = false;
+  for (const r of records) {
+    trays += Number(r.quantity);
+    if (r.net_weight_kg != null) {
+      weight += Number(r.net_weight_kg);
+      anyScale = true;
+    } else {
+      weight += Number(r.quantity) * Number(r.box_type_target_net_kg ?? 0);
+      anyEstimated = true;
+    }
+  }
+  const source: DispatchWeightSource =
+    anyScale && anyEstimated ? DispatchWeightSource.MIXED
+    : anyScale ? DispatchWeightSource.SCALE
+    : DispatchWeightSource.ESTIMATED;
+  return {
+    total_trays: Math.round(trays * 100) / 100,
+    total_weight_kg: Math.round(weight * 1000) / 1000,
+    weight_precise: source === DispatchWeightSource.SCALE,
+    weight_source: source,
+  };
+}
+
+/** Compara despachado vs recibido. received = suma de recepciones (0 si no hay). */
+export function compareDispatch(
+  dispatchedTrays: number,
+  dispatchedWeightKg: number,
+  receivedTrays: number | null,
+  receivedWeightKg: number | null,
+): DispatchComparison {
+  const rt = Number(receivedTrays ?? 0);
+  const rw = Number(receivedWeightKg ?? 0);
+  const traysDiff = Math.round((dispatchedTrays - rt) * 100) / 100;
+  const weightDiff = Math.round((dispatchedWeightKg - rw) * 1000) / 1000;
+  const pct = dispatchedWeightKg > 0
+    ? Math.round((weightDiff / dispatchedWeightKg) * 10000) / 100
+    : 0;
+  return {
+    dispatched_trays: dispatchedTrays,
+    dispatched_weight_kg: dispatchedWeightKg,
+    received_trays: rt,
+    received_weight_kg: rw,
+    trays_diff: traysDiff,
+    weight_diff_kg: weightDiff,
+    weight_shrinkage_pct: pct,
+    has_receipt: receivedTrays != null || receivedWeightKg != null,
+  };
 }
