@@ -19,6 +19,15 @@ con el CLI; el frontend web se despliega en Vercel desde `main`.
 
 ### Añadido
 
+- **Guías de despacho** (F-04, feature flag `dispatch_guides`, override por organización,
+  default **off**): documento logístico de la fruta que sale del campo hacia el cliente.
+  Agrega la cosecha (`picking_records`) por paño/cuartel o como cierre diario del campo,
+  con totales de bandejas y peso auto-sugeridos y editables antes de cerrar; el peso puede
+  ser preciso (balanza) o aproximado (estimado desde el peso objetivo de la caja). Permite
+  registrar la recepción del cliente (1:1 por guía, preparado para parciales) y comparar
+  despachado vs recibido resaltando la merma. Guía cerrada inmutable salvo reapertura. La
+  feature **no afecta el pago**: solo lee `picking_records`, nunca escribe
+  `settlements`/`payments`. Solo web en esta iteración (móvil sin cambios).
 - **Informes exportables en el dashboard web** (feature flag `report_export`, override por
   organización, default **off**): PDF de liquidaciones con resumen por unidad (cajas /
   kilos) además del total en `/settlements`, CSV de producción en `/records` (formato

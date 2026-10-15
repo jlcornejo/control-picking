@@ -183,6 +183,12 @@
           "type": "boolean",
           "nullable": true,
           "comment": "Override del Modo Capataz para este campo. NULL hereda el default de la organización."
+        },
+        {
+          "name": "rows_enabled",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Override del uso de Melgas para este campo. NULL hereda el default de la organización."
         }
       ],
       "indexes": [
@@ -330,6 +336,12 @@
           "name": "organization_id",
           "type": "uuid",
           "nullable": false
+        },
+        {
+          "name": "variety_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Variedad única del paño/cuartel (FK compuesta de tenant a product_varieties). Obligatoria cuando el producto tiene variedades activas; NULL cuando no."
         }
       ],
       "indexes": [
@@ -380,6 +392,14 @@
           "columns": [
             "id",
             "organization_id"
+          ]
+        },
+        {
+          "name": "idx_blocks_variety",
+          "def": "CREATE INDEX idx_blocks_variety ON public.blocks USING btree (variety_id) WHERE (variety_id IS NOT NULL)",
+          "table": "public.blocks",
+          "columns": [
+            "variety_id"
           ]
         }
       ],
@@ -457,6 +477,21 @@
             "id",
             "organization_id"
           ]
+        },
+        {
+          "name": "fk_blocks_variety_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (variety_id, organization_id) REFERENCES product_varieties(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.blocks",
+          "referenced_table": "public.product_varieties",
+          "columns": [
+            "variety_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
         }
       ],
       "triggers": [
@@ -467,6 +502,10 @@
         {
           "name": "trg_set_org_id_blocks",
           "def": "CREATE TRIGGER trg_set_org_id_blocks BEFORE INSERT ON public.blocks FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        },
+        {
+          "name": "trg_validate_block_variety",
+          "def": "CREATE TRIGGER trg_validate_block_variety BEFORE INSERT OR UPDATE OF variety_id, product_id ON public.blocks FOR EACH ROW EXECUTE FUNCTION validate_block_variety()"
         }
       ]
     },
@@ -514,6 +553,12 @@
           "name": "organization_id",
           "type": "uuid",
           "nullable": false
+        },
+        {
+          "name": "variety_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Variedad a la que aplica la tarifa (FK compuesta de tenant a product_varieties). NULL = tarifa a nivel de producto."
         }
       ],
       "indexes": [
@@ -535,19 +580,36 @@
           ]
         },
         {
-          "name": "idx_rates_product_current",
-          "def": "CREATE UNIQUE INDEX idx_rates_product_current ON public.rates USING btree (product_id) WHERE (status = 'current'::rate_status)",
+          "name": "idx_rates_organization",
+          "def": "CREATE INDEX idx_rates_organization ON public.rates USING btree (organization_id)",
+          "table": "public.rates",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_rates_variety",
+          "def": "CREATE INDEX idx_rates_variety ON public.rates USING btree (variety_id) WHERE (variety_id IS NOT NULL)",
+          "table": "public.rates",
+          "columns": [
+            "variety_id"
+          ]
+        },
+        {
+          "name": "uq_rates_product_current_no_variety",
+          "def": "CREATE UNIQUE INDEX uq_rates_product_current_no_variety ON public.rates USING btree (product_id) WHERE ((status = 'current'::rate_status) AND (variety_id IS NULL))",
           "table": "public.rates",
           "columns": [
             "product_id"
           ]
         },
         {
-          "name": "idx_rates_organization",
-          "def": "CREATE INDEX idx_rates_organization ON public.rates USING btree (organization_id)",
+          "name": "uq_rates_product_variety_current",
+          "def": "CREATE UNIQUE INDEX uq_rates_product_variety_current ON public.rates USING btree (product_id, variety_id) WHERE ((status = 'current'::rate_status) AND (variety_id IS NOT NULL))",
           "table": "public.rates",
           "columns": [
-            "organization_id"
+            "product_id",
+            "variety_id"
           ]
         }
       ],
@@ -593,6 +655,21 @@
           "referenced_table": "public.products",
           "columns": [
             "product_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_rates_variety_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (variety_id, organization_id) REFERENCES product_varieties(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.rates",
+          "referenced_table": "public.product_varieties",
+          "columns": [
+            "variety_id",
             "organization_id"
           ],
           "referenced_columns": [
@@ -681,6 +758,19 @@
           "type": "uuid",
           "nullable": true,
           "comment": "Cuadrilla a la que pertenece el trabajador (Modo Capataz). NULL si no aplica."
+        },
+        {
+          "name": "must_change_password",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "True si el usuario debe cambiar su contraseña en el próximo login (cuenta creada por el super-admin). La app fuerza el cambio antes de permitir el acceso."
+        },
+        {
+          "name": "permission_profile_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Perfil de permisos que restringe las capacidades del worker dentro de su rol. NULL = capacidades completas del rol (comportamiento por defecto)."
         }
       ],
       "indexes": [
@@ -747,6 +837,14 @@
           "table": "public.workers",
           "columns": [
             "crew_id"
+          ]
+        },
+        {
+          "name": "idx_workers_permission_profile_id",
+          "def": "CREATE INDEX idx_workers_permission_profile_id ON public.workers USING btree (permission_profile_id) WHERE (permission_profile_id IS NOT NULL)",
+          "table": "public.workers",
+          "columns": [
+            "permission_profile_id"
           ]
         }
       ],
@@ -816,6 +914,21 @@
           "referenced_table": "public.crews",
           "columns": [
             "crew_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_workers_permission_profile_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (permission_profile_id, organization_id) REFERENCES permission_profiles(id, organization_id) ON DELETE SET NULL",
+          "table": "public.workers",
+          "referenced_table": "public.permission_profiles",
+          "columns": [
+            "permission_profile_id",
             "organization_id"
           ],
           "referenced_columns": [
@@ -1091,8 +1204,7 @@
         {
           "name": "work_day",
           "type": "date",
-          "nullable": false,
-          "default": "CURRENT_DATE"
+          "nullable": false
         },
         {
           "name": "recorded_by",
@@ -1117,6 +1229,67 @@
           "type": "uuid",
           "nullable": false,
           "comment": "Tenant propietario. Debe coincidir con el de worker y block (FK compuesta)."
+        },
+        {
+          "name": "row_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Melga (field_rows) opcional de donde salió la cosecha. NULL si el tenant/campo no usa melgas. Debe pertenecer al mismo block_id del registro."
+        },
+        {
+          "name": "day_roster_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Roster del día (day_roster) bajo el cual se registró la producción. Congela la atribución trabajador-responsable de esa jornada. NULL para registros sin roster."
+        },
+        {
+          "name": "box_type_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Tipo de caja usada (box_types). NULL si el tenant/producto no usa control de destare. Debe pertenecer al mismo tenant."
+        },
+        {
+          "name": "gross_weight_kg",
+          "type": "numeric(10,3)",
+          "nullable": true,
+          "comment": "Peso bruto pesado en balanza (kg), incluye la tara. Snapshot inmutable de auditoría."
+        },
+        {
+          "name": "tare_snapshot_kg",
+          "type": "numeric(10,3)",
+          "nullable": true,
+          "comment": "Tara aplicada al momento del registro (kg), congelada desde box_types.tare_weight_kg."
+        },
+        {
+          "name": "net_weight_kg",
+          "type": "numeric(10,3)",
+          "nullable": true,
+          "comment": "Peso neto = bruto - tara (kg). Snapshot inmutable de auditoría. No altera el pago (que es por quantity)."
+        },
+        {
+          "name": "out_of_tolerance",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "true si el peso neto quedó fuera de la banda de tolerancia de la caja al registrar. Alerta de merma, no bloqueante."
+        },
+        {
+          "name": "backup_image_path",
+          "type": "text",
+          "nullable": true,
+          "comment": "Ruta (storage key) de la foto de respaldo en el bucket privado picking-evidence. NULL si no se adjuntó. Formato {org_id}/{record_id}/{uuid}.jpg. Se accede con URL firmada temporal; nunca es pública."
+        },
+        {
+          "name": "payment_unit",
+          "type": "unit_measure",
+          "nullable": false,
+          "comment": "Unidad de pago congelada al registrar (box|kg). box: pago por quantity; kg: pago por paid_quantity_kg."
+        },
+        {
+          "name": "paid_quantity_kg",
+          "type": "numeric(10,3)",
+          "nullable": true,
+          "comment": "Kilos pagables (snapshot inmutable). Obligatorio y \u003e 0 cuando payment_unit=kg; NULL cuando payment_unit=box."
         }
       ],
       "indexes": [
@@ -1169,9 +1342,91 @@
           "columns": [
             "organization_id"
           ]
+        },
+        {
+          "name": "idx_picking_records_row_id",
+          "def": "CREATE INDEX idx_picking_records_row_id ON public.picking_records USING btree (row_id) WHERE (row_id IS NOT NULL)",
+          "table": "public.picking_records",
+          "columns": [
+            "row_id"
+          ]
+        },
+        {
+          "name": "idx_picking_records_day_roster",
+          "def": "CREATE INDEX idx_picking_records_day_roster ON public.picking_records USING btree (day_roster_id) WHERE (day_roster_id IS NOT NULL)",
+          "table": "public.picking_records",
+          "columns": [
+            "day_roster_id"
+          ]
+        },
+        {
+          "name": "idx_picking_records_box_type_id",
+          "def": "CREATE INDEX idx_picking_records_box_type_id ON public.picking_records USING btree (box_type_id) WHERE (box_type_id IS NOT NULL)",
+          "table": "public.picking_records",
+          "columns": [
+            "box_type_id"
+          ]
+        },
+        {
+          "name": "idx_picking_records_out_of_tolerance",
+          "def": "CREATE INDEX idx_picking_records_out_of_tolerance ON public.picking_records USING btree (organization_id, work_day) WHERE out_of_tolerance",
+          "table": "public.picking_records",
+          "columns": [
+            "organization_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_picking_payment_unit",
+          "def": "CREATE INDEX idx_picking_payment_unit ON public.picking_records USING btree (payment_unit)",
+          "table": "public.picking_records",
+          "columns": [
+            "payment_unit"
+          ]
         }
       ],
       "constraints": [
+        {
+          "name": "chk_picking_paid_kg",
+          "type": "CHECK",
+          "def": "CHECK ((((payment_unit = 'box'::unit_measure) AND (paid_quantity_kg IS NULL)) OR ((payment_unit = 'kg'::unit_measure) AND (paid_quantity_kg IS NOT NULL) AND (paid_quantity_kg \u003e (0)::numeric))))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "payment_unit",
+            "paid_quantity_kg"
+          ]
+        },
+        {
+          "name": "picking_records_backup_image_path_check",
+          "type": "CHECK",
+          "def": "CHECK (((backup_image_path IS NULL) OR (length(backup_image_path) \u003e 0)))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "backup_image_path"
+          ]
+        },
+        {
+          "name": "picking_records_gross_weight_kg_check",
+          "type": "CHECK",
+          "def": "CHECK (((gross_weight_kg IS NULL) OR (gross_weight_kg \u003e= (0)::numeric)))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "gross_weight_kg"
+          ]
+        },
+        {
+          "name": "picking_records_net_weight_kg_check",
+          "type": "CHECK",
+          "def": "CHECK (((net_weight_kg IS NULL) OR (net_weight_kg \u003e= (0)::numeric)))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "net_weight_kg"
+          ]
+        },
         {
           "name": "picking_records_quantity_check",
           "type": "CHECK",
@@ -1190,6 +1445,16 @@
           "referenced_table": "",
           "columns": [
             "rate_amount_snapshot"
+          ]
+        },
+        {
+          "name": "picking_records_tare_snapshot_kg_check",
+          "type": "CHECK",
+          "def": "CHECK (((tare_snapshot_kg IS NULL) OR (tare_snapshot_kg \u003e= (0)::numeric)))",
+          "table": "public.picking_records",
+          "referenced_table": "",
+          "columns": [
+            "tare_snapshot_kg"
           ]
         },
         {
@@ -1273,12 +1538,64 @@
             "id",
             "organization_id"
           ]
+        },
+        {
+          "name": "fk_picking_row_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (row_id, organization_id) REFERENCES field_rows(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.field_rows",
+          "columns": [
+            "row_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ],
+          "comment": "Garantiza que el picking_record y su melga pertenecen a la misma organización."
+        },
+        {
+          "name": "fk_picking_day_roster_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (day_roster_id, organization_id) REFERENCES day_roster(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.day_roster",
+          "columns": [
+            "day_roster_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ],
+          "comment": "Garantiza que el picking_record y su roster del día pertenecen a la misma organización."
+        },
+        {
+          "name": "fk_picking_box_type_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (box_type_id, organization_id) REFERENCES box_types(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.picking_records",
+          "referenced_table": "public.box_types",
+          "columns": [
+            "box_type_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ],
+          "comment": "Garantiza que el picking_record y su tipo de caja pertenecen a la misma organización."
         }
       ],
       "triggers": [
         {
           "name": "trg_set_org_id_picking_records",
           "def": "CREATE TRIGGER trg_set_org_id_picking_records BEFORE INSERT ON public.picking_records FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        },
+        {
+          "name": "trg_picking_set_work_day",
+          "def": "CREATE TRIGGER trg_picking_set_work_day BEFORE INSERT ON public.picking_records FOR EACH ROW EXECUTE FUNCTION set_picking_work_day()"
         }
       ]
     },
@@ -1838,6 +2155,20 @@
           "type": "timestamp with time zone",
           "nullable": false,
           "default": "now()"
+        },
+        {
+          "name": "timezone",
+          "type": "text",
+          "nullable": false,
+          "default": "'America/Santiago'::text",
+          "comment": "Zona horaria IANA de la organización (ej. America/Santiago). Autoridad del work_day."
+        },
+        {
+          "name": "rows_enabled",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Default de uso de Melgas (field_rows); cada campo puede sobreescribirlo."
         }
       ],
       "indexes": [
@@ -1920,6 +2251,10 @@
         {
           "name": "trg_organizations_updated_at",
           "def": "CREATE TRIGGER trg_organizations_updated_at BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_organizations_validate_timezone",
+          "def": "CREATE TRIGGER trg_organizations_validate_timezone BEFORE INSERT OR UPDATE OF timezone ON public.organizations FOR EACH ROW EXECUTE FUNCTION validate_organization_timezone()"
         }
       ]
     },
@@ -2334,6 +2669,1762 @@
           "def": "CREATE TRIGGER trg_set_org_id_crews BEFORE INSERT ON public.crews FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
         }
       ]
+    },
+    {
+      "name": "public.field_rows",
+      "type": "BASE TABLE",
+      "comment": "Melga/hilera - subdivisión de un block (cuartel/paño). Nivel opcional (rows_enabled). Hereda producto y tarifa del block.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "block_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Block (cuartel/paño) al que pertenece la melga."
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false
+        },
+        {
+          "name": "row_number",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Número de melga/hilera para ordenar y ubicar en terreno. Opcional."
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "field_rows_pkey",
+          "def": "CREATE UNIQUE INDEX field_rows_pkey ON public.field_rows USING btree (id)",
+          "table": "public.field_rows",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_field_rows_block_id",
+          "def": "CREATE INDEX idx_field_rows_block_id ON public.field_rows USING btree (block_id)",
+          "table": "public.field_rows",
+          "columns": [
+            "block_id"
+          ]
+        },
+        {
+          "name": "idx_field_rows_organization",
+          "def": "CREATE INDEX idx_field_rows_organization ON public.field_rows USING btree (organization_id)",
+          "table": "public.field_rows",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_field_rows_status",
+          "def": "CREATE INDEX idx_field_rows_status ON public.field_rows USING btree (status)",
+          "table": "public.field_rows",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "uq_field_rows_id_org",
+          "def": "CREATE UNIQUE INDEX uq_field_rows_id_org ON public.field_rows USING btree (id, organization_id)",
+          "table": "public.field_rows",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "field_rows_row_number_check",
+          "type": "CHECK",
+          "def": "CHECK (((row_number IS NULL) OR (row_number \u003e 0)))",
+          "table": "public.field_rows",
+          "referenced_table": "",
+          "columns": [
+            "row_number"
+          ]
+        },
+        {
+          "name": "field_rows_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.field_rows",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_field_rows_block_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.field_rows",
+          "referenced_table": "public.blocks",
+          "columns": [
+            "block_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ],
+          "comment": "Garantiza que la melga y su block pertenecen a la misma organización."
+        },
+        {
+          "name": "field_rows_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.field_rows",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_field_rows_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.field_rows",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_field_rows_updated_at",
+          "def": "CREATE TRIGGER trg_field_rows_updated_at BEFORE UPDATE ON public.field_rows FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_field_rows",
+          "def": "CREATE TRIGGER trg_set_org_id_field_rows BEFORE INSERT ON public.field_rows FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        }
+      ]
+    },
+    {
+      "name": "public.day_roster",
+      "type": "BASE TABLE",
+      "comment": "Equipo de trabajo por jornada: qué trabajadores están a cargo de qué responsable (Encargado o Supervisor) en un work_day. Fuente de verdad operativa por día; workers.crew_id es solo la cuadrilla base de referencia.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "work_day",
+          "type": "date",
+          "nullable": false,
+          "comment": "Jornada (fecha) del equipo, en la zona horaria del tenant."
+        },
+        {
+          "name": "worker_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "lead_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Responsable del día: worker con rol crew_lead (Encargado) o supervisor cuando no hay Encargado."
+        },
+        {
+          "name": "crew_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Cuadrilla asociada cuando el responsable es un Encargado. NULL si el trabajador depende directo del Supervisor."
+        },
+        {
+          "name": "added_by",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Worker (responsable o supervisor) que agregó al trabajador al roster del día."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "day_roster_pkey",
+          "def": "CREATE UNIQUE INDEX day_roster_pkey ON public.day_roster USING btree (id)",
+          "table": "public.day_roster",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_day_roster_worker_day",
+          "def": "CREATE UNIQUE INDEX uq_day_roster_worker_day ON public.day_roster USING btree (organization_id, work_day, worker_id)",
+          "table": "public.day_roster",
+          "columns": [
+            "organization_id",
+            "work_day",
+            "worker_id"
+          ]
+        },
+        {
+          "name": "idx_day_roster_organization",
+          "def": "CREATE INDEX idx_day_roster_organization ON public.day_roster USING btree (organization_id)",
+          "table": "public.day_roster",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_day_roster_lead_day",
+          "def": "CREATE INDEX idx_day_roster_lead_day ON public.day_roster USING btree (lead_id, work_day)",
+          "table": "public.day_roster",
+          "columns": [
+            "lead_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_day_roster_worker_day",
+          "def": "CREATE INDEX idx_day_roster_worker_day ON public.day_roster USING btree (worker_id, work_day)",
+          "table": "public.day_roster",
+          "columns": [
+            "worker_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_day_roster_crew_day",
+          "def": "CREATE INDEX idx_day_roster_crew_day ON public.day_roster USING btree (crew_id, work_day) WHERE (crew_id IS NOT NULL)",
+          "table": "public.day_roster",
+          "columns": [
+            "crew_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "uq_day_roster_id_org",
+          "def": "CREATE UNIQUE INDEX uq_day_roster_id_org ON public.day_roster USING btree (id, organization_id)",
+          "table": "public.day_roster",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "day_roster_added_by_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (added_by) REFERENCES workers(id) ON DELETE RESTRICT",
+          "table": "public.day_roster",
+          "referenced_table": "public.workers",
+          "columns": [
+            "added_by"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "day_roster_lead_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (lead_id) REFERENCES workers(id) ON DELETE RESTRICT",
+          "table": "public.day_roster",
+          "referenced_table": "public.workers",
+          "columns": [
+            "lead_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "day_roster_worker_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE",
+          "table": "public.day_roster",
+          "referenced_table": "public.workers",
+          "columns": [
+            "worker_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "day_roster_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.day_roster",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_day_roster_added_by_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (added_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.day_roster",
+          "referenced_table": "public.workers",
+          "columns": [
+            "added_by",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_day_roster_lead_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (lead_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.day_roster",
+          "referenced_table": "public.workers",
+          "columns": [
+            "lead_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_day_roster_worker_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE CASCADE",
+          "table": "public.day_roster",
+          "referenced_table": "public.workers",
+          "columns": [
+            "worker_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_day_roster_crew_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE SET NULL",
+          "table": "public.day_roster",
+          "referenced_table": "public.crews",
+          "columns": [
+            "crew_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "day_roster_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.day_roster",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_day_roster_worker_day",
+          "type": "UNIQUE",
+          "def": "UNIQUE (organization_id, work_day, worker_id)",
+          "table": "public.day_roster",
+          "referenced_table": "",
+          "columns": [
+            "organization_id",
+            "work_day",
+            "worker_id"
+          ],
+          "comment": "Un trabajador tiene un único responsable por jornada (evita doble atribución de producción)."
+        },
+        {
+          "name": "uq_day_roster_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.day_roster",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_set_org_id_day_roster",
+          "def": "CREATE TRIGGER trg_set_org_id_day_roster BEFORE INSERT ON public.day_roster FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        },
+        {
+          "name": "trg_set_work_day_day_roster",
+          "def": "CREATE TRIGGER trg_set_work_day_day_roster BEFORE INSERT ON public.day_roster FOR EACH ROW EXECUTE FUNCTION set_day_roster_work_day()"
+        }
+      ]
+    },
+    {
+      "name": "public.platform_feature_flags",
+      "type": "BASE TABLE",
+      "comment": "Catálogo global de feature flags de la plataforma (super-admin). Default global en enabled; override por tenant en organization_feature_flags.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "key",
+          "type": "varchar(80)",
+          "nullable": false,
+          "comment": "Identificador estable del flag, usado por las apps para consultar su estado."
+        },
+        {
+          "name": "name",
+          "type": "varchar(150)",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "category",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": "'general'::character varying"
+        },
+        {
+          "name": "strategy",
+          "type": "feature_flag_strategy",
+          "nullable": false,
+          "default": "'org_override'::feature_flag_strategy",
+          "comment": "Informativa: global (mismo valor para todos), org_override (se puede sobreescribir por tenant), kill_switch (interruptor de emergencia)."
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Valor por defecto global del flag cuando no hay override para la organización."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "platform_feature_flags_pkey",
+          "def": "CREATE UNIQUE INDEX platform_feature_flags_pkey ON public.platform_feature_flags USING btree (id)",
+          "table": "public.platform_feature_flags",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_platform_feature_flags_key",
+          "def": "CREATE UNIQUE INDEX uq_platform_feature_flags_key ON public.platform_feature_flags USING btree (key)",
+          "table": "public.platform_feature_flags",
+          "columns": [
+            "key"
+          ]
+        },
+        {
+          "name": "idx_platform_feature_flags_category",
+          "def": "CREATE INDEX idx_platform_feature_flags_category ON public.platform_feature_flags USING btree (category)",
+          "table": "public.platform_feature_flags",
+          "columns": [
+            "category"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_platform_feature_flags_key",
+          "type": "CHECK",
+          "def": "CHECK (((key)::text ~ '^[a-z0-9]+(_[a-z0-9]+)*$'::text))",
+          "table": "public.platform_feature_flags",
+          "referenced_table": "",
+          "columns": [
+            "key"
+          ]
+        },
+        {
+          "name": "platform_feature_flags_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.platform_feature_flags",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_platform_feature_flags_key",
+          "type": "UNIQUE",
+          "def": "UNIQUE (key)",
+          "table": "public.platform_feature_flags",
+          "referenced_table": "",
+          "columns": [
+            "key"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_platform_feature_flags_updated_at",
+          "def": "CREATE TRIGGER trg_platform_feature_flags_updated_at BEFORE UPDATE ON public.platform_feature_flags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        }
+      ]
+    },
+    {
+      "name": "public.organization_feature_flags",
+      "type": "BASE TABLE",
+      "comment": "Override por organización de un feature flag global. Ausencia de fila = hereda el default global (platform_feature_flags.enabled).",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "flag_key",
+          "type": "varchar(80)",
+          "nullable": false,
+          "comment": "Referencia al key del flag global."
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "nullable": false,
+          "comment": "Valor efectivo del flag para esta organización (sobreescribe el default global)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "organization_feature_flags_pkey",
+          "def": "CREATE UNIQUE INDEX organization_feature_flags_pkey ON public.organization_feature_flags USING btree (id)",
+          "table": "public.organization_feature_flags",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_org_feature_flags",
+          "def": "CREATE UNIQUE INDEX uq_org_feature_flags ON public.organization_feature_flags USING btree (organization_id, flag_key)",
+          "table": "public.organization_feature_flags",
+          "columns": [
+            "organization_id",
+            "flag_key"
+          ]
+        },
+        {
+          "name": "idx_org_feature_flags_org",
+          "def": "CREATE INDEX idx_org_feature_flags_org ON public.organization_feature_flags USING btree (organization_id)",
+          "table": "public.organization_feature_flags",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_org_feature_flags_key",
+          "def": "CREATE INDEX idx_org_feature_flags_key ON public.organization_feature_flags USING btree (flag_key)",
+          "table": "public.organization_feature_flags",
+          "columns": [
+            "flag_key"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "organization_feature_flags_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+          "table": "public.organization_feature_flags",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "organization_feature_flags_flag_key_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (flag_key) REFERENCES platform_feature_flags(key) ON DELETE CASCADE",
+          "table": "public.organization_feature_flags",
+          "referenced_table": "public.platform_feature_flags",
+          "columns": [
+            "flag_key"
+          ],
+          "referenced_columns": [
+            "key"
+          ]
+        },
+        {
+          "name": "organization_feature_flags_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.organization_feature_flags",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_org_feature_flags",
+          "type": "UNIQUE",
+          "def": "UNIQUE (organization_id, flag_key)",
+          "table": "public.organization_feature_flags",
+          "referenced_table": "",
+          "columns": [
+            "organization_id",
+            "flag_key"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_org_feature_flags_updated_at",
+          "def": "CREATE TRIGGER trg_org_feature_flags_updated_at BEFORE UPDATE ON public.organization_feature_flags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_org_feature_flags",
+          "def": "CREATE TRIGGER trg_set_org_id_org_feature_flags BEFORE INSERT ON public.organization_feature_flags FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        }
+      ]
+    },
+    {
+      "name": "public.box_types",
+      "type": "BASE TABLE",
+      "comment": "Tipos de caja/envase por organización, con destare (tara), peso neto objetivo y banda de tolerancia. Base del control de merma al pesar la cosecha.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false
+        },
+        {
+          "name": "tare_weight_kg",
+          "type": "numeric(10,3)",
+          "nullable": false,
+          "comment": "Peso propio del envase (kg) que se resta del peso bruto para obtener el neto."
+        },
+        {
+          "name": "target_net_weight_kg",
+          "type": "numeric(10,3)",
+          "nullable": false,
+          "comment": "Peso neto objetivo de fruta por caja (kg)."
+        },
+        {
+          "name": "tolerance_over",
+          "type": "numeric(10,3)",
+          "nullable": false,
+          "default": "0",
+          "comment": "Tolerancia superior permitida antes de alertar sobrellenado. En % o kg según tolerance_unit."
+        },
+        {
+          "name": "tolerance_under",
+          "type": "numeric(10,3)",
+          "nullable": false,
+          "default": "0",
+          "comment": "Tolerancia inferior permitida antes de alertar caja incompleta. En % o kg según tolerance_unit."
+        },
+        {
+          "name": "tolerance_unit",
+          "type": "tolerance_unit",
+          "nullable": false,
+          "default": "'percent'::tolerance_unit",
+          "comment": "Unidad de las tolerancias: percent (% del objetivo) o kg (valor absoluto)."
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "box_types_pkey",
+          "def": "CREATE UNIQUE INDEX box_types_pkey ON public.box_types USING btree (id)",
+          "table": "public.box_types",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_box_types_id_org",
+          "def": "CREATE UNIQUE INDEX uq_box_types_id_org ON public.box_types USING btree (id, organization_id)",
+          "table": "public.box_types",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_box_types_organization",
+          "def": "CREATE INDEX idx_box_types_organization ON public.box_types USING btree (organization_id)",
+          "table": "public.box_types",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_box_types_status",
+          "def": "CREATE INDEX idx_box_types_status ON public.box_types USING btree (status)",
+          "table": "public.box_types",
+          "columns": [
+            "status"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "box_types_tare_weight_kg_check",
+          "type": "CHECK",
+          "def": "CHECK ((tare_weight_kg \u003e= (0)::numeric))",
+          "table": "public.box_types",
+          "referenced_table": "",
+          "columns": [
+            "tare_weight_kg"
+          ]
+        },
+        {
+          "name": "box_types_target_net_weight_kg_check",
+          "type": "CHECK",
+          "def": "CHECK ((target_net_weight_kg \u003e (0)::numeric))",
+          "table": "public.box_types",
+          "referenced_table": "",
+          "columns": [
+            "target_net_weight_kg"
+          ]
+        },
+        {
+          "name": "box_types_tolerance_over_check",
+          "type": "CHECK",
+          "def": "CHECK ((tolerance_over \u003e= (0)::numeric))",
+          "table": "public.box_types",
+          "referenced_table": "",
+          "columns": [
+            "tolerance_over"
+          ]
+        },
+        {
+          "name": "box_types_tolerance_under_check",
+          "type": "CHECK",
+          "def": "CHECK ((tolerance_under \u003e= (0)::numeric))",
+          "table": "public.box_types",
+          "referenced_table": "",
+          "columns": [
+            "tolerance_under"
+          ]
+        },
+        {
+          "name": "box_types_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.box_types",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "box_types_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.box_types",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_box_types_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.box_types",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_box_types_updated_at",
+          "def": "CREATE TRIGGER trg_box_types_updated_at BEFORE UPDATE ON public.box_types FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_box_types",
+          "def": "CREATE TRIGGER trg_set_org_id_box_types BEFORE INSERT ON public.box_types FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        }
+      ]
+    },
+    {
+      "name": "public.permission_profiles",
+      "type": "BASE TABLE",
+      "comment": "Perfiles de permisos por organización. Restringen las capacidades de un usuario dentro de su rol (nunca amplían). Gestionados por el admin del cliente.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false
+        },
+        {
+          "name": "capabilities",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb",
+          "comment": "Array JSONB de capacidades habilitadas (keys del catálogo CAPABILITIES en @fundo360/shared)."
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "permission_profiles_pkey",
+          "def": "CREATE UNIQUE INDEX permission_profiles_pkey ON public.permission_profiles USING btree (id)",
+          "table": "public.permission_profiles",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_permission_profiles_id_org",
+          "def": "CREATE UNIQUE INDEX uq_permission_profiles_id_org ON public.permission_profiles USING btree (id, organization_id)",
+          "table": "public.permission_profiles",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_permission_profiles_organization",
+          "def": "CREATE INDEX idx_permission_profiles_organization ON public.permission_profiles USING btree (organization_id)",
+          "table": "public.permission_profiles",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_permission_profiles_status",
+          "def": "CREATE INDEX idx_permission_profiles_status ON public.permission_profiles USING btree (status)",
+          "table": "public.permission_profiles",
+          "columns": [
+            "status"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_permission_profiles_capabilities_is_array",
+          "type": "CHECK",
+          "def": "CHECK ((jsonb_typeof(capabilities) = 'array'::text))",
+          "table": "public.permission_profiles",
+          "referenced_table": "",
+          "columns": [
+            "capabilities"
+          ]
+        },
+        {
+          "name": "permission_profiles_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.permission_profiles",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "permission_profiles_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.permission_profiles",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_permission_profiles_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.permission_profiles",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_permission_profiles_updated_at",
+          "def": "CREATE TRIGGER trg_permission_profiles_updated_at BEFORE UPDATE ON public.permission_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_permission_profiles",
+          "def": "CREATE TRIGGER trg_set_org_id_permission_profiles BEFORE INSERT ON public.permission_profiles FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        }
+      ]
+    },
+    {
+      "name": "public.product_varieties",
+      "type": "BASE TABLE",
+      "comment": "Variedades de producto por organización (nivel jerárquico bajo el producto). Un producto puede tener 0..N variedades; cada variedad puede asignarse a paños y tener tarifa propia.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "product_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Producto al que pertenece la variedad (FK compuesta de tenant a products)."
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "comment": "Nombre de la variedad, único (case-insensitive) entre variedades activas del mismo producto."
+        },
+        {
+          "name": "status",
+          "type": "entity_status",
+          "nullable": false,
+          "default": "'active'::entity_status"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "product_varieties_pkey",
+          "def": "CREATE UNIQUE INDEX product_varieties_pkey ON public.product_varieties USING btree (id)",
+          "table": "public.product_varieties",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_product_varieties_id_org",
+          "def": "CREATE UNIQUE INDEX uq_product_varieties_id_org ON public.product_varieties USING btree (id, organization_id)",
+          "table": "public.product_varieties",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_product_varieties_organization",
+          "def": "CREATE INDEX idx_product_varieties_organization ON public.product_varieties USING btree (organization_id)",
+          "table": "public.product_varieties",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_product_varieties_product",
+          "def": "CREATE INDEX idx_product_varieties_product ON public.product_varieties USING btree (product_id)",
+          "table": "public.product_varieties",
+          "columns": [
+            "product_id"
+          ]
+        },
+        {
+          "name": "idx_product_varieties_status",
+          "def": "CREATE INDEX idx_product_varieties_status ON public.product_varieties USING btree (status)",
+          "table": "public.product_varieties",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "uq_product_varieties_name_per_product",
+          "def": "CREATE UNIQUE INDEX uq_product_varieties_name_per_product ON public.product_varieties USING btree (product_id, lower((name)::text)) WHERE (status = 'active'::entity_status)",
+          "table": "public.product_varieties",
+          "columns": [
+            "product_id",
+            "lower"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "product_varieties_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.product_varieties",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_variety_product_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.product_varieties",
+          "referenced_table": "public.products",
+          "columns": [
+            "product_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "product_varieties_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.product_varieties",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_product_varieties_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.product_varieties",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_product_varieties_updated_at",
+          "def": "CREATE TRIGGER trg_product_varieties_updated_at BEFORE UPDATE ON public.product_varieties FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_product_varieties",
+          "def": "CREATE TRIGGER trg_set_org_id_product_varieties BEFORE INSERT ON public.product_varieties FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        }
+      ]
+    },
+    {
+      "name": "public.dispatch_guides",
+      "type": "BASE TABLE",
+      "comment": "Guía de despacho (logística campo-\u003ecliente). Agrega picking_records (bandejas+peso) por paño o por campo/día. Independiente del pago. Gating: feature flag dispatch_guides.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "scope",
+          "type": "text",
+          "nullable": false,
+          "comment": "block = por paño/cuartel; field = cierre diario del campo entero."
+        },
+        {
+          "name": "field_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "Campo de la guía. Siempre presente (en scope block se deriva del block.field_id)."
+        },
+        {
+          "name": "block_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Paño de la guía. Solo scope=block; NULL en scope=field."
+        },
+        {
+          "name": "work_day",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'open'::text"
+        },
+        {
+          "name": "guide_number",
+          "type": "varchar(60)",
+          "nullable": false
+        },
+        {
+          "name": "total_trays",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "total_weight_kg",
+          "type": "numeric(12,3)",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "weight_precise",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "true = peso de balanza (SUM net_weight_kg); false = aproximado o editado a mano."
+        },
+        {
+          "name": "weight_source",
+          "type": "text",
+          "nullable": false,
+          "default": "'estimated'::text",
+          "comment": "scale (todo balanza), estimated (todo aproximado), mixed (parte balanza/parte estimado)."
+        },
+        {
+          "name": "carrier",
+          "type": "varchar(150)",
+          "nullable": true
+        },
+        {
+          "name": "notes",
+          "type": "varchar(500)",
+          "nullable": true
+        },
+        {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "dispatch_guides_pkey",
+          "def": "CREATE UNIQUE INDEX dispatch_guides_pkey ON public.dispatch_guides USING btree (id)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_guides_id_org",
+          "def": "CREATE UNIQUE INDEX uq_dispatch_guides_id_org ON public.dispatch_guides USING btree (id, organization_id)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_guide_number",
+          "def": "CREATE UNIQUE INDEX uq_dispatch_guide_number ON public.dispatch_guides USING btree (organization_id, guide_number)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "organization_id",
+            "guide_number"
+          ]
+        },
+        {
+          "name": "uq_dispatch_field_day",
+          "def": "CREATE UNIQUE INDEX uq_dispatch_field_day ON public.dispatch_guides USING btree (organization_id, field_id, work_day) WHERE (scope = 'field'::text)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "organization_id",
+            "field_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_dispatch_guides_organization",
+          "def": "CREATE INDEX idx_dispatch_guides_organization ON public.dispatch_guides USING btree (organization_id)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_dispatch_guides_field_id",
+          "def": "CREATE INDEX idx_dispatch_guides_field_id ON public.dispatch_guides USING btree (field_id)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "field_id"
+          ]
+        },
+        {
+          "name": "idx_dispatch_guides_block_id",
+          "def": "CREATE INDEX idx_dispatch_guides_block_id ON public.dispatch_guides USING btree (block_id) WHERE (block_id IS NOT NULL)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "block_id"
+          ]
+        },
+        {
+          "name": "idx_dispatch_guides_org_workday",
+          "def": "CREATE INDEX idx_dispatch_guides_org_workday ON public.dispatch_guides USING btree (organization_id, work_day)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "organization_id",
+            "work_day"
+          ]
+        },
+        {
+          "name": "idx_dispatch_guides_status",
+          "def": "CREATE INDEX idx_dispatch_guides_status ON public.dispatch_guides USING btree (status)",
+          "table": "public.dispatch_guides",
+          "columns": [
+            "status"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "chk_dispatch_scope_block",
+          "type": "CHECK",
+          "def": "CHECK ((((scope = 'field'::text) AND (block_id IS NULL)) OR ((scope = 'block'::text) AND (block_id IS NOT NULL))))",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "scope",
+            "block_id"
+          ]
+        },
+        {
+          "name": "dispatch_guides_scope_check",
+          "type": "CHECK",
+          "def": "CHECK ((scope = ANY (ARRAY['block'::text, 'field'::text])))",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "scope"
+          ]
+        },
+        {
+          "name": "dispatch_guides_status_check",
+          "type": "CHECK",
+          "def": "CHECK ((status = ANY (ARRAY['open'::text, 'closed'::text])))",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "dispatch_guides_total_trays_check",
+          "type": "CHECK",
+          "def": "CHECK ((total_trays \u003e= (0)::numeric))",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "total_trays"
+          ]
+        },
+        {
+          "name": "dispatch_guides_total_weight_kg_check",
+          "type": "CHECK",
+          "def": "CHECK ((total_weight_kg \u003e= (0)::numeric))",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "total_weight_kg"
+          ]
+        },
+        {
+          "name": "dispatch_guides_weight_source_check",
+          "type": "CHECK",
+          "def": "CHECK ((weight_source = ANY (ARRAY['scale'::text, 'estimated'::text, 'mixed'::text])))",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "weight_source"
+          ]
+        },
+        {
+          "name": "dispatch_guides_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.dispatch_guides",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_dispatch_field_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (field_id, organization_id) REFERENCES fields(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.dispatch_guides",
+          "referenced_table": "public.fields",
+          "columns": [
+            "field_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_dispatch_block_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.dispatch_guides",
+          "referenced_table": "public.blocks",
+          "columns": [
+            "block_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_dispatch_created_by_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (created_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.dispatch_guides",
+          "referenced_table": "public.workers",
+          "columns": [
+            "created_by",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "dispatch_guides_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_guides_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_guide_number",
+          "type": "UNIQUE",
+          "def": "UNIQUE (organization_id, guide_number)",
+          "table": "public.dispatch_guides",
+          "referenced_table": "",
+          "columns": [
+            "organization_id",
+            "guide_number"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_dispatch_guides_updated_at",
+          "def": "CREATE TRIGGER trg_dispatch_guides_updated_at BEFORE UPDATE ON public.dispatch_guides FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_dispatch_guides",
+          "def": "CREATE TRIGGER trg_set_org_id_dispatch_guides BEFORE INSERT ON public.dispatch_guides FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        },
+        {
+          "name": "trg_dispatch_guides_immutable_when_closed",
+          "def": "CREATE TRIGGER trg_dispatch_guides_immutable_when_closed BEFORE UPDATE ON public.dispatch_guides FOR EACH ROW EXECUTE FUNCTION prevent_closed_guide_update()"
+        }
+      ]
+    },
+    {
+      "name": "public.dispatch_receipts",
+      "type": "BASE TABLE",
+      "comment": "Recepción confirmada por el cliente/planta para una guía (bandejas+peso recibidos). Tabla separada 1:N-ready; hoy 1:1 por índice único uq_dispatch_receipt_one_per_guide.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "guide_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "received_trays",
+          "type": "numeric(12,2)",
+          "nullable": false
+        },
+        {
+          "name": "received_weight_kg",
+          "type": "numeric(12,3)",
+          "nullable": false
+        },
+        {
+          "name": "received_at",
+          "type": "date",
+          "nullable": false,
+          "default": "CURRENT_DATE"
+        },
+        {
+          "name": "notes",
+          "type": "varchar(500)",
+          "nullable": true
+        },
+        {
+          "name": "recorded_by",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "dispatch_receipts_pkey",
+          "def": "CREATE UNIQUE INDEX dispatch_receipts_pkey ON public.dispatch_receipts USING btree (id)",
+          "table": "public.dispatch_receipts",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_receipts_id_org",
+          "def": "CREATE UNIQUE INDEX uq_dispatch_receipts_id_org ON public.dispatch_receipts USING btree (id, organization_id)",
+          "table": "public.dispatch_receipts",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_receipt_one_per_guide",
+          "def": "CREATE UNIQUE INDEX uq_dispatch_receipt_one_per_guide ON public.dispatch_receipts USING btree (guide_id)",
+          "table": "public.dispatch_receipts",
+          "columns": [
+            "guide_id"
+          ],
+          "comment": "Restringe a una recepción por guía (1:1). Eliminar este índice habilita recepciones parciales 1:N."
+        },
+        {
+          "name": "idx_dispatch_receipts_organization",
+          "def": "CREATE INDEX idx_dispatch_receipts_organization ON public.dispatch_receipts USING btree (organization_id)",
+          "table": "public.dispatch_receipts",
+          "columns": [
+            "organization_id"
+          ]
+        },
+        {
+          "name": "idx_dispatch_receipts_guide_id",
+          "def": "CREATE INDEX idx_dispatch_receipts_guide_id ON public.dispatch_receipts USING btree (guide_id)",
+          "table": "public.dispatch_receipts",
+          "columns": [
+            "guide_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "dispatch_receipts_received_trays_check",
+          "type": "CHECK",
+          "def": "CHECK ((received_trays \u003e= (0)::numeric))",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "",
+          "columns": [
+            "received_trays"
+          ]
+        },
+        {
+          "name": "dispatch_receipts_received_weight_kg_check",
+          "type": "CHECK",
+          "def": "CHECK ((received_weight_kg \u003e= (0)::numeric))",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "",
+          "columns": [
+            "received_weight_kg"
+          ]
+        },
+        {
+          "name": "dispatch_receipts_organization_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "public.organizations",
+          "columns": [
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fk_receipt_recorded_by_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (recorded_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "public.workers",
+          "columns": [
+            "recorded_by",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "fk_receipt_guide_org",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (guide_id, organization_id) REFERENCES dispatch_guides(id, organization_id) ON DELETE CASCADE",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "public.dispatch_guides",
+          "columns": [
+            "guide_id",
+            "organization_id"
+          ],
+          "referenced_columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        {
+          "name": "dispatch_receipts_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_dispatch_receipts_id_org",
+          "type": "UNIQUE",
+          "def": "UNIQUE (id, organization_id)",
+          "table": "public.dispatch_receipts",
+          "referenced_table": "",
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_dispatch_receipts_updated_at",
+          "def": "CREATE TRIGGER trg_dispatch_receipts_updated_at BEFORE UPDATE ON public.dispatch_receipts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+        },
+        {
+          "name": "trg_set_org_id_dispatch_receipts",
+          "def": "CREATE TRIGGER trg_set_org_id_dispatch_receipts BEFORE INSERT ON public.dispatch_receipts FOR EACH ROW EXECUTE FUNCTION set_organization_id()"
+        }
+      ]
     }
   ],
   "relations": [
@@ -2407,6 +4498,21 @@
       "def": "FOREIGN KEY (field_id, organization_id) REFERENCES fields(id, organization_id) ON DELETE RESTRICT"
     },
     {
+      "table": "public.blocks",
+      "columns": [
+        "variety_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.product_varieties",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (variety_id, organization_id) REFERENCES product_varieties(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
       "table": "public.rates",
       "columns": [
         "organization_id"
@@ -2435,6 +4541,21 @@
       "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT"
     },
     {
+      "table": "public.rates",
+      "columns": [
+        "variety_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.product_varieties",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (variety_id, organization_id) REFERENCES product_varieties(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
       "table": "public.workers",
       "columns": [
         "organization_id"
@@ -2461,6 +4582,21 @@
       ],
       "parent_cardinality": "exactly_one",
       "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE SET NULL"
+    },
+    {
+      "table": "public.workers",
+      "columns": [
+        "permission_profile_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.permission_profiles",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (permission_profile_id, organization_id) REFERENCES permission_profiles(id, organization_id) ON DELETE SET NULL"
     },
     {
       "table": "public.supervisor_assignments",
@@ -2590,6 +4726,51 @@
       ],
       "parent_cardinality": "exactly_one",
       "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "row_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.field_rows",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (row_id, organization_id) REFERENCES field_rows(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "day_roster_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.day_roster",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (day_roster_id, organization_id) REFERENCES day_roster(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.picking_records",
+      "columns": [
+        "box_type_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.box_types",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (box_type_id, organization_id) REFERENCES box_types(id, organization_id) ON DELETE RESTRICT"
     },
     {
       "table": "public.settlements",
@@ -2786,6 +4967,327 @@
       ],
       "parent_cardinality": "exactly_one",
       "def": "FOREIGN KEY (supervisor_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.field_rows",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.field_rows",
+      "columns": [
+        "block_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.blocks",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "added_by"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (added_by) REFERENCES workers(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "lead_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (lead_id) REFERENCES workers(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "worker_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "added_by",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (added_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "lead_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (lead_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "worker_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (worker_id, organization_id) REFERENCES workers(id, organization_id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.day_roster",
+      "columns": [
+        "crew_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.crews",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (crew_id, organization_id) REFERENCES crews(id, organization_id) ON DELETE SET NULL"
+    },
+    {
+      "table": "public.organization_feature_flags",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.organization_feature_flags",
+      "columns": [
+        "flag_key"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.platform_feature_flags",
+      "parent_columns": [
+        "key"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (flag_key) REFERENCES platform_feature_flags(key) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.box_types",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.permission_profiles",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.product_varieties",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.product_varieties",
+      "columns": [
+        "product_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.products",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (product_id, organization_id) REFERENCES products(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_guides",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_guides",
+      "columns": [
+        "field_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.fields",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (field_id, organization_id) REFERENCES fields(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_guides",
+      "columns": [
+        "block_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.blocks",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (block_id, organization_id) REFERENCES blocks(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_guides",
+      "columns": [
+        "created_by",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (created_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_receipts",
+      "columns": [
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.organizations",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_receipts",
+      "columns": [
+        "recorded_by",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.workers",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (recorded_by, organization_id) REFERENCES workers(id, organization_id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "public.dispatch_receipts",
+      "columns": [
+        "guide_id",
+        "organization_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.dispatch_guides",
+      "parent_columns": [
+        "id",
+        "organization_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (guide_id, organization_id) REFERENCES dispatch_guides(id, organization_id) ON DELETE CASCADE"
     }
   ],
   "functions": [
@@ -2869,6 +5371,60 @@
     },
     {
       "name": "public.set_organization_id",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.validate_organization_timezone",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.org_workday",
+      "return_type": "date",
+      "arguments": "p_org_id uuid",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.current_org_workday",
+      "return_type": "date",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.set_picking_work_day",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.set_day_roster_work_day",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.worker_in_my_roster_today",
+      "return_type": "bool",
+      "arguments": "p_worker_id uuid",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.has_permission",
+      "return_type": "bool",
+      "arguments": "capability text",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.validate_block_variety",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.prevent_closed_guide_update",
       "return_type": "trigger",
       "arguments": "",
       "type": "FUNCTION"
@@ -2961,6 +5517,14 @@
       ]
     },
     {
+      "name": "public.feature_flag_strategy",
+      "values": [
+        "global",
+        "kill_switch",
+        "org_override"
+      ]
+    },
+    {
       "name": "public.rate_status",
       "values": [
         "current",
@@ -2989,6 +5553,13 @@
         "cancelled",
         "suspended",
         "trial"
+      ]
+    },
+    {
+      "name": "public.tolerance_unit",
+      "values": [
+        "kg",
+        "percent"
       ]
     },
     {

@@ -50,10 +50,17 @@ Fundo360 es una plataforma SaaS multi-cliente para la gestión integral de opera
 - **Liquidación en dos niveles**: cliente → encargado → trabajadores
 - **Consola de plataforma**: alta de clientes, suscripciones, impersonación de soporte auditada
 
+### Logística (en curso, tras feature flag)
+
+- **Guías de despacho (F-04)**: documento campo ↔ cliente que agrega la cosecha por paño o
+  como cierre diario del campo, con recepción del cliente y comparación despachado vs recibido
+  (merma). Independiente del pago. Solo web por ahora (flag `dispatch_guides`, default off).
+
 ### Próximo
 
 - MFA para administradores de plataforma
 - App móvil del encargado (pantallas específicas de cuadrilla y pagos)
+- Guía de despacho en terreno (móvil) reutilizando backend + shared
 - Offline sync, integraciones contables, reportes avanzados
 
 ## Métricas de éxito

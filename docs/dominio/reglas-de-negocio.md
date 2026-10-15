@@ -166,3 +166,29 @@ Catálogo de capacidades disponibles:
 
 !!! warning "La UI no es la barrera de seguridad"
     La verificación de capacidades ocurre en tres capas (base de datos vía RLS, backend en la Edge Function, e interfaz). La interfaz solo oculta lo que no corresponde por comodidad visual: **la barrera real es backend + RLS**. Nunca se debe confiar en el ocultamiento de la UI para proteger una acción.
+
+## Guías de despacho (F-04, flag `dispatch_guides`)
+
+La **guía de despacho** es el documento logístico de la fruta que **sale** del campo hacia el
+cliente/exportadora. Es la relación campo ↔ cliente y es **independiente del pago**.
+
+- **40. La guía solo lee la cosecha, no la modifica.** Los totales (bandejas y peso) se agregan
+  desde `picking_records` del grupo (por paño o por campo en una jornada). La guía **nunca**
+  escribe `settlements`/`payments` ni altera `picking_records`; por eso las invariantes de pago
+  (picking `quantity > 0`, tarifas `> 0`, liquidaciones inmutables al pagar) quedan intactas.
+- **41. Dos niveles (`scope`).** `block` = por paño/cuartel; `field` = cierre diario del campo
+  entero. Puede existir **una sola** guía de cierre de campo por `(campo, día)`; en nivel `block`
+  se permiten varias (distinto número de talonario físico).
+- **42. Peso preciso vs aproximado.** Si toda la cosecha del grupo tiene peso de balanza
+  (`net_weight_kg`), el peso es **preciso** (`weight_source = scale`). Si falta en algún registro,
+  se estima con el peso objetivo de la caja y queda **aproximado** (`estimated`/`mixed`). Editar el
+  peso a mano marca la guía como aproximada.
+- **43. Guía cerrada inmutable.** Una guía `closed` solo admite la transición de **reapertura pura**
+  (`closed → open`, sin tocar contenido), reforzada por trigger en la base de datos. Para editar hay
+  que reabrir primero. Cerrar exige peso despachado `> 0`.
+- **44. Recepción 1:1 (hoy).** Cada guía admite **una** recepción del cliente (bandejas y peso
+  recibidos); el modelo queda preparado para recepciones parciales 1:N. La comparación despachado vs
+  recibido calcula la **merma** (positiva) o sobrante (negativa) y el porcentaje de merma de peso.
+- **45. Identidad y aislamiento.** `created_by`/`recorded_by` se toman del `worker_id` del token; una
+  escritura sin esa identidad (p. ej. platform-admin sin fila en `workers`) responde `403`. El
+  aislamiento entre organizaciones lo garantizan RLS y las FKs compuestas de tenant.

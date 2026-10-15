@@ -20,7 +20,6 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 |----|-------|--------|-----------|:---------:|
 | F-02 | **Calidad**: catálogo + captura en registro | [Decisión 2](../legacy/decisiones-negocio.md#2-calidad-afecta-la-tarifa) | 2–3 d | 🟡 P1 |
 | F-03 | **Calidad afecta tarifa** (tarifa por producto + calidad) | [Decisión 2](../legacy/decisiones-negocio.md#2-calidad-afecta-la-tarifa) | +3–4 d | 🟡 P1 |
-| F-04 | **Lote/guía de despacho** (si se confirma) | [Decisión 3](../legacy/decisiones-negocio.md#3-loteguia-de-despacho) | 5–8 d | 🟡 P2 |
 | M2-01b | Imágenes de respaldo **en pagos** (pendiente) | [Backlog §5](../producto/backlog-reunion.md) | 2–3 d | 🟡 P1 |
 | M2-04 | Ticketera de soporte (MVP bandeja) | [Backlog §6](../producto/backlog-reunion.md) | 3–4 d | 🟡 P1 |
 | M3-01 | Visibilidad de cosecha del trabajador (capacidad RBAC) | [Backlog §3](../producto/backlog-reunion.md) | 1–2 d | 🟢 P2 |
@@ -31,7 +30,7 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Origen | Nota |
 |----|-------|--------|------|
-| — | *(sin tareas en curso)* | — | — |
+| F-04 | **Lote/guía de despacho** (`dispatch_guides`) | [Decisión 3](../legacy/decisiones-negocio.md#3-loteguia-de-despacho) | Data layer + API + web entregados tras feature flag; no afecta el pago. |
 
 ---
 

@@ -183,6 +183,25 @@ El historial (`current`/`historical`) se acota al sujeto.
 | POST | `/api/crews/:id/members` | Asignar trabajador a la cuadrilla (admin) |
 | DELETE | `/api/crews/:id/members` | Quitar trabajador de la cuadrilla (admin) |
 
+### Dispatch Guides (Guías de despacho) — flag `dispatch_guides`
+
+Logística de salida del campo hacia el cliente. Agrega `picking_records` (bandejas + peso);
+**no** toca `settlements`/`payments` ni modifica el picking. Escritura: `admin`/`supervisor`
+(reabrir: solo `admin`). Con el flag apagado para la organización, las escrituras responden
+`403 DISPATCH_FEATURE_DISABLED`.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/dispatch-guides` | Listar guías (paginado; filtros scope/field_id/block_id/work_day o date_from/date_to/status) |
+| GET | `/api/dispatch-guides/suggestion` | Previsualizar totales auto-sugeridos desde la cosecha (no persiste) |
+| POST | `/api/dispatch-guides` | Crear guía (totales auto-sugeridos; `created_by` desde el token) |
+| GET | `/api/dispatch-guides/:id` | Detalle con recepción y comparación despachado vs recibido |
+| PUT | `/api/dispatch-guides/:id` | Editar contenido (solo guía abierta; editar peso ⇒ aproximado) |
+| POST | `/api/dispatch-guides/:id/close` | Cerrar (exige peso > 0; idempotente si ya está cerrada) |
+| POST | `/api/dispatch-guides/:id/reopen` | Reabrir (solo estado; admin) |
+| POST | `/api/dispatch-guides/:id/receipt` | Registrar recepción del cliente (1:1 por guía) |
+| PUT | `/api/dispatch-guides/:id/receipt` | Corregir la recepción (permitido con la guía cerrada) |
+
 ### Organizations (Plataforma)
 
 | Método | Ruta | Descripción |

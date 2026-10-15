@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useBranding } from '@/hooks/useBranding';
 import { useOrgSettings } from '@/hooks/useOrgSettings';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 
 interface SidebarProps {
   workerName: string;
@@ -15,7 +16,7 @@ interface SidebarProps {
 
 import {
   LayoutDashboard, MapPin, Package, Users, FileText,
-  ClipboardList, Wallet, UserCog, Truck, Settings, Menu, X
+  ClipboardList, Wallet, UserCog, Truck, Send, Settings, Menu, X
 } from 'lucide-react';
 
 export function Sidebar({ workerName, role }: SidebarProps) {
@@ -24,6 +25,9 @@ export function Sidebar({ workerName, role }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { branding } = useBranding();
   const { crewModeEnabled, roleLabel: orgRoleLabel } = useOrgSettings();
+  // Guías de despacho detrás del feature flag dispatch_guides (capa 2 — código):
+  // oculta la entrada del menú cuando el flag está apagado para la organización.
+  const { enabled: dispatchGuidesEnabled } = useFeatureFlag('dispatch_guides');
 
   // El menú depende del rol (el gating real está en el layout server-side):
   //   - crew_lead (Encargado): solo "Mi Cuadrilla".
@@ -37,6 +41,7 @@ export function Sidebar({ workerName, role }: SidebarProps) {
         { href: '/workers', label: 'Trabajadores', icon: Users },
         ...(crewModeEnabled ? [{ href: '/crews', label: orgRoleLabel('crew_lead') + 's', icon: Truck }] : []),
         { href: '/records', label: 'Registros', icon: ClipboardList },
+        ...(dispatchGuidesEnabled ? [{ href: '/dispatch-guides', label: 'Guías de despacho', icon: Send }] : []),
         { href: '/settlements', label: 'Liquidaciones', icon: FileText },
         { href: '/payments', label: 'Pagos', icon: Wallet },
         { href: '/supervisors', label: 'Supervisores', icon: UserCog },
