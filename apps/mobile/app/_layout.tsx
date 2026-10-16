@@ -5,6 +5,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { FontScaleProvider } from '../src/hooks/useFontScale';
 import { useAuth } from '../src/hooks/useAuth';
@@ -80,16 +81,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{ persister: asyncStoragePersister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
-      >
-        <StatusBar style="light" />
-        <OfflineBanner />
-        <AuthGate>
-          <Stack screenOptions={{ headerShown: false }} />
-        </AuthGate>
-      </PersistQueryClientProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{ persister: asyncStoragePersister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+        >
+          <StatusBar style="light" />
+          <OfflineBanner />
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }} />
+          </AuthGate>
+        </PersistQueryClientProvider>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
