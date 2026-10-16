@@ -32,6 +32,8 @@ apps/*/android/
 .env.*.local
 .env.production
 .env.production.local
+.env.remote
+scripts/.env.remote
 
 # IDE
 .vscode/settings.json
