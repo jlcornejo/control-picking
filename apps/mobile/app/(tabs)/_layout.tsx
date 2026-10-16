@@ -1,5 +1,5 @@
-import { Tabs } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { colors, font, radius } from '../../src/constants/theme';
@@ -9,6 +9,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function TabsLayout() {
   const { worker } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   // Alto base del contenido del tab bar + el inset inferior del sistema
   // (barra de gestos/botones en Android, home indicator en iOS).
@@ -44,6 +45,18 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: colors.card, elevation: 0, shadowOpacity: 0, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
         headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: font.bold, fontSize: 17 },
+        // Acceso directo al Drawer de Administración: solo visible para el admin.
+        headerRight: () =>
+          worker?.role === 'admin' ? (
+            <TouchableOpacity
+              onPress={() => router.push('/admin')}
+              style={s.menuBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Abrir administración"
+            >
+              <Ionicons name="menu" size={24} color={colors.text} />
+            </TouchableOpacity>
+          ) : null,
         tabBarStyle: {
           height: BAR_CONTENT_HEIGHT + bottomInset,
           backgroundColor: colors.card,
@@ -163,6 +176,10 @@ export default function TabsLayout() {
 }
 
 const s = StyleSheet.create({
+  menuBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
   centerBtn: {
     width: 52,
     height: 52,

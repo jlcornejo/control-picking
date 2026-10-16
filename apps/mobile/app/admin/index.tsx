@@ -2,12 +2,11 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CAPABILITIES, type Capability } from '@fundo360/shared';
-import { useAuth } from '../../src/hooks/useAuth';
 import { useOrgSettings } from '../../src/hooks/useOrgSettings';
 import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
 import { usePermissions } from '../../src/hooks/usePermissions';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
-import { EmptyState } from '../../src/components/EmptyState';
+import { AdminGuard } from '../../src/components/admin/AdminGuard';
 
 interface AdminModule {
   key: string;
@@ -30,24 +29,11 @@ interface AdminModule {
  * los pendientes se muestran como "Próximamente".
  */
 export default function AdminHome() {
-  const { worker } = useAuth();
   const { crewModeEnabled } = useOrgSettings();
   const { enabled: tareEnabled } = useFeatureFlag('box_tare_control');
   const { enabled: rbacEnabled } = useFeatureFlag('configurable_rbac');
   const { has } = usePermissions();
   const router = useRouter();
-
-  // Guard de rol: solo el administrador accede a esta sección.
-  if (worker && worker.role !== 'admin') {
-    return (
-      <EmptyState
-        icon="lock-closed-outline"
-        title="Acceso restringido"
-        message="La administración de datos está disponible solo para el rol Administrador."
-        iconColor={colors.amber}
-      />
-    );
-  }
 
   const modules: AdminModule[] = [
     { key: 'workers', route: '/admin/workers', title: 'Trabajadores', description: 'Personal de campo y badges QR', icon: 'people', color: colors.primary, available: true, requiresCapability: CAPABILITIES.WORKERS_MANAGE },
@@ -69,7 +55,8 @@ export default function AdminHome() {
   );
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <AdminGuard>
+      <ScrollView style={s.container} contentContainerStyle={s.content}>
       <Text style={s.hint}>Gestiona los datos maestros de tu organización.</Text>
       {visible.map((m) => (
         <TouchableOpacity
@@ -95,7 +82,8 @@ export default function AdminHome() {
           )}
         </TouchableOpacity>
       ))}
-    </ScrollView>
+      </ScrollView>
+    </AdminGuard>
   );
 }
 
