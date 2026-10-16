@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
 type Role = 'admin' | 'supervisor' | 'crew_lead' | 'worker';
@@ -25,45 +26,46 @@ const DEFAULT_SETTINGS: OrgSettings = {
 /**
  * Carga crew_mode_enabled y role_labels de la organización del usuario.
  * Expone roleLabel() con las etiquetas configuradas (fallback a defaults).
+ *
+ * Usa React Query (`['org-settings']`) para compartir caché entre pantallas
+ * (p. ej. el drawer y Configuración) y refrescar la visibilidad de Cuadrillas
+ * tras invalidar la clave. Se recarga en cada cambio de sesión
+ * (`onAuthStateChange`) para no servir el caché del tenant anterior.
  */
 export function useOrgSettings() {
-  const [settings, setSettings] = useState<OrgSettings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      const { data, error } = await supabase
+  const { data, isLoading } = useQuery({
+    queryKey: ['org-settings'],
+    queryFn: async (): Promise<OrgSettings> => {
+      const { data: row, error } = await supabase
         .from('organizations')
         .select('crew_mode_enabled, role_labels')
         .limit(1)
         .maybeSingle();
 
-      if (!active) return;
+      if (error || !row) return DEFAULT_SETTINGS;
+      return {
+        crew_mode_enabled: row.crew_mode_enabled ?? false,
+        role_labels: (row.role_labels as RoleLabels) ?? {},
+      };
+    },
+  });
 
-      setSettings(
-        error || !data
-          ? DEFAULT_SETTINGS
-          : {
-              crew_mode_enabled: data.crew_mode_enabled ?? false,
-              role_labels: (data.role_labels as RoleLabels) ?? {},
-            },
-      );
-      setLoading(false);
-    }
+  // Recarga por sesión: al cambiar de usuario/tenant se invalida la query para
+  // no servir el caché del tenant anterior (hallazgo 3 del diseño).
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      queryClient.invalidateQueries({ queryKey: ['org-settings'] });
+    });
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
 
-    load();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => load());
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  const settings = data ?? DEFAULT_SETTINGS;
 
   function roleLabel(role: Role): string {
     return settings.role_labels[role] || DEFAULT_ROLE_LABELS[role];
   }
 
-  return { settings, roleLabel, crewModeEnabled: settings.crew_mode_enabled, loading };
+  return { settings, roleLabel, crewModeEnabled: settings.crew_mode_enabled, loading: isLoading };
 }

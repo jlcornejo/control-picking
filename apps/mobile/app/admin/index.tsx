@@ -43,7 +43,7 @@ export default function AdminHome() {
     { key: 'crews', route: '/admin/crews', title: 'Cuadrillas', description: 'Equipos y encargados', icon: 'car', color: colors.amber, available: true, requiresCrewMode: true, requiresCapability: CAPABILITIES.CREWS_MANAGE },
     { key: 'supervisors', route: '/admin/supervisors', title: 'Supervisores', description: 'Asignaciones de trabajadores y paños', icon: 'shield-checkmark', color: colors.orange, available: true, requiresCapability: CAPABILITIES.SUPERVISORS_MANAGE },
     { key: 'permission-profiles', route: '/admin/permission-profiles', title: 'Perfiles de Permisos', description: 'Restringe capacidades por usuario', icon: 'shield-checkmark', color: colors.violet, available: true, requiresRbacFlag: true },
-    { key: 'settings', route: '/admin/settings', title: 'Configuración', description: 'Marca, modo capataz, etiquetas', icon: 'settings', color: colors.textSecondary, available: false },
+    { key: 'settings', route: '/admin/settings', title: 'Configuración', description: 'Marca, modo capataz, etiquetas', icon: 'settings', color: colors.textSecondary, available: true, requiresCapability: CAPABILITIES.SETTINGS_MANAGE },
   ];
 
   const visible = modules.filter(
