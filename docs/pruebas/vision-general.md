@@ -3,8 +3,12 @@
 Set de pruebas manuales **por perfil** para validar la app móvil Fundo360 antes de la
 prueba en terreno. Cada perfil tiene su propia página con casos paso a paso.
 
-> **Última actualización**: 2026-10-03.
+> **Última actualización**: 2026-10-16.
 > **Alcance**: app móvil (Expo) contra el ambiente **remoto** `fundo360`.
+> **Datos de prueba**: el remoto tiene cosecha diaria de **todo octubre (1–16 oct 2026)**
+> en los dos tenants de prueba, además de liquidaciones y pagos de la quincena. Así el
+> **Dashboard** y los listados de **Pagos** muestran datos reales del mes para validar
+> métricas, tendencias y liquidaciones.
 
 ---
 
@@ -56,14 +60,37 @@ Para probar la cámara nativa y el flujo tal cual lo verá el cliente, instala e
 
 ## Usuarios de prueba (remoto)
 
-Todos los casos usan el tenant **Sur Berries SpA** (tiene Modo Capataz, melgas y la foto de
-respaldo activada).
+La mayoría de los casos usan el tenant **Sur Berries SpA** (tiene Modo Capataz, melgas y la
+foto de respaldo activada). Para validar el **aislamiento multi-tenant** y la variante **sin
+melgas**, existe un segundo tenant: **Andes Fruit SpA**.
+
+### Sur Berries SpA (con melgas)
 
 | Rol | Email | Password |
 |-----|-------|----------|
 | Administrador | `admin@surberries.cl` | `admin123` |
 | Supervisor | `supervisor@surberries.cl` | `super123` |
 | Encargado (crew_lead) | `capataz@surberries.cl` | `capataz123` |
+
+### Andes Fruit SpA (Modo Capataz, sin melgas)
+
+| Rol | Email | Password |
+|-----|-------|----------|
+| Administrador | `admin@andesfruit.cl` | `admin123` |
+| Supervisor | `supervisor@andesfruit.cl` | `super123` |
+| Encargado (crew_lead) | `capataz@andesfruit.cl` | `capataz123` |
+
+Trabajadores (badge QR): Tomás Vega, Valentina Muñoz, Ignacio Bravo.
+
+### Plataforma (dueño del SaaS / soporte)
+
+| Rol | Email | Password |
+|-----|-------|----------|
+| Platform Admin | `plataforma@fundo360.cl` | `plataforma123` |
+
+!!! tip "Prueba de aislamiento multi-tenant"
+    Con sesión de **Sur Berries** no debes ver datos de **Andes Fruit** ni viceversa.
+    Compara también el **registro de picking**: Sur Berries pide **melga**; Andes Fruit no.
 
 ### Códigos de badge de los trabajadores (para el ingreso manual)
 
