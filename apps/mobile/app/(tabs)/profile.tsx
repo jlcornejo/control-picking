@@ -118,7 +118,7 @@ export default function ProfileScreen() {
         <Text style={s.name}>{worker?.full_name || 'Usuario'}</Text>
         <View style={[s.rolePill, { backgroundColor: (roleColors[worker?.role || ''] || colors.primary) + '15' }]}>
           <View style={[s.roleDot, { backgroundColor: roleColors[worker?.role || ''] || colors.primary }]} />
-          <Text style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]}>{roleText}</Text>
+          <Text style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]} numberOfLines={1}>{roleText}</Text>
         </View>
       </View>
 
@@ -133,7 +133,7 @@ export default function ProfileScreen() {
                 onPress={() => setSelectedPeriod(p.key)}
                 activeOpacity={0.7}
               >
-                <Text style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]}>{p.label}</Text>
+                <Text style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{p.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -142,30 +142,30 @@ export default function ProfileScreen() {
             <View style={s.statsRow}>
               <View style={s.statCard}>
                 <Text style={s.statValue}>{formatNumber(stats.totalUnits)}</Text>
-                <Text style={s.statLabel}>Cajas</Text>
+                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={[s.statValue, { color: colors.blue }]}>{stats.activeWorkers}</Text>
-                <Text style={s.statLabel}>Trabajadores</Text>
+                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Trabajadores</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
-                <Text style={s.statLabel}>Prom/día</Text>
+                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</Text>
               </View>
             </View>
           ) : (
             <View style={s.statsRow}>
               <View style={s.statCard}>
                 <Text style={s.statValue}>{formatNumber(stats.totalUnits)}</Text>
-                <Text style={s.statLabel}>Cajas</Text>
+                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={[s.statValue, { color: colors.blue }]}>{stats.daysWorked}</Text>
-                <Text style={s.statLabel}>Días</Text>
+                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Días</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
-                <Text style={s.statLabel}>Prom/día</Text>
+                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</Text>
               </View>
             </View>
           )}
@@ -184,8 +184,8 @@ export default function ProfileScreen() {
       {worker?.role === 'admin' && (
         <TouchableOpacity style={s.adminBtn} onPress={() => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {} router.push('/admin'); }} activeOpacity={0.8}>
           <Ionicons name="settings-outline" size={22} color={colors.textWhite} />
-          <Text style={s.adminBtnText}>Administración</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textWhite} style={{ marginLeft: 'auto' }} />
+          <Text style={s.adminBtnText} numberOfLines={1}>Administración</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textWhite} />
         </TouchableOpacity>
       )}
 
@@ -218,7 +218,7 @@ export default function ProfileScreen() {
       <View style={s.a11yCard}>
         <View style={s.a11yHeader}>
           <Ionicons name="text-outline" size={18} color={colors.textSecondary} />
-          <Text style={s.a11yTitle}>Tamaño del texto</Text>
+          <Text style={s.a11yTitle} numberOfLines={1}>Tamaño del texto</Text>
         </View>
         <Text style={s.a11yHint}>Agranda el texto de toda la app para leerlo mejor.</Text>
         <View style={s.a11yRow}>
@@ -229,7 +229,7 @@ export default function ProfileScreen() {
               onPress={() => { try { Haptics.selectionAsync(); } catch {} setScale(k); }}
               activeOpacity={0.8}
             >
-              <Text style={[s.a11yChipText, scale === k && s.a11yChipTextActive]}>{FONT_SCALE_LABELS[k]}</Text>
+              <Text style={[s.a11yChipText, scale === k && s.a11yChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{FONT_SCALE_LABELS[k]}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -249,19 +249,20 @@ function InfoRow({ label, value, icon, last }: { label: string; value: string; i
   return (
     <View style={[ir.row, !last && ir.border]}>
       <Text style={ir.label}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <View style={ir.valueWrap}>
         {icon && <Ionicons name={icon as any} size={16} color={colors.primary} />}
-        <Text style={ir.value}>{value}</Text>
+        <Text style={ir.value} numberOfLines={1}>{value}</Text>
       </View>
     </View>
   );
 }
 
 const ir = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: spacing.lg },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, paddingVertical: 14, paddingHorizontal: spacing.lg },
   border: { borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
-  label: { fontSize: 14, color: colors.textSecondary },
-  value: { fontSize: 14, fontWeight: font.medium, color: colors.text },
+  label: { fontSize: 14, color: colors.textSecondary, flexShrink: 0 },
+  valueWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0, justifyContent: 'flex-end' },
+  value: { fontSize: 14, fontWeight: font.medium, color: colors.text, flexShrink: 1, textAlign: 'right' },
 });
 
 const s = StyleSheet.create({
@@ -271,33 +272,33 @@ const s = StyleSheet.create({
   avatar: { width: 72, height: 72, backgroundColor: colors.primaryBg, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   avatarText: { fontSize: 28, fontWeight: font.bold, color: colors.primary },
   name: { fontSize: 20, fontWeight: font.bold, color: colors.text, letterSpacing: -0.3 },
-  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.full, marginTop: 8 },
+  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.full, marginTop: 8, maxWidth: '100%', flexShrink: 1 },
   roleDot: { width: 7, height: 7, borderRadius: 4 },
-  roleText: { fontSize: 12, fontWeight: font.semibold },
+  roleText: { fontSize: 12, fontWeight: font.semibold, flexShrink: 1, includeFontPadding: false },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   periodRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.xs },
-  periodChip: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center' },
+  periodChip: { flex: 1, minWidth: 0, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
   periodChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  periodChipText: { fontSize: 12, fontWeight: font.semibold, color: colors.textSecondary },
+  periodChipText: { fontSize: 12, fontWeight: font.semibold, color: colors.textSecondary, textAlign: 'center' },
   periodChipTextActive: { color: '#fff' },
   statCard: { flex: 1, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: colors.cardBorder },
   statValue: { fontSize: 22, fontWeight: font.extrabold, color: colors.primary },
-  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2, textAlign: 'center' },
   infoCard: { backgroundColor: colors.card, borderRadius: radius.xl, marginTop: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder, overflow: 'hidden' },
   logoutBtn: { marginTop: spacing.xxl, backgroundColor: colors.redBg, borderWidth: 1, borderColor: '#fecaca', borderRadius: radius.lg, paddingVertical: 15, alignItems: 'center' },
   logoutText: { fontSize: 15, fontWeight: font.semibold, color: colors.red },
   version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: spacing.lg },
   a11yCard: { backgroundColor: colors.card, borderRadius: radius.xl, marginTop: spacing.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder },
   a11yHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  a11yTitle: { fontSize: 14, fontWeight: font.semibold, color: colors.text },
+  a11yTitle: { fontSize: 14, fontWeight: font.semibold, color: colors.text, flexShrink: 1 },
   a11yHint: { fontSize: 12, color: colors.textMuted, marginTop: 4, marginBottom: spacing.md },
   a11yRow: { flexDirection: 'row', gap: spacing.sm },
-  a11yChip: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center' },
+  a11yChip: { flex: 1, minWidth: 0, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
   a11yChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  a11yChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.textSecondary },
+  a11yChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.textSecondary, textAlign: 'center' },
   a11yChipTextActive: { color: '#fff' },
   adminBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primary, borderRadius: radius.lg, paddingVertical: 16, paddingHorizontal: spacing.lg },
-  adminBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.textWhite },
+  adminBtnText: { flex: 1, fontSize: 15, fontWeight: font.semibold, color: colors.textWhite },
   qrBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primaryMuted, borderRadius: radius.lg, paddingVertical: 16 },
   qrBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary },
   qrOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
