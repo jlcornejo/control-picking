@@ -1,0 +1,30 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "location": "§2.3, §7",
+      "problem": "El diseño afirma que su policy de INSERT en Storage es 'más restrictiva que picking (que incluye terreno)'. En 20261002000001 la policy org_insert_picking_evidence usa exactamente los mismos tres roles (is_admin OR is_supervisor OR is_crew_lead), sin is_worker. El alcance es idéntico, no más restrictivo.",
+      "fix": "Reemplazar la justificación por 'mismo alcance de roles que picking (admin/supervisor/crew_lead); un worker no sube evidencia en ninguna de las dos features'. La decisión de roles es correcta."
+    },
+    {
+      "severity": "NIT",
+      "location": "§5(2), §6",
+      "problem": "El precedente picking_photo_evidence NO está en FEATURE_FLAGS de packages/shared/src/constants/index.ts (solo KG_PAYMENT, PRODUCT_VARIETIES, BOX_TARE_CONTROL, DISPATCH_GUIDES). El implementador no encontrará PICKING_PHOTO_EVIDENCE como referencia a copiar.",
+      "fix": "Ninguno obligatorio. Opcional: añadir también PICKING_PHOTO_EVIDENCE a la constante en la misma pasada para cerrar la deuda del precedente."
+    },
+    {
+      "severity": "NIT",
+      "location": "§9 vs §8",
+      "problem": "uploadPickingEvidence hardcodea contentType 'image/jpeg' y evidencePath siempre produce '.jpg'. El diseño describe el helper mobile como 'espejo' sin señalar que mobile queda intencionalmente solo-JPEG, mientras que web admite png/webp y extensión variable.",
+      "fix": "Anotar en §9 que el helper mobile mantiene image/jpeg/.jpg (por la fuente de cámara) y el helper web deriva contentType/extensión del File seleccionado, para no copiar el '.jpg' al path web."
+    },
+    {
+      "severity": "NIT",
+      "location": "§2.5, §4",
+      "problem": "La nota de concurrencia (dos INSERT simultáneos del mismo payment_id podrían dejar 4 filas) aparece en §2.5 pero el invariante 'máximo 3' en §4 se declara como garantía dura de DB sin la salvedad.",
+      "fix": "En la tabla de §4, anotar el invariante como 'máx 3 (garantía efectiva bajo escritura secuencial; ver nota §2.5)'. No requiere FOR UPDATE en el MVP."
+    }
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.worktrees/pago-imagenes/.agents/tasks/pago-imagenes/design-review.md"
+}
