@@ -316,6 +316,21 @@ export interface Payment extends BaseEntity {
   notes: string | null;
 }
 
+/**
+ * Payment photo evidence (immutable backup image attached to a payment).
+ * Child 1:N table of payments; stores the storage object path (never a URL) in
+ * the private bucket `payment-evidence`. Does NOT alter payments.amount nor any
+ * settlement. Max 3 per payment (enforced in DB).
+ */
+export interface PaymentPhotoEvidence {
+  id: string;
+  organization_id: string;
+  payment_id: string;
+  image_path: string;
+  uploaded_by: string;
+  created_at: string;
+}
+
 /** Supervisor assignment (worker or block assigned to supervisor) */
 export interface SupervisorAssignment extends BaseEntity {
   organization_id: string;

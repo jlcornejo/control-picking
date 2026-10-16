@@ -51,6 +51,8 @@ export const ERROR_CODES = {
   DISPATCH_FIELD_GUIDE_EXISTS: 'DISPATCH_FIELD_GUIDE_EXISTS',      // ya hay cierre de campo ese día (uq_dispatch_field_day)
   DISPATCH_FEATURE_DISABLED: 'DISPATCH_FEATURE_DISABLED',
   DISPATCH_WEIGHT_REQUIRED: 'DISPATCH_WEIGHT_REQUIRED',   // cierre exige peso > 0 (NIT-1)
+  // Payment photo evidence (M2-01b)
+  PAYMENT_EVIDENCE_LIMIT: 'PAYMENT_EVIDENCE_LIMIT',       // máx 3 imágenes de respaldo por pago
 } as const;
 
 /** Feature flag keys (gating of user-facing features; override per tenant). */
@@ -59,6 +61,13 @@ export const FEATURE_FLAGS = {
   PRODUCT_VARIETIES: 'product_varieties',
   BOX_TARE_CONTROL: 'box_tare_control',
   DISPATCH_GUIDES: 'dispatch_guides',
+  PAYMENT_PHOTO_EVIDENCE: 'payment_photo_evidence',
+} as const;
+
+/** Payment photo evidence limits (M2-01b). */
+export const PAYMENT_EVIDENCE = {
+  MAX_IMAGES: 3,
+  BUCKET: 'payment-evidence',
 } as const;
 
 /** Pagination defaults */

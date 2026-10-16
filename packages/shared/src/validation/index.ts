@@ -229,6 +229,12 @@ export const createDispatchReceiptSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
+/** Validation: Attach a backup photo to a payment (M2-01b). */
+export const createPaymentEvidenceSchema = z.object({
+  payment_id: z.string().uuid(),
+  image_path: z.string().min(1, 'Ruta de imagen requerida'),
+});
+
 /** Validation: Pagination query params */
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
