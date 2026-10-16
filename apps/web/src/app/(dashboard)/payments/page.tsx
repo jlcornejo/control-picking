@@ -2,19 +2,28 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase';
+import { PAYMENT_EVIDENCE } from '@fundo360/shared';
 import { DataTable } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { PageTransition } from '@/components/ui/animations';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
+import {
+  currentOrgId,
+  uploadPaymentEvidence,
+  signedPaymentEvidenceUrl,
+} from '@/lib/payment-evidence';
+import { ImagePlus, X } from 'lucide-react';
 
 export default function PaymentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { enabled: photoEnabled } = useFeatureFlag('payment_photo_evidence');
 
   const { data, isLoading } = useQuery({
     queryKey: ['payments'],
@@ -25,6 +34,27 @@ export default function PaymentsPage() {
         .order('paid_at', { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Evidencia fotográfica por pago (solo cuando el flag está activo). Se consulta
+  // aparte y se agrupa por payment_id para alimentar la columna "Fotos".
+  const paymentIds = (data || []).map((p: any) => p.id);
+  const { data: evidenceByPayment } = useQuery({
+    queryKey: ['payment-evidence', paymentIds],
+    enabled: photoEnabled && paymentIds.length > 0,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('payment_photo_evidence')
+        .select('payment_id, image_path')
+        .in('payment_id', paymentIds);
+      if (error) throw error;
+      const grouped: Record<string, string[]> = {};
+      for (const r of rows || []) {
+        const pid = (r as any).payment_id as string;
+        (grouped[pid] ||= []).push((r as any).image_path as string);
+      }
+      return grouped;
     },
   });
 
@@ -51,6 +81,15 @@ export default function PaymentsPage() {
     { key: 'notes', label: 'Notas', render: (row: any) => (
       <span className="text-muted-foreground">{row.notes || '—'}</span>
     )},
+    ...(photoEnabled
+      ? [{
+          key: 'evidence',
+          label: 'Fotos',
+          render: (row: any) => (
+            <PaymentEvidenceThumbnails paths={evidenceByPayment?.[row.id] || []} />
+          ),
+        }]
+      : []),
   ];
 
   return (
@@ -75,16 +114,69 @@ export default function PaymentsPage() {
       />
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Registrar Pago">
-        <CreatePaymentForm onSuccess={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ['payments'] }); queryClient.invalidateQueries({ queryKey: ['pending-settlements'] }); queryClient.invalidateQueries({ queryKey: ['settlements'] }); toast('Pago registrado', 'success'); }} />
+        <CreatePaymentForm
+          photoEnabled={photoEnabled}
+          onSuccess={() => {
+            setShowCreate(false);
+            queryClient.invalidateQueries({ queryKey: ['payments'] });
+            queryClient.invalidateQueries({ queryKey: ['payment-evidence'] });
+            queryClient.invalidateQueries({ queryKey: ['pending-settlements'] });
+            queryClient.invalidateQueries({ queryKey: ['settlements'] });
+            toast('Pago registrado', 'success');
+          }}
+        />
       </Modal>
     </PageTransition>
   );
 }
 
-function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
+/**
+ * Miniaturas de la evidencia de un pago. Resuelve una URL firmada temporal por
+ * cada ruta y, al hacer click, abre la imagen en una pestaña nueva.
+ */
+function PaymentEvidenceThumbnails({ paths }: { paths: string[] }) {
+  const [urls, setUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    if (paths.length === 0) {
+      setUrls([]);
+      return;
+    }
+    (async () => {
+      const resolved = await Promise.all(paths.map((p) => signedPaymentEvidenceUrl(p, 3600)));
+      if (active) setUrls(resolved.filter((u): u is string => !!u));
+    })();
+    return () => {
+      active = false;
+    };
+  }, [paths]);
+
+  if (paths.length === 0) return <span className="text-muted-foreground">—</span>;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {urls.map((url, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+          className="h-9 w-9 overflow-hidden rounded-lg border border-border bg-muted/30 ring-1 ring-transparent hover:ring-primary/30 transition-all"
+          aria-label="Ver foto de respaldo"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="Respaldo del pago" className="h-full w-full object-cover" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CreatePaymentForm({ onSuccess, photoEnabled }: { onSuccess: () => void; photoEnabled: boolean }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -110,6 +202,15 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
 
   const selected = pendingSettlements?.find((s: any) => s.id === selectedId);
 
+  function addFiles(selectedFiles: FileList | null) {
+    if (!selectedFiles) return;
+    setFiles((prev) => [...prev, ...Array.from(selectedFiles)].slice(0, PAYMENT_EVIDENCE.MAX_IMAGES));
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -129,12 +230,16 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
         ? { crew_id: (selected as any).crew_id, worker_id: null }
         : { worker_id: (selected as any).worker_id, crew_id: null };
 
-    const { error: dbError } = await supabase.from('payments').insert({
-      settlement_id: selectedId,
-      ...payeeColumns,
-      amount,
-      notes: notes || null,
-    });
+    const { data: inserted, error: dbError } = await supabase
+      .from('payments')
+      .insert({
+        settlement_id: selectedId,
+        ...payeeColumns,
+        amount,
+        notes: notes || null,
+      })
+      .select('id')
+      .single();
 
     if (dbError) { setError(dbError.message); setLoading(false); return; }
 
@@ -143,9 +248,49 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
     const newStatus = newPaid >= Number((selected as any).total_amount) ? 'paid' : 'partial';
     await supabase.from('settlements').update({ status: newStatus }).eq('id', selectedId);
 
+    // Evidencia fotográfica (best-effort): el pago ya está registrado y es
+    // crítico; si una foto falla, se avisa pero NO se revierte el pago.
+    if (photoEnabled && files.length > 0 && inserted?.id) {
+      try {
+        const orgId = await currentOrgId();
+        const { data: auth } = await supabase.auth.getUser();
+        const { data: me } = await supabase
+          .from('workers')
+          .select('id')
+          .eq('auth_user_id', auth.user?.id ?? '')
+          .maybeSingle();
+
+        let anyFailed = false;
+        if (!orgId || !me?.id) {
+          anyFailed = true;
+        } else {
+          for (const file of files) {
+            try {
+              const path = await uploadPaymentEvidence({ orgId, paymentId: inserted.id, file });
+              const { error: evErr } = await supabase.from('payment_photo_evidence').insert({
+                payment_id: inserted.id,
+                image_path: path,
+                uploaded_by: me.id,
+              });
+              if (evErr) anyFailed = true;
+            } catch {
+              anyFailed = true;
+            }
+          }
+        }
+        if (anyFailed) {
+          toast('El pago se registró; una foto no se pudo adjuntar', 'error');
+        }
+      } catch {
+        toast('El pago se registró; una foto no se pudo adjuntar', 'error');
+      }
+    }
+
     setLoading(false);
     onSuccess();
   }
+
+  const atMax = files.length >= PAYMENT_EVIDENCE.MAX_IMAGES;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -236,6 +381,57 @@ function CreatePaymentForm({ onSuccess }: { onSuccess: () => void }) {
         <label className="block text-sm font-medium text-foreground mb-1.5">Notas</label>
         <input name="notes" placeholder="Ej: Transferencia, efectivo, cheque..." className="block w-full rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all" />
       </div>
+
+      {/* Fotos de respaldo (gateado por el flag payment_photo_evidence) */}
+      {photoEnabled && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Fotos de respaldo (opcional, máx {PAYMENT_EVIDENCE.MAX_IMAGES})
+          </label>
+
+          {files.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {files.map((file, i) => {
+                const url = URL.createObjectURL(file);
+                return (
+                  <div key={i} className="relative h-20 w-20 overflow-hidden rounded-xl border border-border bg-muted/30">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Respaldo ${i + 1}`} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground/70 text-background hover:bg-foreground transition-all"
+                      aria-label="Quitar foto"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <label
+            className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground transition-all hover:ring-2 hover:ring-primary/30 ${
+              atMax ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            <ImagePlus className="h-4 w-4" />
+            {atMax ? `Máximo ${PAYMENT_EVIDENCE.MAX_IMAGES} fotos` : 'Agregar foto'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              disabled={atMax}
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = '';
+              }}
+              className="hidden"
+            />
+          </label>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5">
