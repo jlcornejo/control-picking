@@ -1,9 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Image } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { PAYMENT_EVIDENCE } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
+import { PhotoCapture } from '../../src/components/PhotoCapture';
 import * as Haptics from 'expo-haptics';
 import { formatMoney, formatNumber } from '../../src/utils/format';
 import { PaymentsSkeleton } from '../../src/components/Skeleton';
@@ -12,6 +15,54 @@ import { PaymentToast } from '../../src/components/PaymentToast';
 import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
 import { showAlert } from '../../src/lib/alert';
+import { currentOrgId } from '../../src/lib/picking-evidence';
+import { uploadPaymentEvidence, signedPaymentEvidenceUrl } from '../../src/lib/payment-evidence';
+
+/**
+ * Thumbnails de evidencia (fotos de respaldo) de los pagos de una liquidación.
+ * Solo se monta cuando el flag está activo y la tarjeta está expandida: consulta
+ * payment_photo_evidence por los ids de pago y resuelve una URL firmada por foto.
+ */
+function PaymentEvidenceThumbnails({ paymentIds, enabled }: { paymentIds: string[]; enabled: boolean }) {
+  const { data } = useQuery({
+    queryKey: ['payment-evidence', paymentIds],
+    enabled: enabled && paymentIds.length > 0,
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from('payment_photo_evidence')
+        .select('payment_id, image_path')
+        .in('payment_id', paymentIds);
+      const resolved = await Promise.all(
+        (rows || []).map(async (r) => ({
+          payment_id: r.payment_id as string,
+          url: await signedPaymentEvidenceUrl(r.image_path as string),
+        })),
+      );
+      // Agrupa las URLs firmadas por payment_id (ignora las que no se resolvieron).
+      const byPayment: Record<string, string[]> = {};
+      for (const r of resolved) {
+        if (!r.url) continue;
+        (byPayment[r.payment_id] ||= []).push(r.url);
+      }
+      return byPayment;
+    },
+  });
+
+  const byPayment = data || {};
+  const urls = Object.values(byPayment).flat();
+  if (urls.length === 0) return null;
+
+  return (
+    <View style={s.evidenceBlock}>
+      <Text style={s.evidenceTitle}>Fotos de respaldo</Text>
+      <View style={s.evidenceRow}>
+        {urls.map((url) => (
+          <Image key={url} source={{ uri: url }} style={s.evidenceThumb} />
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function PaymentsScreen() {
   const { worker } = useAuth();
@@ -20,6 +71,8 @@ export default function PaymentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  // Fotos de respaldo del pago (opcional, bajo feature flag payment_photo_evidence).
+  const { enabled: photoEnabled } = useFeatureFlag('payment_photo_evidence');
 
   // Check for recent payments (last 24h) for workers
   const { data: recentCount } = useQuery({
@@ -111,6 +164,18 @@ export default function PaymentsScreen() {
   const [payModal, setPayModal] = useState<any | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payNotes, setPayNotes] = useState('');
+  // Fotos de respaldo (uris locales) y visor de cámara del modal de pago.
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [showPhoto, setShowPhoto] = useState(false);
+
+  // Cierra el modal de pago y limpia TODO su estado (monto, notas y fotos).
+  function closePayModal() {
+    setPayModal(null);
+    setPayAmount('');
+    setPayNotes('');
+    setPhotoUris([]);
+    setShowPhoto(false);
+  }
 
   const payMutation = useMutation({
     mutationFn: async () => {
@@ -128,23 +193,49 @@ export default function PaymentsScreen() {
         : { worker_id: payModal.worker_id as string | null, crew_id: null };
 
       if (online) {
-        const { error } = await supabase.from('payments').insert({
+        const { data: inserted, error } = await supabase.from('payments').insert({
           settlement_id: payModal.id,
           ...payeeColumns,
           amount,
           notes: payNotes || null,
-        });
+        }).select('id').single();
         if (error) throw error;
 
-        // Update status
+        // Update status (lógica pending/partial/paid INTACTA, no se toca).
         const newPaid = payModal.totalPaid + amount;
         const newStatus = newPaid >= Number(payModal.total_amount) ? 'paid' : 'partial';
         await supabase.from('settlements').update({ status: newStatus }).eq('id', payModal.id);
-        return { queued: false };
+
+        // Fotos de respaldo (opcional, solo online y bajo el flag): se suben a
+        // Storage best-effort y se inserta su fila en payment_photo_evidence. Si
+        // alguna falla NO se revierte el pago (el pago es lo crítico); se avisa.
+        let photoFailed = false;
+        if (photoEnabled && photoUris.length > 0 && inserted?.id) {
+          const orgId = await currentOrgId();
+          if (orgId) {
+            for (const uri of photoUris) {
+              try {
+                const path = await uploadPaymentEvidence({ orgId, paymentId: inserted.id, localUri: uri });
+                const { error: evErr } = await supabase.from('payment_photo_evidence').insert({
+                  payment_id: inserted.id,
+                  image_path: path,
+                  uploaded_by: worker!.id,
+                });
+                if (evErr) photoFailed = true;
+              } catch {
+                photoFailed = true; // best-effort: no romper el pago por la foto
+              }
+            }
+          } else if (photoUris.length > 0) {
+            photoFailed = true;
+          }
+        }
+        return { queued: false, photoFailed, photoSkippedOffline: false };
       }
 
       // Offline: encolar el pago. Al reproducir se re-verifica el saldo real
-      // desde el servidor (inmutabilidad del settlement pagado).
+      // desde el servidor (inmutabilidad del settlement pagado). La rama offline
+      // NO sube fotos (requieren conexión); si había fotos adjuntas se informa.
       await enqueue({
         type: 'payment_insert',
         payload: {
@@ -156,17 +247,24 @@ export default function PaymentsScreen() {
           settlement_total: Number(payModal.total_amount),
         },
       });
-      return { queued: true };
+      return { queued: true, photoFailed: false, photoSkippedOffline: photoEnabled && photoUris.length > 0 };
     },
     onSuccess: (res) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setPayModal(null);
-      setPayAmount('');
-      setPayNotes('');
+      closePayModal();
       queryClient.invalidateQueries({ queryKey: ['my-balance'] });
       queryClient.invalidateQueries({ queryKey: ['my-settlements'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-evidence'] });
       showAlert(res.queued ? 'Pago en espera' : 'Pago registrado',
         res.queued ? 'Se sincronizará al reconectar.' : undefined);
+      // Las fotos requieren conexión: la rama offline no las sube.
+      if (res.photoSkippedOffline) {
+        showAlert('Fotos no adjuntadas', 'El pago quedó en espera; las fotos de respaldo requieren conexión. Vuelve a adjuntarlas con señal si es necesario.');
+      }
+      // Una foto no se pudo subir, pero el pago sí se registró.
+      if (res.photoFailed) {
+        showAlert('Foto no adjuntada', 'El pago se registró; una foto no se pudo adjuntar.');
+      }
     },
     onError: (err: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -239,7 +337,7 @@ export default function PaymentsScreen() {
 
             {/* Pay button for admin */}
             {worker?.role !== 'worker' && item.status !== 'paid' && (
-              <TouchableOpacity style={s.payBtn} onPress={() => { setPayModal(item); setPayAmount(String(Number(item.total_amount) - item.totalPaid)); }} activeOpacity={0.7}>
+              <TouchableOpacity style={s.payBtn} onPress={() => { setPayModal(item); setPayAmount(String(Number(item.total_amount) - item.totalPaid)); setPayNotes(''); setPhotoUris([]); setShowPhoto(false); }} activeOpacity={0.7}>
                 <Text style={s.payBtnText}>Pagar</Text>
               </TouchableOpacity>
             )}
@@ -264,6 +362,14 @@ export default function PaymentsScreen() {
                 <Text style={s.paymentsEmpty}>Sin pagos registrados</Text>
               </View>
             )}
+
+            {/* Fotos de respaldo de los pagos (solo bajo el flag, al expandir). */}
+            {photoEnabled && expandedId === item.id && item.payments.length > 0 && (
+              <PaymentEvidenceThumbnails
+                paymentIds={item.payments.map((p: any) => p.id)}
+                enabled={photoEnabled && expandedId === item.id}
+              />
+            )}
           </View>
         </TouchableOpacity>
       )}
@@ -284,7 +390,7 @@ export default function PaymentsScreen() {
     {/* Payment Modal */}
     <Modal visible={!!payModal} animationType="slide" transparent>
       <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { setPayModal(null); setPayAmount(''); setPayNotes(''); }} />
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closePayModal} />
         <View style={s.modalContent}>
           <Text style={s.modalTitle}>Registrar Pago</Text>
           {payModal && (
@@ -323,8 +429,40 @@ export default function PaymentsScreen() {
                 placeholderTextColor="#9ca3af"
               />
 
+              {/* Fotos de respaldo (opcional, bajo feature flag payment_photo_evidence). */}
+              {photoEnabled && (
+                <View style={s.photoBox}>
+                  <Text style={s.modalLabel}>Fotos de respaldo (opcional, máx {PAYMENT_EVIDENCE.MAX_IMAGES})</Text>
+                  {photoUris.length > 0 && (
+                    <View style={s.photoThumbs}>
+                      {photoUris.map((uri, i) => (
+                        <View key={uri} style={s.photoThumbWrap}>
+                          <Image source={{ uri }} style={s.photoThumb} />
+                          <TouchableOpacity
+                            style={s.photoRemove}
+                            onPress={() => setPhotoUris((p) => p.filter((_, idx) => idx !== i))}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={s.photoRemoveText}>Quitar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[s.photoAddBtn, photoUris.length >= PAYMENT_EVIDENCE.MAX_IMAGES && { opacity: 0.4 }]}
+                    onPress={() => setShowPhoto(true)}
+                    disabled={photoUris.length >= PAYMENT_EVIDENCE.MAX_IMAGES}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="camera-outline" size={18} color="#6b7280" />
+                    <Text style={s.photoAddText}>Agregar foto</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <View style={s.modalButtons}>
-                <TouchableOpacity style={s.modalCancelBtn} onPress={() => { setPayModal(null); setPayAmount(''); setPayNotes(''); }}>
+                <TouchableOpacity style={s.modalCancelBtn} onPress={closePayModal}>
                   <Text style={s.modalCancelText}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.modalPayBtn, s.payBtnRow]} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
@@ -343,6 +481,18 @@ export default function PaymentsScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+    </Modal>
+
+    {/* Visor de cámara para la foto de respaldo. Se monta sobre el modal de pago
+        (full-screen) y devuelve el uri local; el límite de 3 se aplica aquí. */}
+    <Modal visible={showPhoto} animationType="slide">
+      <PhotoCapture
+        onCapture={(uri) => {
+          setPhotoUris((p) => [...p, uri].slice(0, PAYMENT_EVIDENCE.MAX_IMAGES));
+          setShowPhoto(false);
+        }}
+        onClose={() => setShowPhoto(false)}
+      />
     </Modal>
   </>;
 }
@@ -392,4 +542,18 @@ const s = StyleSheet.create({
   modalPayBtn: { flex: 2, backgroundColor: '#1b5e20', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   payBtnRow: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   modalPayText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  // Fotos de respaldo en el modal de pago
+  photoBox: { marginTop: 4 },
+  photoThumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  photoThumbWrap: { alignItems: 'center' },
+  photoThumb: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#f1f5f9' },
+  photoRemove: { marginTop: 4, paddingVertical: 2, paddingHorizontal: 6 },
+  photoRemoveText: { fontSize: 11, color: '#dc2626', fontWeight: '600' },
+  photoAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, borderWidth: 1, borderColor: '#e5e7eb', borderStyle: 'dashed', borderRadius: 12, paddingVertical: 12 },
+  photoAddText: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
+  // Thumbnails de evidencia en el detalle expandido del pago
+  evidenceBlock: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  evidenceTitle: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 8 },
+  evidenceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  evidenceThumb: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#f1f5f9' },
 });
