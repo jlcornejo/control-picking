@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal, TextInput } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -13,13 +13,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ListSkeleton, ProductionHeaderSkeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedCard } from '../../src/components/AnimatedCard';
-import { useConnectivity } from '../../src/hooks/useConnectivity';
-import { enqueue } from '../../src/lib/offline-queue';
-import { showAlert } from '../../src/lib/alert';
+import { usePickingCorrection } from '../../src/hooks/usePickingCorrection';
 
 export default function ProductionScreen() {
   const { worker } = useAuth();
-  const { online } = useConnectivity();
   const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -110,76 +107,28 @@ export default function ProductionScreen() {
   const onRefresh = useCallback(async () => { setRefreshing(true); await refetch(); setRefreshing(false); }, [refetch]);
 
   // Corrección de un registro (soft-update, solo misma jornada, roles de terreno).
-  const queryClient = useQueryClient();
+  // La mutación vive en un hook compartido con la pantalla admin de Registros;
+  // aquí solo se decide la visibilidad del botón (canCorrect) y se cierran los
+  // modales tras un éxito. El hook ya invalida ['production'] y ['records'].
   const [correctRecord, setCorrectRecord] = useState<any | null>(null);
   const [correctQty, setCorrectQty] = useState('');
   const canCorrect = worker?.role === 'admin' || worker?.role === 'supervisor' || worker?.role === 'crew_lead';
 
-  const correctMutation = useMutation({
-    mutationFn: async () => {
-      if (!correctRecord) throw new Error('Sin registro');
-      const value = parseFloat(correctQty);
-      const isKg = correctRecord.unit === 'kg';
-      if (!value || value <= 0) throw new Error(isKg ? 'Los kilos deben ser mayores a 0' : 'La cantidad debe ser mayor a 0');
-      if (correctRecord.work_day !== localDate(0)) throw new Error('Solo se puede corregir un registro del día actual');
+  const correctMutation = usePickingCorrection();
 
-      const newKg = isKg ? Math.round(value * 1000) / 1000 : null;
-
-      if (online) {
-        // 1) Snapshot de auditoría con los valores VIEJOS, apuntando al original.
-        //    organization_id lo completa el trigger set_organization_id.
-        //    payment_unit y paid_quantity_kg se copian (NOT NULL / CHECK).
-        const { error: snapErr } = await supabase.from('picking_records').insert({
-          worker_id: correctRecord.worker_id,
-          block_id: correctRecord.block_id,
-          quantity: correctRecord.quantity,
-          payment_unit: correctRecord.payment_unit,
-          paid_quantity_kg: correctRecord.paid_quantity_kg,
-          rate_amount_snapshot: correctRecord.rate_amount_snapshot,
-          work_day: correctRecord.work_day,
-          recorded_by: worker?.id,
-          original_record_id: correctRecord.id,
-        });
-        if (snapErr) throw snapErr;
-
-        // 2) Editar el original in-place. kg -> paid_quantity_kg; caja -> quantity.
-        //    rate_amount_snapshot y payment_unit nunca cambian.
-        const patch = isKg ? { paid_quantity_kg: newKg } : { quantity: value };
-        const { error: updErr } = await supabase.from('picking_records')
-          .update(patch)
-          .eq('id', correctRecord.id);
-        if (updErr) throw updErr;
-        return { queued: false };
-      }
-
-      // Offline: encolar la corrección (snapshot + update) para reproducir al reconectar.
-      await enqueue({
-        type: 'picking_correction',
-        payload: {
-          original_id: correctRecord.id,
-          old_worker_id: correctRecord.worker_id,
-          old_block_id: correctRecord.block_id,
-          old_quantity: Number(correctRecord.quantity),
-          old_payment_unit: correctRecord.payment_unit,
-          old_paid_quantity_kg: correctRecord.paid_quantity_kg === null || correctRecord.paid_quantity_kg === undefined ? null : Number(correctRecord.paid_quantity_kg),
-          old_rate_amount_snapshot: Number(correctRecord.rate_amount_snapshot),
-          work_day: correctRecord.work_day,
-          recorded_by: worker?.id ?? null,
-          new_quantity: isKg ? Number(correctRecord.quantity) : value,
-          new_paid_quantity_kg: newKg,
+  const submitCorrection = useCallback(() => {
+    if (!correctRecord) return;
+    correctMutation.mutate(
+      { record: correctRecord, rawValue: correctQty },
+      {
+        onSuccess: () => {
+          setCorrectRecord(null);
+          setCorrectQty('');
+          setSelectedRecord(null);
         },
-      });
-      return { queued: true };
-    },
-    onSuccess: (res) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setCorrectRecord(null); setCorrectQty(''); setSelectedRecord(null);
-      queryClient.invalidateQueries({ queryKey: ['production'] });
-      showAlert(res.queued ? 'Corrección en espera' : 'Registro corregido',
-        res.queued ? 'Se sincronizará al reconectar.' : undefined);
-    },
-    onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
-  });
+      },
+    );
+  }, [correctMutation, correctRecord, correctQty]);
 
   // Swipe gesture for day navigation
   const panResponder = useRef(
@@ -367,7 +316,7 @@ export default function ProductionScreen() {
                 <Text style={s.correctHint}>Se conserva el registro original como auditoría. Solo se puede corregir el día actual.</Text>
                 <TouchableOpacity
                   style={[s.correctConfirm, s.correctConfirmRow, (!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending) && { opacity: 0.5 }]}
-                  onPress={() => correctMutation.mutate()}
+                  onPress={submitCorrection}
                   disabled={!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending}
                   activeOpacity={0.85}
                 >
