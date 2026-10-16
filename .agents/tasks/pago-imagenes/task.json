@@ -1,7 +1,7 @@
 {
   "task_id": "task-pago-imagenes",
   "task_description": "M2-01b: adjuntar hasta 3 imágenes de respaldo (genéricas) al registrar un pago en Fundo360, detrás del feature flag payment_photo_evidence, replicando el precedente picking_photo_evidence y el patrón 1:N de dispatch_receipts. Capas: migración DB + bucket + RLS + trigger + seed del flag; contrato @fundo360/shared (tipos/constantes/Zod/tests); mobile (payments.tsx con PhotoCapture); web (/payments con selector de archivo). Sin Edge Function nueva (flujo de pagos es cliente-directo). La evidencia NO altera monto ni liquidación.",
-  "status": "pending",
+  "status": "completed",
   "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
   "blocked_reason": null
 }
