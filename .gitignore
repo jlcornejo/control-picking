@@ -72,3 +72,7 @@ TEST_USERS.md
 
 # Screenshots de evidencia de reviews de UI (transitorios, no versionar)
 .agents/tasks/**/*.png
+
+# APKs/builds locales de la app móvil (artefactos, no versionar)
+apps/mobile/*.apk
+apps/mobile/build-*.apk
