@@ -18,7 +18,6 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Origen | Estimación | Prioridad |
 |----|-------|--------|-----------|:---------:|
-| M2-01b | Imágenes de respaldo **en pagos** (pendiente) | [Backlog §5](../producto/backlog-reunion.md) | 2–3 d | 🟡 P1 |
 | M2-04 | Ticketera de soporte (MVP bandeja) | [Backlog §6](../producto/backlog-reunion.md) | 3–4 d | 🟡 P1 |
 | M3-01 | Visibilidad de cosecha del trabajador (capacidad RBAC) | [Backlog §3](../producto/backlog-reunion.md) | 1–2 d | 🟢 P2 |
 
@@ -36,6 +35,7 @@ Tablero de tareas tipo Kanban del proyecto, en tres columnas: **Por hacer**, **E
 
 | ID | Tarea | Entregado |
 |----|-------|-----------|
+| M2-01b | **Imágenes de respaldo en pagos** (hasta 3 fotos por pago, bucket `payment-evidence` por tenant, flag `payment_photo_evidence`; no afecta el monto) | ✅ |
 | F-04 | **Lote/guía de despacho** (`dispatch_guides`: guía por paño y cierre diario de campo, recepción vs despacho con merma, peso preciso/aprox; tras feature flag, no afecta el pago) | ✅ |
 | F-01 | **Pago por kilo** (variedades + tarifa por variedad, gating por feature flags, coexistencia con pago por caja) | ✅ |
 | F-05 | **Variedad por cuartel** (variedades bajo el producto; un paño = un producto/variedad; tarifa por variedad) | ✅ |
