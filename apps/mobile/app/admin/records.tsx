@@ -14,12 +14,17 @@ import {
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 import { AdminGuard } from '../../src/components/admin/AdminGuard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { supabase } from '../../src/lib/supabase';
 import { usePickingCorrection, type CorrectableRecord } from '../../src/hooks/usePickingCorrection';
+import { useReportExport } from '../../src/hooks/useReportExport';
+import { toCSV, type CsvColumn } from '../../src/lib/export/csv';
+import { showAlert } from '../../src/lib/alert';
 import { localDate } from '../../src/utils/date';
 import { formatMoney, formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
@@ -87,6 +92,10 @@ function RecordsContent() {
   const [correctRecord, setCorrectRecord] = useState<EnrichedRecord | null>(null);
   const [correctQty, setCorrectQty] = useState('');
   const correctMutation = usePickingCorrection();
+
+  // Export gating (G5): CSV visible solo con report_export + REPORTS_EXPORT.
+  const { showCsv } = useReportExport();
+  const [exporting, setExporting] = useState(false);
 
   // Filter pickers
   const [filterModal, setFilterModal] = useState(false);
@@ -258,6 +267,44 @@ function RecordsContent() {
     );
   }
 
+  // CSV del set COMPLETO del período filtrado (no la página visible), con
+  // columnas y encabezados literales de la web (FEAT-006 / G5-AC2).
+  async function handleExportCsv() {
+    const rows = data?.records ?? [];
+    if (rows.length === 0) {
+      showAlert('Sin datos', 'No hay registros para exportar en el período seleccionado.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const columns: CsvColumn<EnrichedRecord>[] = [
+        { header: 'Fecha', value: (r) => r.work_day },
+        { header: 'Trabajador', value: (r) => r.worker_name },
+        { header: 'RUT', value: (r) => r.national_id ?? '' },
+        { header: 'Paño', value: (r) => r.block_name },
+        { header: 'Producto', value: (r) => r.product },
+        { header: 'Variedad', value: (r) => r.variety },
+        { header: 'Cantidad', value: (r) => r.base },
+        { header: 'Unidad', value: (r) => (r.payment_unit === 'kg' ? 'Kilo' : 'Caja') },
+        { header: 'Peso neto (kg)', value: (r) => (r.net_weight_kg === null ? '' : Number(r.net_weight_kg)) },
+        { header: 'Tarifa', value: (r) => Number(r.rate_amount_snapshot) },
+        { header: 'Monto estimado', value: (r) => r.subtotal },
+        { header: 'Tipo', value: (r) => (r.is_correction ? 'Corrección' : 'Original') },
+      ];
+      const content = toCSV(rows, columns);
+      const file = new File(Paths.cache, `produccion-${dateFrom}_${dateTo}.csv`);
+      if (file.exists) file.delete();
+      file.create();
+      file.write(content);
+      await Sharing.shareAsync(file.uri, { mimeType: 'text/csv' });
+    } catch (err) {
+      console.error(err);
+      showAlert('Error', 'No se pudo exportar el CSV.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const activeWorkerName = allWorkers?.find((w) => w.id === workerId)?.full_name;
   const activeBlockName = allBlocks?.find((b) => b.id === blockId)?.name;
 
@@ -307,6 +354,17 @@ function RecordsContent() {
           </TouchableOpacity>
           {(!DATE_RE.test(dateFrom) || !DATE_RE.test(dateTo)) && (
             <Text style={s.filterWarn}>Usa el formato AAAA-MM-DD en ambas fechas.</Text>
+          )}
+          {showCsv && (
+            <TouchableOpacity
+              style={[s.exportBtn, (exporting || (data?.records?.length ?? 0) === 0) && s.exportBtnDisabled]}
+              onPress={handleExportCsv}
+              disabled={exporting || (data?.records?.length ?? 0) === 0}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="download-outline" size={16} color={colors.textWhite} />
+              <Text style={s.exportBtnText}>{exporting ? 'Exportando...' : 'Exportar CSV'}</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -534,6 +592,17 @@ const s = StyleSheet.create({
   },
   filterPickerText: { flex: 1, fontSize: 13, fontWeight: font.medium, color: colors.primary },
   filterWarn: { fontSize: 12, color: colors.red },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 11,
+  },
+  exportBtnDisabled: { opacity: 0.5 },
+  exportBtnText: { color: colors.textWhite, fontSize: 14, fontWeight: font.semibold },
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
   summaryCard: { flexGrow: 1, flexBasis: '47%', borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   summaryLabel: { fontSize: 12, fontWeight: font.medium },

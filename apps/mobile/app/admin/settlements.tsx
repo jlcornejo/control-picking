@@ -19,7 +19,13 @@ import { AdminGuard } from '../../src/components/admin/AdminGuard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { PaymentsSkeleton } from '../../src/components/Skeleton';
 import { usePermissions } from '../../src/hooks/usePermissions';
+import { useReportExport } from '../../src/hooks/useReportExport';
 import { useSettlementsList, type SettlementListItem } from '../../src/hooks/useSettlements';
+import {
+  printSettlement,
+  type SettlementPdfData,
+  type SettlementPdfRecord,
+} from '../../src/lib/export/settlement-pdf';
 import { supabase } from '../../src/lib/supabase';
 import { showAlert } from '../../src/lib/alert';
 import type { Envelope } from '../../src/lib/edge';
@@ -45,6 +51,42 @@ function isGenerateResponse(value: unknown): value is GenerateSettlementsRespons
   return Array.isArray(v.settlements) && typeof v.total_amount === 'number';
 }
 
+/** Breakdown row returned by GET /settlements/:id (inside the envelope). */
+interface SettlementDetailRecord {
+  work_day: string;
+  block_name: string;
+  product_name: string;
+  variety_name: string | null;
+  payment_unit: string;
+  base: number;
+  rate: number;
+  subtotal: number;
+}
+/** Payment row returned by GET /settlements/:id. */
+interface SettlementDetailPayment {
+  amount: number;
+  paid_at: string;
+  notes: string | null;
+}
+/** Internal payload returned by GET /settlements/:id (inside the envelope). */
+interface SettlementDetail {
+  period_start: string;
+  period_end: string;
+  total_amount: number;
+  status: string;
+  payee_type?: 'worker' | 'crew';
+  workers?: { full_name?: string } | null;
+  breakdown: SettlementDetailRecord[];
+  payments: SettlementDetailPayment[];
+}
+
+/** Type guard over the settlement detail payload (NFR1). */
+function isSettlementDetail(value: unknown): value is SettlementDetail {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.breakdown) && typeof v.total_amount === 'number';
+}
+
 const statusLabel: Record<string, string> = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagado' };
 const statusColor: Record<string, string> = { pending: colors.amber, partial: colors.orange, paid: colors.primary };
 
@@ -60,10 +102,13 @@ function SettlementsContent() {
   const queryClient = useQueryClient();
   const { has } = usePermissions();
   const canManage = has(CAPABILITIES.SETTLEMENTS_MANAGE);
+  const { showPdf } = useReportExport();
 
   const [page, setPage] = useState(1);
   const { data: settlements, isLoading, refetch } = useSettlementsList({ page });
   const [refreshing, setRefreshing] = useState(false);
+  // Id of the settlement whose PDF is currently being generated.
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [periodStart, setPeriodStart] = useState('');
@@ -141,6 +186,62 @@ function SettlementsContent() {
     generateMutation.mutate();
   }
 
+  // PDF por liquidación (G5-AC3): detalle desde settlements/:id (read-only) y
+  // render con expo-print. El sobre se lee de data.data; errores de data.error.
+  async function handleExportPdf(item: SettlementListItem) {
+    setExportingId(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke<Envelope<SettlementDetail>>(
+        `settlements/${item.id}`,
+        { method: 'GET' },
+      );
+      if (error || data?.success === false) {
+        throw new Error(data?.error?.message ?? 'No se pudo obtener la liquidación.');
+      }
+      if (!isSettlementDetail(data?.data)) {
+        throw new Error('Respuesta inválida del servidor.');
+      }
+      const detail = data!.data!;
+      if (detail.breakdown.length === 0) {
+        showAlert('Sin datos', 'La liquidación no tiene producción para exportar.');
+        return;
+      }
+
+      const records: SettlementPdfRecord[] = detail.breakdown.map((r) => ({
+        work_day: r.work_day,
+        block_name: r.block_name,
+        product_name: r.product_name,
+        variety_name: r.variety_name,
+        payment_unit: r.payment_unit,
+        base: Number(r.base),
+        rate: Number(r.rate),
+        subtotal: Number(r.subtotal),
+      }));
+
+      const pdfData: SettlementPdfData = {
+        workerName: item.payee_name || detail.workers?.full_name || '—',
+        workerRut: null,
+        periodStart: detail.period_start,
+        periodEnd: detail.period_end,
+        totalAmount: Number(detail.total_amount),
+        status: detail.status,
+        payeeType: detail.payee_type ?? item.payee_type,
+        records,
+        payments: detail.payments.map((p) => ({
+          date: new Date(p.paid_at).toLocaleDateString('es-CL'),
+          amount: Number(p.amount),
+          notes: p.notes ?? '',
+        })),
+      };
+
+      await printSettlement(pdfData);
+    } catch (err) {
+      showAlert('Error', err instanceof Error ? err.message : 'No se pudo exportar el PDF.');
+    } finally {
+      setExportingId(null);
+    }
+  }
+
   const hasPrevPage = page > 1;
   const hasNextPage = (settlements?.length ?? 0) >= 20;
 
@@ -160,7 +261,14 @@ function SettlementsContent() {
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 32 }}
-        renderItem={({ item }) => <SettlementCard item={item} />}
+        renderItem={({ item }) => (
+          <SettlementCard
+            item={item}
+            showPdf={showPdf}
+            exporting={exportingId === item.id}
+            onExportPdf={() => handleExportPdf(item)}
+          />
+        )}
         ListEmptyComponent={
           isLoading ? (
             <PaymentsSkeleton />
@@ -254,7 +362,17 @@ function SettlementsContent() {
   );
 }
 
-function SettlementCard({ item }: { item: SettlementListItem }) {
+function SettlementCard({
+  item,
+  showPdf,
+  exporting,
+  onExportPdf,
+}: {
+  item: SettlementListItem;
+  showPdf: boolean;
+  exporting: boolean;
+  onExportPdf: () => void;
+}) {
   const owed = item.total_amount - item.total_paid;
   return (
     <View style={s.card}>
@@ -277,6 +395,17 @@ function SettlementCard({ item }: { item: SettlementListItem }) {
       </View>
       {item.status !== 'paid' && owed > 0 && (
         <Text style={s.owedLabel}>Adeudado: ${Math.round(owed).toLocaleString()}</Text>
+      )}
+      {showPdf && (
+        <TouchableOpacity
+          style={[s.pdfBtn, exporting && s.pdfBtnDisabled]}
+          onPress={onExportPdf}
+          disabled={exporting}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="document-outline" size={15} color={colors.primary} />
+          <Text style={s.pdfBtnText}>{exporting ? 'Generando PDF...' : 'Exportar PDF'}</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -312,6 +441,20 @@ const s = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: font.semibold },
   paidLabel: { fontSize: 12, color: colors.textMuted },
   owedLabel: { fontSize: 13, fontWeight: font.bold, color: colors.red, marginTop: 4 },
+  pdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primaryMuted,
+    backgroundColor: colors.primaryBg,
+    borderRadius: radius.md,
+    paddingVertical: 9,
+  },
+  pdfBtnDisabled: { opacity: 0.5 },
+  pdfBtnText: { fontSize: 13, fontWeight: font.semibold, color: colors.primary },
   pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.lg },
   pagerBtn: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 8 },
   pagerBtnDisabled: { opacity: 0.4 },
