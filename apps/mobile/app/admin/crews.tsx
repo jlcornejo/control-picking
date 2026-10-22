@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity,
-  Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -12,6 +22,7 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Field, TextField, SelectField, SubmitButton, RowItem } from '../../src/components/form/FormControls';
+import { AppText } from '../../src/components/AppText';
 
 type CrewRow = {
   id: string;
@@ -263,7 +274,7 @@ function CrewFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar cuadrilla' : 'Nueva cuadrilla'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar cuadrilla' : 'Nueva cuadrilla'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -274,14 +285,14 @@ function CrewFormModal({
             </Field>
             <Field label={crewTerm} required error={errors.crew_lead_id}>
               {leadOptions.length === 0 ? (
-                <Text style={s.note}>No hay trabajadores con rol {crewTerm}. Créalos primero en Trabajadores.</Text>
+                <AppText style={s.note}>No hay trabajadores con rol {crewTerm}. Créalos primero en Trabajadores.</AppText>
               ) : (
                 <SelectField value={leadId} options={leadOptions} onChange={setLeadId} hasError={!!errors.crew_lead_id} />
               )}
             </Field>
             <Field label="Supervisor a cargo" required error={errors.supervisor_id}>
               {supervisorOptions.length === 0 ? (
-                <Text style={s.note}>No hay supervisores. Créalos primero en Trabajadores.</Text>
+                <AppText style={s.note}>No hay supervisores. Créalos primero en Trabajadores.</AppText>
               ) : (
                 <SelectField value={supervisorId} options={supervisorOptions} onChange={setSupervisorId} hasError={!!errors.supervisor_id} />
               )}
@@ -353,19 +364,19 @@ function CrewMembersModal({
       <View style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Trabajadores — {crew?.name}</Text>
+            <AppText style={s.sheetTitle}>Trabajadores — {crew?.name}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
-            <Text style={s.sectionLabel}>MIEMBROS ({(members || []).length})</Text>
+            <AppText style={s.sectionLabel}>MIEMBROS ({(members || []).length})</AppText>
             {(members || []).length === 0 ? (
-              <Text style={s.note}>Sin trabajadores asignados.</Text>
+              <AppText style={s.note}>Sin trabajadores asignados.</AppText>
             ) : (
               (members || []).map((m) => (
                 <View key={m.id} style={s.memberRow}>
-                  <Text style={s.memberName}>{m.full_name}</Text>
+                  <AppText style={s.memberName}>{m.full_name}</AppText>
                   <TouchableOpacity onPress={() => removeMember.mutate(m.id)}>
                     <Ionicons name="person-remove-outline" size={18} color={colors.red} />
                   </TouchableOpacity>
@@ -373,14 +384,14 @@ function CrewMembersModal({
               ))
             )}
 
-            <Text style={[s.sectionLabel, { marginTop: spacing.lg }]}>AGREGAR</Text>
+            <AppText style={[s.sectionLabel, { marginTop: spacing.lg }]}>AGREGAR</AppText>
             {(available || []).length === 0 ? (
-              <Text style={s.note}>No hay trabajadores disponibles (rol Trabajador, activos y sin cuadrilla).</Text>
+              <AppText style={s.note}>No hay trabajadores disponibles (rol Trabajador, activos y sin cuadrilla).</AppText>
             ) : (
               (available || []).map((w) => (
                 <TouchableOpacity key={w.id} style={s.addRow} onPress={() => addMember.mutate(w.id)}>
                   <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                  <Text style={s.addName}>{w.full_name}</Text>
+                  <AppText style={s.addName}>{w.full_name}</AppText>
                 </TouchableOpacity>
               ))
             )}

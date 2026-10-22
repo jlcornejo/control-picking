@@ -1,8 +1,12 @@
-import { View, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  StyleSheet,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import { colors, font, spacing, radius } from '../constants/theme';
+import { AppText } from './AppText';
 
 /**
  * Banner global de conectividad. Se muestra cuando:
@@ -34,7 +38,7 @@ export function OfflineBanner() {
   return (
     <View style={[s.wrap, { paddingTop: insets.top + 4, backgroundColor: bg }]} pointerEvents="none">
       <Ionicons name={icon as any} size={14} color={colors.textWhite} />
-      <Text style={s.text}>{label}</Text>
+      <AppText style={s.text}>{label}</AppText>
     </View>
   );
 }

@@ -1,7 +1,18 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput,
-  Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet, Dimensions,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -16,6 +27,7 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Field, TextField, SelectField, SubmitButton, RowItem } from '../../src/components/form/FormControls';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 type WorkerRow = {
   id: string;
@@ -104,7 +116,7 @@ export default function AdminWorkersScreen() {
     <View style={s.container}>
       <View style={s.searchRow}>
         <Ionicons name="search" size={18} color={colors.textMuted} />
-        <TextInput
+        <AppTextInput
           style={s.searchInput}
           placeholder="Buscar por nombre, RUT, teléfono…"
           placeholderTextColor={colors.textMuted}
@@ -291,7 +303,7 @@ function WorkerFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar trabajador' : 'Nuevo trabajador'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar trabajador' : 'Nuevo trabajador'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -328,7 +340,7 @@ function BadgeModal({ worker, roleLabel, onClose }: { worker: WorkerRow | null; 
       <View style={s.badgeBackdrop}>
         <View style={s.badgeCard}>
           <View style={s.badgeHeaderRow}>
-            <Text style={s.badgeBrand}>Fundo360</Text>
+            <AppText style={s.badgeBrand}>Fundo360</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
@@ -339,12 +351,12 @@ function BadgeModal({ worker, roleLabel, onClose }: { worker: WorkerRow | null; 
             </View>
           ) : (
             <View style={[s.qrBox, { paddingVertical: spacing.xxxl }]}>
-              <Text style={s.noBadge}>Este trabajador no tiene badge QR.</Text>
+              <AppText style={s.noBadge}>Este trabajador no tiene badge QR.</AppText>
             </View>
           )}
-          <Text style={s.badgeName}>{worker?.full_name}</Text>
-          <Text style={s.badgeRole}>{roleLabel}</Text>
-          {worker?.qr_badge_url ? <Text style={s.badgeId}>{worker.qr_badge_url}</Text> : null}
+          <AppText style={s.badgeName}>{worker?.full_name}</AppText>
+          <AppText style={s.badgeRole}>{roleLabel}</AppText>
+          {worker?.qr_badge_url ? <AppText style={s.badgeId}>{worker.qr_badge_url}</AppText> : null}
         </View>
       </View>
     </Modal>

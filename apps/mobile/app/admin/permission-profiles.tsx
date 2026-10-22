@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity,
-  Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -12,6 +22,7 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Field, TextField, SubmitButton, RowItem } from '../../src/components/form/FormControls';
+import { AppText } from '../../src/components/AppText';
 
 type ProfileRow = {
   id: string;
@@ -195,7 +206,7 @@ function ProfileFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar perfil' : 'Nuevo perfil'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar perfil' : 'Nuevo perfil'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -205,11 +216,11 @@ function ProfileFormModal({
               <TextField value={name} onChangeText={setName} hasError={!!errors.name} placeholder="Secretaría, Admin sin pagos…" />
             </Field>
 
-            <Text style={s.capsLabel}>Capacidades habilitadas</Text>
-            {errors.capabilities ? <Text style={s.capsError}>{errors.capabilities}</Text> : null}
-            <Text style={s.capsHint}>
+            <AppText style={s.capsLabel}>Capacidades habilitadas</AppText>
+            {errors.capabilities ? <AppText style={s.capsError}>{errors.capabilities}</AppText> : null}
+            <AppText style={s.capsHint}>
               El perfil restringe al usuario a estas capacidades dentro de su rol. Las no marcadas quedan bloqueadas.
-            </Text>
+            </AppText>
             {ALL_CAPABILITIES.map((cap) => {
               const on = caps.includes(cap);
               return (
@@ -219,7 +230,7 @@ function ProfileFormModal({
                     size={22}
                     color={on ? colors.primary : colors.textMuted}
                   />
-                  <Text style={[s.capText, on && s.capTextOn]}>{CAPABILITY_LABELS[cap]}</Text>
+                  <AppText style={[s.capText, on && s.capTextOn]}>{CAPABILITY_LABELS[cap]}</AppText>
                 </TouchableOpacity>
               );
             })}

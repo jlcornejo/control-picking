@@ -1,9 +1,16 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import {
+  useState } from 'react';
+import { View,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { colors, radius, font } from '../src/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AppText, AppTextInput } from '../src/components/AppText';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -55,14 +62,14 @@ export default function ChangePasswordScreen() {
       <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={s.content}>
           <View style={s.header}>
-            <Text style={s.title}>Cambia tu contraseña</Text>
-            <Text style={s.subtitle}>Por seguridad, define una nueva contraseña antes de continuar.</Text>
+            <AppText style={s.title}>Cambia tu contraseña</AppText>
+            <AppText style={s.subtitle}>Por seguridad, define una nueva contraseña antes de continuar.</AppText>
           </View>
 
           <View style={s.card}>
             <View style={s.inputGroup}>
-              <Text style={s.label}>Nueva contraseña</Text>
-              <TextInput
+              <AppText style={s.label}>Nueva contraseña</AppText>
+              <AppTextInput
                 style={s.input}
                 placeholder="Mínimo 8 caracteres"
                 placeholderTextColor={colors.textMuted}
@@ -73,8 +80,8 @@ export default function ChangePasswordScreen() {
               />
             </View>
             <View style={s.inputGroup}>
-              <Text style={s.label}>Confirmar contraseña</Text>
-              <TextInput
+              <AppText style={s.label}>Confirmar contraseña</AppText>
+              <AppTextInput
                 style={s.input}
                 placeholder="Repite la contraseña"
                 placeholderTextColor={colors.textMuted}
@@ -89,12 +96,12 @@ export default function ChangePasswordScreen() {
 
             {errorMsg ? (
               <View style={s.errorBox}>
-                <Text style={s.errorText}>{errorMsg}</Text>
+                <AppText style={s.errorText}>{errorMsg}</AppText>
               </View>
             ) : null}
 
             <TouchableOpacity style={[s.btn, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
-              <Text style={s.btnText}>{loading ? 'Guardando...' : 'Guardar y continuar'}</Text>
+              <AppText style={s.btnText}>{loading ? 'Guardando...' : 'Guardar y continuar'}</AppText>
             </TouchableOpacity>
           </View>
         </View>

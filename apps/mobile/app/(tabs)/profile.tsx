@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform, Modal, Dimensions } from 'react-native';
+import {
+  useState } from 'react';
+import { View,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Platform,
+  Modal,
+  Dimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useOrgSettings } from '../../src/hooks/useOrgSettings';
@@ -12,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
 import { useFontScale, FONT_SCALES, FONT_SCALE_LABELS, type FontScaleKey } from '../../src/hooks/useFontScale';
+import { AppText } from '../../src/components/AppText';
 
 type Period = 'today' | 'week' | 'month';
 const PERIODS: { key: Period; label: string }[] = [
@@ -113,12 +123,12 @@ export default function ProfileScreen() {
       {/* Avatar card */}
       <View style={s.profileCard}>
         <View style={s.avatar}>
-          <Text style={s.avatarText}>{worker?.full_name?.charAt(0) || '?'}</Text>
+          <AppText style={s.avatarText}>{worker?.full_name?.charAt(0) || '?'}</AppText>
         </View>
-        <Text style={s.name}>{worker?.full_name || 'Usuario'}</Text>
+        <AppText style={s.name}>{worker?.full_name || 'Usuario'}</AppText>
         <View style={[s.rolePill, { backgroundColor: (roleColors[worker?.role || ''] || colors.primary) + '15' }]}>
           <View style={[s.roleDot, { backgroundColor: roleColors[worker?.role || ''] || colors.primary }]} />
-          <Text style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]} numberOfLines={1}>{roleText}</Text>
+          <AppText style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]} numberOfLines={1}>{roleText}</AppText>
         </View>
       </View>
 
@@ -133,7 +143,7 @@ export default function ProfileScreen() {
                 onPress={() => setSelectedPeriod(p.key)}
                 activeOpacity={0.7}
               >
-                <Text style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{p.label}</Text>
+                <AppText style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{p.label}</AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -141,31 +151,31 @@ export default function ProfileScreen() {
           {stats.isManager ? (
             <View style={s.statsRow}>
               <View style={s.statCard}>
-                <Text style={s.statValue}>{formatNumber(stats.totalUnits)}</Text>
-                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</Text>
+                <AppText style={s.statValue}>{formatNumber(stats.totalUnits)}</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</AppText>
               </View>
               <View style={s.statCard}>
-                <Text style={[s.statValue, { color: colors.blue }]}>{stats.activeWorkers}</Text>
-                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Trabajadores</Text>
+                <AppText style={[s.statValue, { color: colors.blue }]}>{stats.activeWorkers}</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Trabajadores</AppText>
               </View>
               <View style={s.statCard}>
-                <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
-                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</Text>
+                <AppText style={s.statValue}>{formatNumber(stats.avgPerDay)}</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</AppText>
               </View>
             </View>
           ) : (
             <View style={s.statsRow}>
               <View style={s.statCard}>
-                <Text style={s.statValue}>{formatNumber(stats.totalUnits)}</Text>
-                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</Text>
+                <AppText style={s.statValue}>{formatNumber(stats.totalUnits)}</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</AppText>
               </View>
               <View style={s.statCard}>
-                <Text style={[s.statValue, { color: colors.blue }]}>{stats.daysWorked}</Text>
-                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Días</Text>
+                <AppText style={[s.statValue, { color: colors.blue }]}>{stats.daysWorked}</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Días</AppText>
               </View>
               <View style={s.statCard}>
-                <Text style={s.statValue}>{formatNumber(stats.avgPerDay)}</Text>
-                <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</Text>
+                <AppText style={s.statValue}>{formatNumber(stats.avgPerDay)}</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</AppText>
               </View>
             </View>
           )}
@@ -184,7 +194,7 @@ export default function ProfileScreen() {
       {worker?.role === 'admin' && (
         <TouchableOpacity style={s.adminBtn} onPress={() => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {} router.push('/admin'); }} activeOpacity={0.8}>
           <Ionicons name="settings-outline" size={22} color={colors.textWhite} />
-          <Text style={s.adminBtnText} numberOfLines={1}>Administración</Text>
+          <AppText style={s.adminBtnText} numberOfLines={1}>Administración</AppText>
           <Ionicons name="chevron-forward" size={18} color={colors.textWhite} />
         </TouchableOpacity>
       )}
@@ -193,7 +203,7 @@ export default function ProfileScreen() {
       {worker?.role === 'worker' && detail?.qr_badge_url && (
         <TouchableOpacity style={s.qrBtn} onPress={() => { try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {} setShowQR(true); }} activeOpacity={0.8}>
           <Ionicons name="qr-code-outline" size={22} color={colors.primary} />
-          <Text style={s.qrBtnText}>Mi Badge QR</Text>
+          <AppText style={s.qrBtnText}>Mi Badge QR</AppText>
         </TouchableOpacity>
       )}
 
@@ -201,14 +211,14 @@ export default function ProfileScreen() {
       <Modal visible={showQR} animationType="fade" transparent statusBarTranslucent>
         <View style={s.qrOverlay}>
           <View style={s.qrCard}>
-            <Text style={s.qrTitle}>Mi Badge QR</Text>
-            <Text style={s.qrSubtitle}>{worker?.full_name}</Text>
+            <AppText style={s.qrTitle}>Mi Badge QR</AppText>
+            <AppText style={s.qrSubtitle}>{worker?.full_name}</AppText>
             <View style={s.qrContainer}>
               <QRCode value={detail?.qr_badge_url || ''} size={QR_SIZE} backgroundColor="#fff" color={colors.text} />
             </View>
-            <Text style={s.qrHint}>Presenta este código al supervisor para registrar tu producción</Text>
+            <AppText style={s.qrHint}>Presenta este código al supervisor para registrar tu producción</AppText>
             <TouchableOpacity style={s.qrCloseBtn} onPress={() => setShowQR(false)} activeOpacity={0.8}>
-              <Text style={s.qrCloseBtnText}>Cerrar</Text>
+              <AppText style={s.qrCloseBtnText}>Cerrar</AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -218,9 +228,9 @@ export default function ProfileScreen() {
       <View style={s.a11yCard}>
         <View style={s.a11yHeader}>
           <Ionicons name="text-outline" size={18} color={colors.textSecondary} />
-          <Text style={s.a11yTitle} numberOfLines={1}>Tamaño del texto</Text>
+          <AppText style={s.a11yTitle} numberOfLines={1}>Tamaño del texto</AppText>
         </View>
-        <Text style={s.a11yHint}>Agranda el texto de toda la app para leerlo mejor.</Text>
+        <AppText style={s.a11yHint}>Agranda el texto de toda la app para leerlo mejor.</AppText>
         <View style={s.a11yRow}>
           {(Object.keys(FONT_SCALES) as FontScaleKey[]).map((k) => (
             <TouchableOpacity
@@ -229,7 +239,7 @@ export default function ProfileScreen() {
               onPress={() => { try { Haptics.selectionAsync(); } catch {} setScale(k); }}
               activeOpacity={0.8}
             >
-              <Text style={[s.a11yChipText, scale === k && s.a11yChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{FONT_SCALE_LABELS[k]}</Text>
+              <AppText style={[s.a11yChipText, scale === k && s.a11yChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{FONT_SCALE_LABELS[k]}</AppText>
             </TouchableOpacity>
           ))}
         </View>
@@ -237,10 +247,10 @@ export default function ProfileScreen() {
 
       {/* Logout */}
       <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-        <Text style={s.logoutText}>Cerrar sesión</Text>
+        <AppText style={s.logoutText}>Cerrar sesión</AppText>
       </TouchableOpacity>
 
-      <Text style={s.version}>Fundo360 v0.1.0</Text>
+      <AppText style={s.version}>Fundo360 v0.1.0</AppText>
     </ScrollView>
   );
 }
@@ -248,10 +258,10 @@ export default function ProfileScreen() {
 function InfoRow({ label, value, icon, last }: { label: string; value: string; icon?: string; last?: boolean }) {
   return (
     <View style={[ir.row, !last && ir.border]}>
-      <Text style={ir.label}>{label}</Text>
+      <AppText style={ir.label}>{label}</AppText>
       <View style={ir.valueWrap}>
         {icon && <Ionicons name={icon as any} size={16} color={colors.primary} />}
-        <Text style={ir.value} numberOfLines={1}>{value}</Text>
+        <AppText style={ir.value} numberOfLines={1}>{value}</AppText>
       </View>
     </View>
   );

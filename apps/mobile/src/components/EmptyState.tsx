@@ -1,6 +1,11 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, radius, spacing, font } from '../constants/theme';
+import { AppText } from './AppText';
 
 interface EmptyStateProps {
   icon: string;
@@ -17,11 +22,11 @@ export function EmptyState({ icon, title, message, actionLabel, onAction, iconCo
       <View style={[s.iconCircle, iconColor ? { backgroundColor: `${iconColor}12` } : undefined]}>
         <Ionicons name={icon as any} size={36} color={iconColor || colors.textMuted} />
       </View>
-      <Text style={s.title}>{title}</Text>
-      <Text style={s.message}>{message}</Text>
+      <AppText style={s.title}>{title}</AppText>
+      <AppText style={s.message}>{message}</AppText>
       {actionLabel && onAction && (
         <TouchableOpacity style={s.actionBtn} onPress={onAction} activeOpacity={0.8}>
-          <Text style={s.actionText}>{actionLabel}</Text>
+          <AppText style={s.actionText}>{actionLabel}</AppText>
         </TouchableOpacity>
       )}
     </View>

@@ -1,4 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CAPABILITIES, type Capability } from '@fundo360/shared';
@@ -7,6 +12,7 @@ import { useFeatureFlag } from '../../src/hooks/useFeatureFlag';
 import { usePermissions } from '../../src/hooks/usePermissions';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { AdminGuard } from '../../src/components/admin/AdminGuard';
+import { AppText } from '../../src/components/AppText';
 
 interface AdminModule {
   key: string;
@@ -57,7 +63,7 @@ export default function AdminHome() {
   return (
     <AdminGuard>
       <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <Text style={s.hint}>Gestiona los datos maestros de tu organización.</Text>
+      <AppText style={s.hint}>Gestiona los datos maestros de tu organización.</AppText>
       {visible.map((m) => (
         <TouchableOpacity
           key={m.key}
@@ -70,14 +76,14 @@ export default function AdminHome() {
             <Ionicons name={m.icon as any} size={22} color={m.color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.title}>{m.title}</Text>
-            <Text style={s.desc}>{m.description}</Text>
+            <AppText style={s.title}>{m.title}</AppText>
+            <AppText style={s.desc}>{m.description}</AppText>
           </View>
           {m.available ? (
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           ) : (
             <View style={s.soon}>
-              <Text style={s.soonText}>Próximamente</Text>
+              <AppText style={s.soonText}>Próximamente</AppText>
             </View>
           )}
         </TouchableOpacity>

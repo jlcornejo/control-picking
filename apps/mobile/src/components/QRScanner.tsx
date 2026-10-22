@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import {
+  useState,
+  useEffect } from 'react';
+import { View,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors } from '../constants/theme';
+import { AppText } from './AppText';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -25,7 +32,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
   if (!permission) {
     return (
       <View style={s.container}>
-        <Text style={s.message}>Cargando cámara...</Text>
+        <AppText style={s.message}>Cargando cámara...</AppText>
       </View>
     );
   }
@@ -35,15 +42,15 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
       <View style={s.container}>
         <View style={s.permissionBox}>
           <Ionicons name="camera-outline" size={48} color={colors.textMuted} style={{ marginBottom: 16 }} />
-          <Text style={s.permissionTitle}>Acceso a cámara</Text>
-          <Text style={s.permissionText}>
+          <AppText style={s.permissionTitle}>Acceso a cámara</AppText>
+          <AppText style={s.permissionText}>
             Se necesita acceso a la cámara para escanear los badges QR de los trabajadores.
-          </Text>
+          </AppText>
           <TouchableOpacity style={s.permissionBtn} onPress={requestPermission} activeOpacity={0.8}>
-            <Text style={s.permissionBtnText}>Permitir acceso</Text>
+            <AppText style={s.permissionBtnText}>Permitir acceso</AppText>
           </TouchableOpacity>
           <TouchableOpacity style={s.cancelBtn} onPress={onClose}>
-            <Text style={s.cancelBtnText}>Cancelar</Text>
+            <AppText style={s.cancelBtnText}>Cancelar</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -89,10 +96,10 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
 
         {/* Bottom */}
         <View style={s.overlayBottom}>
-          <Text style={s.scanText}>Apunta al Badge QR del trabajador</Text>
+          <AppText style={s.scanText}>Apunta al Badge QR del trabajador</AppText>
           {scanned && (
             <TouchableOpacity style={s.rescanBtn} onPress={() => setScanned(false)}>
-              <Text style={s.rescanBtnText}>Escanear de nuevo</Text>
+              <AppText style={s.rescanBtnText}>Escanear de nuevo</AppText>
             </TouchableOpacity>
           )}
         </View>

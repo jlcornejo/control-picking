@@ -1,8 +1,14 @@
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+} from 'react-native';
 import { BlurView } from 'expo-blur';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, radius, font } from '../constants/theme';
 import * as Haptics from 'expo-haptics';
+import { AppText } from './AppText';
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const visibleRoutes = state.routes.filter((route) => {
@@ -50,7 +56,10 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
                   <View style={[s.centerCircle, isFocused && s.centerCircleActive]}>
                     {icon}
                   </View>
-                  <Text style={[s.centerLabel, isFocused && s.centerLabelActive]}>{label}</Text>
+                  {/* La barra tiene altura fija: la etiqueta se mantiene en UNA
+                      línea (numberOfLines={1}). Puede encogerse/elipsarse, pero
+                      NO debe envolver a dos líneas (rompería el layout de la barra). */}
+                  <AppText style={[s.centerLabel, isFocused && s.centerLabelActive]} numberOfLines={1} adjustsFontSizeToFit>{label}</AppText>
                 </TouchableOpacity>
               );
             }
@@ -60,7 +69,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
                 <View style={[s.iconWrap, isFocused && s.iconWrapActive]}>
                   {icon}
                 </View>
-                <Text style={[s.label, isFocused && s.labelActive]}>{label}</Text>
+                <AppText style={[s.label, isFocused && s.labelActive]} numberOfLines={1} adjustsFontSizeToFit>{label}</AppText>
               </TouchableOpacity>
             );
           })}

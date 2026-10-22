@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity,
-  Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -12,6 +22,7 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Field, TextField, SelectField, SubmitButton, RowItem } from '../../src/components/form/FormControls';
+import { AppText } from '../../src/components/AppText';
 
 type BoxTypeRow = {
   id: string;
@@ -217,7 +228,7 @@ function BoxTypeFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar tipo de caja' : 'Nuevo tipo de caja'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar tipo de caja' : 'Nuevo tipo de caja'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>

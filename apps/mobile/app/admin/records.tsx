@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useMemo,
+  useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  TextInput,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -28,6 +29,7 @@ import { showAlert } from '../../src/lib/alert';
 import { localDate } from '../../src/utils/date';
 import { formatMoney, formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 20;
@@ -319,8 +321,8 @@ function RecordsContent() {
         <View style={s.filters}>
           <View style={s.filterRow}>
             <View style={s.filterCol}>
-              <Text style={s.filterLabel}>Desde</Text>
-              <TextInput
+              <AppText style={s.filterLabel}>Desde</AppText>
+              <AppTextInput
                 style={s.filterInput}
                 value={dateFrom}
                 onChangeText={setFromDate}
@@ -332,8 +334,8 @@ function RecordsContent() {
               />
             </View>
             <View style={s.filterCol}>
-              <Text style={s.filterLabel}>Hasta</Text>
-              <TextInput
+              <AppText style={s.filterLabel}>Hasta</AppText>
+              <AppTextInput
                 style={s.filterInput}
                 value={dateTo}
                 onChangeText={setToDate}
@@ -347,13 +349,13 @@ function RecordsContent() {
           </View>
           <TouchableOpacity style={s.filterPickerBtn} onPress={() => setFilterModal(true)} activeOpacity={0.7}>
             <Ionicons name="filter-outline" size={16} color={colors.primary} />
-            <Text style={s.filterPickerText} numberOfLines={1}>
+            <AppText style={s.filterPickerText} numberOfLines={1}>
               {activeWorkerName ? `Trabajador: ${activeWorkerName}` : 'Trabajador: Todos'}
               {activeBlockName ? ` · Paño: ${activeBlockName}` : ' · Paño: Todos'}
-            </Text>
+            </AppText>
           </TouchableOpacity>
           {(!DATE_RE.test(dateFrom) || !DATE_RE.test(dateTo)) && (
-            <Text style={s.filterWarn}>Usa el formato AAAA-MM-DD en ambas fechas.</Text>
+            <AppText style={s.filterWarn}>Usa el formato AAAA-MM-DD en ambas fechas.</AppText>
           )}
           {showCsv && (
             <TouchableOpacity
@@ -363,7 +365,7 @@ function RecordsContent() {
               activeOpacity={0.8}
             >
               <Ionicons name="download-outline" size={16} color={colors.textWhite} />
-              <Text style={s.exportBtnText}>{exporting ? 'Exportando...' : 'Exportar CSV'}</Text>
+              <AppText style={s.exportBtnText}>{exporting ? 'Exportando...' : 'Exportar CSV'}</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -383,7 +385,7 @@ function RecordsContent() {
         {data?.truncated && (
           <View style={s.truncateNotice}>
             <Ionicons name="warning-outline" size={16} color={colors.amber} />
-            <Text style={s.truncateText}>Mostrando los primeros {HARD_LIMIT} registros; acota el período o los filtros.</Text>
+            <AppText style={s.truncateText}>Mostrando los primeros {HARD_LIMIT} registros; acota el período o los filtros.</AppText>
           </View>
         )}
 
@@ -417,7 +419,7 @@ function RecordsContent() {
 
           {hasMore && (
             <TouchableOpacity style={s.loadMoreBtn} onPress={() => setPage((p) => p + 1)} activeOpacity={0.7}>
-              <Text style={s.loadMoreText}>Cargar más</Text>
+              <AppText style={s.loadMoreText}>Cargar más</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -428,15 +430,15 @@ function RecordsContent() {
         <View style={s.modalOverlay}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setFilterModal(false)} />
           <View style={s.modalContent}>
-            <Text style={s.modalTitle}>Filtrar</Text>
+            <AppText style={s.modalTitle}>Filtrar</AppText>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <Text style={s.modalLabel}>Trabajador</Text>
+              <AppText style={s.modalLabel}>Trabajador</AppText>
               <OptionRow label="Todos" active={workerId === ''} onPress={() => selectWorker('')} />
               {(allWorkers ?? []).map((w) => (
                 <OptionRow key={w.id} label={w.full_name} active={workerId === w.id} onPress={() => selectWorker(w.id)} />
               ))}
 
-              <Text style={s.modalLabel}>Paño</Text>
+              <AppText style={s.modalLabel}>Paño</AppText>
               <OptionRow label="Todos" active={blockId === ''} onPress={() => selectBlock('')} />
               {(allBlocks ?? []).map((b) => (
                 <OptionRow
@@ -448,7 +450,7 @@ function RecordsContent() {
               ))}
 
               <TouchableOpacity style={s.modalDoneBtn} onPress={() => setFilterModal(false)} activeOpacity={0.8}>
-                <Text style={s.modalDoneText}>Aplicar</Text>
+                <AppText style={s.modalDoneText}>Aplicar</AppText>
               </TouchableOpacity>
               <View style={{ height: 20 }} />
             </ScrollView>
@@ -468,18 +470,18 @@ function RecordsContent() {
             }}
           />
           <View style={s.modalContent}>
-            <Text style={s.modalTitle}>Corregir registro</Text>
+            <AppText style={s.modalTitle}>Corregir registro</AppText>
             {correctRecord && (
               <View>
-                <Text style={s.correctInfo}>
+                <AppText style={s.correctInfo}>
                   {correctRecord.worker_name} · {correctRecord.block_name}
-                </Text>
-                <Text style={s.correctInfoSub}>
+                </AppText>
+                <AppText style={s.correctInfoSub}>
                   Cantidad actual: {correctRecord.unit === 'kg' ? formatKg(Number(correctRecord.base)) : Number(correctRecord.base)}{' '}
                   {correctRecord.unit === 'kg' ? 'kg' : 'cajas'}
-                </Text>
-                <Text style={s.modalLabel}>{correctRecord.unit === 'kg' ? 'Nuevos kilos' : 'Nueva cantidad'}</Text>
-                <TextInput
+                </AppText>
+                <AppText style={s.modalLabel}>{correctRecord.unit === 'kg' ? 'Nuevos kilos' : 'Nueva cantidad'}</AppText>
+                <AppTextInput
                   style={s.correctInput}
                   value={correctQty}
                   onChangeText={setCorrectQty}
@@ -489,9 +491,9 @@ function RecordsContent() {
                   placeholder="0"
                   placeholderTextColor={colors.textMuted}
                 />
-                <Text style={s.correctHint}>
+                <AppText style={s.correctHint}>
                   Se conserva el registro original como auditoría. Solo se puede corregir el día actual.
-                </Text>
+                </AppText>
                 <TouchableOpacity
                   style={[
                     s.correctConfirm,
@@ -502,7 +504,7 @@ function RecordsContent() {
                   activeOpacity={0.85}
                 >
                   <Ionicons name="checkmark" size={18} color={colors.textWhite} />
-                  <Text style={s.correctConfirmText}>{correctMutation.isPending ? 'Guardando...' : 'Guardar corrección'}</Text>
+                  <AppText style={s.correctConfirmText}>{correctMutation.isPending ? 'Guardando...' : 'Guardar corrección'}</AppText>
                 </TouchableOpacity>
               </View>
             )}
@@ -518,26 +520,26 @@ function RecordRow({ item, onCorrect }: { item: EnrichedRecord; onCorrect: () =>
   return (
     <View style={s.card}>
       <View style={{ flex: 1 }}>
-        <Text style={s.cardWorker}>{item.worker_name}</Text>
-        <Text style={s.cardBlock}>{item.block_name}</Text>
-        <Text style={s.cardMeta}>
+        <AppText style={s.cardWorker}>{item.worker_name}</AppText>
+        <AppText style={s.cardBlock}>{item.block_name}</AppText>
+        <AppText style={s.cardMeta}>
           {item.work_day} ·{' '}
           {new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-        </Text>
+        </AppText>
         {item.is_correction && (
           <View style={s.correctionBadge}>
-            <Text style={s.correctionBadgeText}>Corrección</Text>
+            <AppText style={s.correctionBadgeText}>Corrección</AppText>
           </View>
         )}
       </View>
       <View style={s.cardRight}>
-        <Text style={s.cardQty}>{item.unit === 'kg' ? formatKg(Number(item.base)) : Number(item.base)}</Text>
-        <Text style={s.cardUnit}>{item.unit === 'kg' ? 'kg' : 'cj'}</Text>
-        <Text style={s.cardEarn}>{formatMoney(Number(item.subtotal))}</Text>
+        <AppText style={s.cardQty}>{item.unit === 'kg' ? formatKg(Number(item.base)) : Number(item.base)}</AppText>
+        <AppText style={s.cardUnit}>{item.unit === 'kg' ? 'kg' : 'cj'}</AppText>
+        <AppText style={s.cardEarn}>{formatMoney(Number(item.subtotal))}</AppText>
         {canCorrectToday && (
           <TouchableOpacity style={s.correctBtn} onPress={onCorrect} activeOpacity={0.8}>
             <Ionicons name="create-outline" size={14} color={colors.primary} />
-            <Text style={s.correctBtnText}>Corregir</Text>
+            <AppText style={s.correctBtnText}>Corregir</AppText>
           </TouchableOpacity>
         )}
       </View>
@@ -548,8 +550,8 @@ function RecordRow({ item, onCorrect }: { item: EnrichedRecord; onCorrect: () =>
 function SummaryCard({ label, value, tint, bg }: { label: string; value: string; tint: string; bg: string }) {
   return (
     <View style={[s.summaryCard, { backgroundColor: bg }]}>
-      <Text style={[s.summaryLabel, { color: tint }]}>{label}</Text>
-      <Text style={[s.summaryValue, { color: tint }]}>{value}</Text>
+      <AppText style={[s.summaryLabel, { color: tint }]}>{label}</AppText>
+      <AppText style={[s.summaryValue, { color: tint }]}>{value}</AppText>
     </View>
   );
 }
@@ -557,9 +559,9 @@ function SummaryCard({ label, value, tint, bg }: { label: string; value: string;
 function OptionRow({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <TouchableOpacity style={[s.optionRow, active && s.optionRowActive]} onPress={onPress} activeOpacity={0.7}>
-      <Text style={[s.optionText, active && s.optionTextActive]} numberOfLines={1}>
+      <AppText style={[s.optionText, active && s.optionTextActive]} numberOfLines={1}>
         {label}
-      </Text>
+      </AppText>
       {active && <Ionicons name="checkmark" size={18} color={colors.primary} />}
     </TouchableOpacity>
   );

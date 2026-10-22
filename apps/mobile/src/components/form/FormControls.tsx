@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, TextInputProps } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import type { TextInputProps } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AppText, AppTextInput } from '../AppText';
 import { colors, radius, spacing, font } from '../../constants/theme';
 
 /**
@@ -19,12 +21,12 @@ interface FieldProps {
 export function Field({ label, required, error, children }: FieldProps) {
   return (
     <View style={s.field}>
-      <Text style={s.label}>
+      <AppText style={s.label}>
         {label}
-        {required ? <Text style={s.req}> *</Text> : null}
-      </Text>
+        {required ? <AppText style={s.req}> *</AppText> : null}
+      </AppText>
       {children}
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <AppText style={s.error}>{error}</AppText> : null}
     </View>
   );
 }
@@ -35,7 +37,7 @@ interface TextFieldProps extends TextInputProps {
 
 export function TextField({ hasError, style, ...props }: TextFieldProps) {
   return (
-    <TextInput
+    <AppTextInput
       style={[s.input, hasError && s.inputError, style]}
       placeholderTextColor={colors.textMuted}
       {...props}
@@ -68,7 +70,7 @@ export function SelectField({ value, options, onChange, hasError }: SelectFieldP
             onPress={() => onChange(opt.value)}
             activeOpacity={0.7}
           >
-            <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+            <AppText style={[s.chipText, active && s.chipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{opt.label}</AppText>
           </TouchableOpacity>
         );
       })}
@@ -91,7 +93,7 @@ export function SubmitButton({ label, loading, disabled, onPress }: SubmitButton
       disabled={loading || disabled}
       activeOpacity={0.85}
     >
-      <Text style={s.submitText}>{loading ? 'Guardando…' : label}</Text>
+      <AppText style={s.submitText} numberOfLines={1}>{loading ? 'Guardando…' : label}</AppText>
     </TouchableOpacity>
   );
 }
@@ -116,13 +118,13 @@ export function RowItem({ title, subtitle, badge, right, onPress, icon, iconColo
           <Ionicons name={icon as any} size={18} color={iconColor || colors.primary} />
         </View>
       ) : null}
-      <View style={{ flex: 1 }}>
-        <Text style={s.rowTitle}>{title}</Text>
-        {subtitle ? <Text style={s.rowSubtitle}>{subtitle}</Text> : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <AppText style={s.rowTitle} numberOfLines={2}>{title}</AppText>
+        {subtitle ? <AppText style={s.rowSubtitle} numberOfLines={2}>{subtitle}</AppText> : null}
       </View>
       {badge ? (
         <View style={[s.rowBadge, { backgroundColor: `${badge.color}20` }]}>
-          <Text style={[s.rowBadgeText, { color: badge.color }]}>{badge.label}</Text>
+          <AppText style={[s.rowBadgeText, { color: badge.color }]} numberOfLines={1} adjustsFontSizeToFit>{badge.label}</AppText>
         </View>
       ) : null}
       {right}

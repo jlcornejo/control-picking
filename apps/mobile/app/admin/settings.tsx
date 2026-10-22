@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import {
+  useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   Switch,
@@ -20,6 +20,7 @@ import { AdminGuard } from '../../src/components/admin/AdminGuard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Field, TextField } from '../../src/components/form/FormControls';
+import { AppText } from '../../src/components/AppText';
 
 // Validación de color igual que la web (#RRGGBB o #RRGGBBAA).
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -131,7 +132,7 @@ function SettingsContent() {
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <Text style={s.hint}>Marca, jerarquía y modo de operación de tu empresa.</Text>
+      <AppText style={s.hint}>Marca, jerarquía y modo de operación de tu empresa.</AppText>
       <BrandingSection
         org={org}
         onSaved={() => {
@@ -174,8 +175,8 @@ function Section({
           <Ionicons name={icon as never} size={18} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.sectionTitle}>{title}</Text>
-          <Text style={s.sectionDesc}>{description}</Text>
+          <AppText style={s.sectionTitle}>{title}</AppText>
+          <AppText style={s.sectionDesc}>{description}</AppText>
         </View>
       </View>
       {children}
@@ -249,7 +250,7 @@ function BrandingSection({
         />
       </Field>
 
-      <Text style={s.subLabel}>Paletas</Text>
+      <AppText style={s.subLabel}>Paletas</AppText>
       <View style={s.presetRow}>
         {BRAND_PRESETS.map((p) => {
           const selected =
@@ -270,7 +271,7 @@ function BrandingSection({
                 <View style={[s.swatchHalf, { backgroundColor: p.primary }]} />
                 <View style={[s.swatchHalf, { backgroundColor: p.secondary }]} />
               </View>
-              <Text style={s.presetText}>{p.name}</Text>
+              <AppText style={s.presetText}>{p.name}</AppText>
             </TouchableOpacity>
           );
         })}
@@ -325,7 +326,7 @@ function BrandingSection({
         onPress={submit}
         disabled={save.isPending}
       >
-        <Text style={s.saveBtnText}>{save.isPending ? 'Guardando…' : 'Guardar marca'}</Text>
+        <AppText style={s.saveBtnText}>{save.isPending ? 'Guardando…' : 'Guardar marca'}</AppText>
       </TouchableOpacity>
     </Section>
   );
@@ -375,8 +376,8 @@ function ToggleSection({
     <Section icon={icon} title={title} description={description}>
       <View style={s.toggleRow}>
         <View style={{ flex: 1 }}>
-          <Text style={s.toggleLabel}>{toggleLabel}</Text>
-          <Text style={s.toggleHint}>{toggleHint}</Text>
+          <AppText style={s.toggleLabel}>{toggleLabel}</AppText>
+          <AppText style={s.toggleHint}>{toggleHint}</AppText>
         </View>
         <Switch
           value={enabled}
@@ -488,7 +489,7 @@ function RoleLabelsSection({
         onPress={submit}
         disabled={save.isPending}
       >
-        <Text style={s.saveBtnText}>{save.isPending ? 'Guardando…' : 'Guardar etiquetas'}</Text>
+        <AppText style={s.saveBtnText}>{save.isPending ? 'Guardando…' : 'Guardar etiquetas'}</AppText>
       </TouchableOpacity>
     </Section>
   );

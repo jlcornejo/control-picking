@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react';
+import {
+  useCallback,
+  useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  TextInput,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +30,7 @@ import { supabase } from '../../src/lib/supabase';
 import { showAlert } from '../../src/lib/alert';
 import type { Envelope } from '../../src/lib/edge';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -251,7 +252,7 @@ function SettlementsContent() {
         <View style={s.toolbar}>
           <TouchableOpacity style={s.generateBtn} onPress={() => setModalOpen(true)} activeOpacity={0.8}>
             <Ionicons name="add-circle-outline" size={18} color={colors.textWhite} />
-            <Text style={s.generateBtnText}>Generar liquidaciones</Text>
+            <AppText style={s.generateBtnText}>Generar liquidaciones</AppText>
           </TouchableOpacity>
         </View>
       )}
@@ -290,16 +291,16 @@ function SettlementsContent() {
                 onPress={() => setPage((p) => Math.max(1, p - 1))}
                 activeOpacity={0.7}
               >
-                <Text style={[s.pagerBtnText, !hasPrevPage && s.pagerBtnTextDisabled]}>Anterior</Text>
+                <AppText style={[s.pagerBtnText, !hasPrevPage && s.pagerBtnTextDisabled]}>Anterior</AppText>
               </TouchableOpacity>
-              <Text style={s.pagerLabel}>Página {page}</Text>
+              <AppText style={s.pagerLabel}>Página {page}</AppText>
               <TouchableOpacity
                 style={[s.pagerBtn, !hasNextPage && s.pagerBtnDisabled]}
                 disabled={!hasNextPage}
                 onPress={() => setPage((p) => p + 1)}
                 activeOpacity={0.7}
               >
-                <Text style={[s.pagerBtnText, !hasNextPage && s.pagerBtnTextDisabled]}>Siguiente</Text>
+                <AppText style={[s.pagerBtnText, !hasNextPage && s.pagerBtnTextDisabled]}>Siguiente</AppText>
               </TouchableOpacity>
             </View>
           ) : null
@@ -310,14 +311,14 @@ function SettlementsContent() {
         <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeModal} />
           <View style={s.modalContent}>
-            <Text style={s.modalTitle}>Generar liquidaciones</Text>
+            <AppText style={s.modalTitle}>Generar liquidaciones</AppText>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <Text style={s.modalHint}>
+              <AppText style={s.modalHint}>
                 Se generan las liquidaciones de la producción del período. Las que ya existan no se modifican.
-              </Text>
+              </AppText>
 
-              <Text style={s.modalLabel}>Desde (AAAA-MM-DD)</Text>
-              <TextInput
+              <AppText style={s.modalLabel}>Desde (AAAA-MM-DD)</AppText>
+              <AppTextInput
                 style={s.modalInput}
                 value={periodStart}
                 onChangeText={setPeriodStart}
@@ -328,8 +329,8 @@ function SettlementsContent() {
                 keyboardType="numbers-and-punctuation"
               />
 
-              <Text style={s.modalLabel}>Hasta (AAAA-MM-DD)</Text>
-              <TextInput
+              <AppText style={s.modalLabel}>Hasta (AAAA-MM-DD)</AppText>
+              <AppTextInput
                 style={s.modalInput}
                 value={periodEnd}
                 onChangeText={setPeriodEnd}
@@ -342,7 +343,7 @@ function SettlementsContent() {
 
               <View style={s.modalButtons}>
                 <TouchableOpacity style={s.modalCancelBtn} onPress={closeModal}>
-                  <Text style={s.modalCancelText}>Cancelar</Text>
+                  <AppText style={s.modalCancelText}>Cancelar</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.modalConfirmBtn, generateMutation.isPending && s.modalConfirmBtnDisabled]}
@@ -350,7 +351,7 @@ function SettlementsContent() {
                   disabled={generateMutation.isPending}
                   activeOpacity={0.8}
                 >
-                  <Text style={s.modalConfirmText}>{generateMutation.isPending ? 'Generando...' : 'Generar'}</Text>
+                  <AppText style={s.modalConfirmText}>{generateMutation.isPending ? 'Generando...' : 'Generar'}</AppText>
                 </TouchableOpacity>
               </View>
               <View style={{ height: 20 }} />
@@ -378,23 +379,23 @@ function SettlementCard({
     <View style={s.card}>
       <View style={s.cardTopRow}>
         <View style={{ flex: 1 }}>
-          {item.payee_name ? <Text style={s.cardPayee}>{item.payee_name}</Text> : null}
-          <Text style={s.cardPeriod}>
+          {item.payee_name ? <AppText style={s.cardPayee}>{item.payee_name}</AppText> : null}
+          <AppText style={s.cardPeriod}>
             {item.period_start} — {item.period_end}
-          </Text>
+          </AppText>
         </View>
-        <Text style={s.cardAmount}>${Math.round(item.total_amount).toLocaleString()}</Text>
+        <AppText style={s.cardAmount}>${Math.round(item.total_amount).toLocaleString()}</AppText>
       </View>
       <View style={s.cardBadgeRow}>
         <View style={[s.statusBadge, { backgroundColor: (statusColor[item.status] ?? colors.textMuted) + '20' }]}>
-          <Text style={[s.statusText, { color: statusColor[item.status] ?? colors.textMuted }]}>
+          <AppText style={[s.statusText, { color: statusColor[item.status] ?? colors.textMuted }]}>
             {statusLabel[item.status] ?? item.status}
-          </Text>
+          </AppText>
         </View>
-        {item.total_paid > 0 && <Text style={s.paidLabel}>Pagado: ${Math.round(item.total_paid).toLocaleString()}</Text>}
+        {item.total_paid > 0 && <AppText style={s.paidLabel}>Pagado: ${Math.round(item.total_paid).toLocaleString()}</AppText>}
       </View>
       {item.status !== 'paid' && owed > 0 && (
-        <Text style={s.owedLabel}>Adeudado: ${Math.round(owed).toLocaleString()}</Text>
+        <AppText style={s.owedLabel}>Adeudado: ${Math.round(owed).toLocaleString()}</AppText>
       )}
       {showPdf && (
         <TouchableOpacity
@@ -404,7 +405,7 @@ function SettlementCard({
           activeOpacity={0.8}
         >
           <Ionicons name="document-outline" size={15} color={colors.primary} />
-          <Text style={s.pdfBtnText}>{exporting ? 'Generando PDF...' : 'Exportar PDF'}</Text>
+          <AppText style={s.pdfBtnText}>{exporting ? 'Generando PDF...' : 'Exportar PDF'}</AppText>
         </TouchableOpacity>
       )}
     </View>

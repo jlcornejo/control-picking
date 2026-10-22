@@ -1,6 +1,12 @@
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, radius, spacing, font } from '../constants/theme';
+import { AppText } from './AppText';
 
 interface DatePickerProps {
   value: string; // YYYY-MM-DD
@@ -48,10 +54,10 @@ export function DatePicker({ value, onChange, maxDate }: DatePickerProps) {
 
       <View style={s.dateDisplay}>
         <Ionicons name="calendar-outline" size={14} color={colors.textMuted} style={{ marginRight: 6 }} />
-        <Text style={s.dateText}>{formatDisplayDate(value)}</Text>
+        <AppText style={s.dateText}>{formatDisplayDate(value)}</AppText>
         {isToday && (
           <View style={s.todayBadge}>
-            <Text style={s.todayText}>Hoy</Text>
+            <AppText style={s.todayText}>Hoy</AppText>
           </View>
         )}
       </View>
@@ -68,7 +74,7 @@ export function DatePicker({ value, onChange, maxDate }: DatePickerProps) {
 
       {!isToday && (
         <TouchableOpacity onPress={() => onChange(today)} style={s.todayButton} activeOpacity={0.7}>
-          <Text style={s.todayButtonText}>Hoy</Text>
+          <AppText style={s.todayButtonText}>Hoy</AppText>
         </TouchableOpacity>
       )}
     </View>

@@ -1,11 +1,18 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
+import {
+  useState,
+  useCallback } from 'react';
+import { View,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DayRosterManager } from '../../src/components/DayRosterManager';
+import { AppText } from '../../src/components/AppText';
 
 /**
  * Pantalla del Supervisor — "Mi Equipo".
@@ -61,13 +68,13 @@ export default function TeamScreen() {
 
       {hasCrews && (
         <>
-          <Text style={s.sectionTitle}>Cuadrillas a mi cargo</Text>
+          <AppText style={s.sectionTitle}>Cuadrillas a mi cargo</AppText>
           {(crews || []).map((c: any) => (
             <View key={c.id} style={s.crewRow}>
               <View style={s.crewIcon}><Ionicons name="car-outline" size={18} color={colors.primary} /></View>
               <View style={{ flex: 1 }}>
-                <Text style={s.crewName}>{c.name}</Text>
-                <Text style={s.crewLead}>Encargado: {c.lead_name}</Text>
+                <AppText style={s.crewName}>{c.name}</AppText>
+                <AppText style={s.crewLead}>Encargado: {c.lead_name}</AppText>
               </View>
             </View>
           ))}

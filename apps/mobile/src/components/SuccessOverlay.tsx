@@ -1,7 +1,15 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, Dimensions, Platform } from 'react-native';
+import {
+  useEffect,
+  useRef } from 'react';
+import { View,
+  Animated,
+  StyleSheet,
+  Dimensions,
+  Platform,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, font } from '../constants/theme';
+import { AppText } from './AppText';
 
 const { width } = Dimensions.get('window');
 
@@ -57,8 +65,8 @@ export function SuccessOverlay({ visible, title, subtitle, onFinish, duration = 
         </Animated.View>
       </Animated.View>
       <Animated.View style={{ opacity: textOpacity, alignItems: 'center' }}>
-        <Text style={s.title}>{title}</Text>
-        {subtitle && <Text style={s.subtitle}>{subtitle}</Text>}
+        <AppText style={s.title}>{title}</AppText>
+        {subtitle && <AppText style={s.subtitle}>{subtitle}</AppText>}
       </Animated.View>
     </Animated.View>
   );

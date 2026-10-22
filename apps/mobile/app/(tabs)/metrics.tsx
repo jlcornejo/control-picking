@@ -1,5 +1,14 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Modal as RNModal, FlatList, StyleSheet } from 'react-native';
+import {
+  useState,
+  useCallback } from 'react';
+import { View,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Modal as RNModal,
+  FlatList,
+  StyleSheet,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
@@ -13,6 +22,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedNumber } from '../../src/components/AnimatedNumber';
 import { DatePicker } from '../../src/components/DatePicker';
 import Svg, { Rect } from 'react-native-svg';
+import { AppText } from '../../src/components/AppText';
 
 export default function MetricsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -148,8 +158,8 @@ export default function MetricsScreen() {
         <TouchableOpacity style={s.alertCard} onPress={() => router.push('/(tabs)/payments')} activeOpacity={0.8}>
           <View style={s.alertDot} />
           <View style={{ flex: 1 }}>
-            <Text style={s.alertTitle}>{metrics?.pendingCount} liquidaciones pendientes</Text>
-            <Text style={s.alertValue}>{formatMoney(metrics?.pendingAmount || 0)} por pagar</Text>
+            <AppText style={s.alertTitle}>{metrics?.pendingCount} liquidaciones pendientes</AppText>
+            <AppText style={s.alertValue}>{formatMoney(metrics?.pendingAmount || 0)} por pagar</AppText>
           </View>
           <Ionicons name="arrow-forward" size={18} color="#92400e" />
         </TouchableOpacity>
@@ -158,7 +168,7 @@ export default function MetricsScreen() {
       {/* Tendencia 7 días */}
       {(weeklyTrend || []).some(d => d.units > 0) && (
         <>
-          <Text style={s.sectionTitle}>Producción últimos 7 días</Text>
+          <AppText style={s.sectionTitle}>Producción últimos 7 días</AppText>
           <View style={s.chartCard}><BarChart data={weeklyTrend || []} /></View>
         </>
       )}
@@ -166,13 +176,13 @@ export default function MetricsScreen() {
       {/* Producción por paño */}
       {(blockProduction || []).length > 0 && (
         <>
-          <Text style={s.sectionTitle}>Producción por paño</Text>
+          <AppText style={s.sectionTitle}>Producción por paño</AppText>
           <View style={s.chartCard}><BarChart data={blockProduction || []} horizontalLabels /></View>
         </>
       )}
 
       {/* Ranking */}
-      <Text style={s.sectionTitle}>{isViewingToday ? 'Top del día' : `Top — ${selectedDate}`}</Text>
+      <AppText style={s.sectionTitle}>{isViewingToday ? 'Top del día' : `Top — ${selectedDate}`}</AppText>
       {(metrics?.ranking || []).length === 0 ? (
         <EmptyState
           icon="trophy-outline"
@@ -185,15 +195,15 @@ export default function MetricsScreen() {
           {(metrics?.ranking || []).map((w, i) => (
             <TouchableOpacity key={i} style={[s.rankRow, i < (metrics?.ranking?.length || 0) - 1 && s.rankRowBorder]} activeOpacity={0.7} onPress={() => openWorkerDrill(w)}>
               <View style={[s.rankBadge, i === 0 && s.rankGold, i === 1 && s.rankSilver, i === 2 && s.rankBronze]}>
-                <Text style={s.rankNum}>{i + 1}</Text>
+                <AppText style={s.rankNum}>{i + 1}</AppText>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.rankName}>{w.name}</Text>
+                <AppText style={s.rankName}>{w.name}</AppText>
                 <View style={s.rankBarBg}>
                   <View style={[s.rankBarFill, { width: `${(w.units / maxUnits) * 100}%` }]} />
                 </View>
               </View>
-              <Text style={s.rankUnits}>{w.units}</Text>
+              <AppText style={s.rankUnits}>{w.units}</AppText>
               <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
@@ -210,7 +220,7 @@ export default function MetricsScreen() {
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setDrilldown(null)} />
           <View style={s.modalContent}>
             <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{drilldown?.title || ''}</Text>
+              <AppText style={s.modalTitle}>{drilldown?.title || ''}</AppText>
               <TouchableOpacity onPress={() => setDrilldown(null)}>
                 <Ionicons name="close" size={22} color={colors.textMuted} />
               </TouchableOpacity>
@@ -219,20 +229,20 @@ export default function MetricsScreen() {
               <>
                 <View style={s.modalSummary}>
                   <View style={s.modalSummaryItem}>
-                    <Text style={s.modalSummaryValue}>
+                    <AppText style={s.modalSummaryValue}>
                       {drilldown.type === 'workers' || drilldown.type === 'blocks'
                         ? formatNumber(drilldown.data.reduce((sum, r) => sum + (r.units || 0), 0))
                         : formatNumber(drilldown.data.reduce((sum, r) => sum + Number(r.quantity || 0), 0))}
-                    </Text>
-                    <Text style={s.modalSummaryLabel}>cajas</Text>
+                    </AppText>
+                    <AppText style={s.modalSummaryLabel}>cajas</AppText>
                   </View>
                   <View style={s.modalSummaryItem}>
-                    <Text style={s.modalSummaryValue}>
+                    <AppText style={s.modalSummaryValue}>
                       {drilldown.type === 'workers' || drilldown.type === 'blocks'
                         ? formatMoney(drilldown.data.reduce((sum, r) => sum + (r.amount || 0), 0))
                         : formatMoney(drilldown.data.reduce((sum, r) => sum + (r.total || 0), 0))}
-                    </Text>
-                    <Text style={s.modalSummaryLabel}>total</Text>
+                    </AppText>
+                    <AppText style={s.modalSummaryLabel}>total</AppText>
                   </View>
                 </View>
                 <FlatList
@@ -244,11 +254,11 @@ export default function MetricsScreen() {
                       return (
                         <View style={s.modalRow}>
                           <View style={{ flex: 1 }}>
-                            <Text style={s.modalRowBlock}>{item.name}</Text>
+                            <AppText style={s.modalRowBlock}>{item.name}</AppText>
                           </View>
                           <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={s.modalRowQty}>{item.units} cajas</Text>
-                            <Text style={s.modalRowTotal}>{formatMoney(item.amount)}</Text>
+                            <AppText style={s.modalRowQty}>{item.units} cajas</AppText>
+                            <AppText style={s.modalRowTotal}>{formatMoney(item.amount)}</AppText>
                           </View>
                         </View>
                       );
@@ -257,12 +267,12 @@ export default function MetricsScreen() {
                       return (
                         <View style={s.modalRow}>
                           <View style={{ flex: 1 }}>
-                            <Text style={s.modalRowBlock}>{item.name}</Text>
-                            <Text style={s.modalRowTime}>{item.field} · {item.workerCount} trabajadores</Text>
+                            <AppText style={s.modalRowBlock}>{item.name}</AppText>
+                            <AppText style={s.modalRowTime}>{item.field} · {item.workerCount} trabajadores</AppText>
                           </View>
                           <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={s.modalRowQty}>{item.units} cajas</Text>
-                            <Text style={s.modalRowTotal}>{formatMoney(item.amount)}</Text>
+                            <AppText style={s.modalRowQty}>{item.units} cajas</AppText>
+                            <AppText style={s.modalRowTotal}>{formatMoney(item.amount)}</AppText>
                           </View>
                         </View>
                       );
@@ -271,15 +281,15 @@ export default function MetricsScreen() {
                     return (
                       <View style={s.modalRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={s.modalRowBlock}>{item.worker_name || item.block_name}</Text>
-                          <Text style={s.modalRowTime}>
+                          <AppText style={s.modalRowBlock}>{item.worker_name || item.block_name}</AppText>
+                          <AppText style={s.modalRowTime}>
                             {item.worker_name && item.block_name ? item.block_name + ' · ' : ''}
                             {item.recorded_at ? new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : ''}
-                          </Text>
+                          </AppText>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={s.modalRowQty}>{item.quantity}</Text>
-                          <Text style={s.modalRowTotal}>{formatMoney(item.total)}</Text>
+                          <AppText style={s.modalRowQty}>{item.quantity}</AppText>
+                          <AppText style={s.modalRowTotal}>{formatMoney(item.total)}</AppText>
                         </View>
                       </View>
                     );
@@ -454,10 +464,10 @@ function BarChart({ data, horizontalLabels }: { data: { label?: string; name?: s
       <View style={{ flexDirection: 'row', marginTop: 4 }}>
         {data.map((d, i) => (
           <View key={i} style={{ width: barW + gap, alignItems: 'center' }}>
-            <Text style={s.chartLabel} numberOfLines={1}>
+            <AppText style={s.chartLabel} numberOfLines={1}>
               {horizontalLabels ? (d.name || '').slice(0, 6) : d.label}
-            </Text>
-            <Text style={s.chartValue}>{d.units}</Text>
+            </AppText>
+            <AppText style={s.chartValue}>{d.units}</AppText>
           </View>
         ))}
       </View>
@@ -484,9 +494,9 @@ function KpiMini({ icon, value, label, bg, iconColor, numericValue, onPress }: {
             style={s.kpiValue}
           />
         ) : (
-          <Text style={s.kpiValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+          <AppText style={s.kpiValue} numberOfLines={1} adjustsFontSizeToFit>{value}</AppText>
         )}
-        <Text style={s.kpiLabel}>{label}</Text>
+        <AppText style={s.kpiLabel}>{label}</AppText>
       </LinearGradient>
     </TouchableOpacity>
   );

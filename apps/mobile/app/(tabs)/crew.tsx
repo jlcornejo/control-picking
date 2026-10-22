@@ -1,5 +1,16 @@
-import { useState, useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import {
+  useState,
+  useCallback } from 'react';
+import { View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -14,6 +25,7 @@ import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
 import { showAlert } from '../../src/lib/alert';
 import { DayRosterManager } from '../../src/components/DayRosterManager';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 const statusLabel: Record<string, string> = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagado' };
 const statusColor: Record<string, string> = { pending: '#f59e0b', partial: '#f97316', paid: '#22c55e' };
@@ -225,23 +237,23 @@ export default function CrewScreen() {
           )}
 
           {/* Nivel 1: lo que el cliente paga al encargado */}
-          <Text style={s.sectionTitle}>Liquidación de mi cuadrilla</Text>
+          <AppText style={s.sectionTitle}>Liquidación de mi cuadrilla</AppText>
           {(crewSettlements || []).length === 0 ? (
             <View style={s.emptyCrew}>
               <Ionicons name="cube-outline" size={20} color={colors.textMuted} />
-              <Text style={s.emptyCrewText}>Aún no hay liquidación de cuadrilla generada por el cliente.</Text>
+              <AppText style={s.emptyCrewText}>Aún no hay liquidación de cuadrilla generada por el cliente.</AppText>
             </View>
           ) : (
             (crewSettlements || []).map((cs: any) => (
               <View key={cs.id} style={s.crewCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name="car-outline" size={16} color={colors.primary} />
-                  <Text style={s.crewName}>{cs.crew_name}</Text>
+                  <AppText style={s.crewName}>{cs.crew_name}</AppText>
                 </View>
-                <Text style={s.crewAmount}>${Math.round(Number(cs.total_amount)).toLocaleString()}</Text>
-                <Text style={s.crewPeriod}>{cs.period_start} → {cs.period_end}</Text>
+                <AppText style={s.crewAmount}>${Math.round(Number(cs.total_amount)).toLocaleString()}</AppText>
+                <AppText style={s.crewPeriod}>{cs.period_start} → {cs.period_end}</AppText>
                 <View style={[s.statusBadge, { backgroundColor: statusColor[cs.status] + '20', alignSelf: 'flex-start', marginTop: 6 }]}>
-                  <Text style={[s.statusText, { color: statusColor[cs.status] }]}>{statusLabel[cs.status]}</Text>
+                  <AppText style={[s.statusText, { color: statusColor[cs.status] }]}>{statusLabel[cs.status]}</AppText>
                 </View>
               </View>
             ))
@@ -249,9 +261,9 @@ export default function CrewScreen() {
 
           {/* Nivel 2: liquidaciones de los trabajadores del encargado */}
           <View style={s.teamHeader}>
-            <Text style={s.sectionTitle}>Liquidaciones de mi equipo</Text>
+            <AppText style={s.sectionTitle}>Liquidaciones de mi equipo</AppText>
             <TouchableOpacity style={s.genBtn} onPress={() => setShowGen(true)} activeOpacity={0.8}>
-              <Text style={s.genBtnText}>Generar</Text>
+              <AppText style={s.genBtnText}>Generar</AppText>
             </TouchableOpacity>
           </View>
         </>
@@ -262,19 +274,19 @@ export default function CrewScreen() {
       renderItem={({ item }) => (
         <View style={s.card}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={s.cardWorker}>{item.worker_name}</Text>
-            <Text style={s.cardAmount}>${Math.round(Number(item.total_amount)).toLocaleString()}</Text>
+            <AppText style={s.cardWorker}>{item.worker_name}</AppText>
+            <AppText style={s.cardAmount}>${Math.round(Number(item.total_amount)).toLocaleString()}</AppText>
           </View>
-          <Text style={s.cardPeriod}>{item.period_start} — {item.period_end}</Text>
+          <AppText style={s.cardPeriod}>{item.period_start} — {item.period_end}</AppText>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
             <View style={[s.statusBadge, { backgroundColor: statusColor[item.status] + '20' }]}>
-              <Text style={[s.statusText, { color: statusColor[item.status] }]}>{statusLabel[item.status]}</Text>
+              <AppText style={[s.statusText, { color: statusColor[item.status] }]}>{statusLabel[item.status]}</AppText>
             </View>
-            {item.totalPaid > 0 && <Text style={s.paidLabel}>Pagado: {formatMoney(item.totalPaid)}</Text>}
+            {item.totalPaid > 0 && <AppText style={s.paidLabel}>Pagado: {formatMoney(item.totalPaid)}</AppText>}
           </View>
           {item.status !== 'paid' && (
             <TouchableOpacity style={s.payBtn} onPress={() => { setPayModal(item); setPayAmount(String(Number(item.total_amount) - item.totalPaid)); }} activeOpacity={0.7}>
-              <Text style={s.payBtnText}>Registrar pago</Text>
+              <AppText style={s.payBtnText}>Registrar pago</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -296,17 +308,17 @@ export default function CrewScreen() {
       <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowGen(false)} />
         <View style={s.modalContent}>
-          <Text style={s.modalTitle}>Generar liquidaciones del equipo</Text>
-          <Text style={s.modalLabel}>Desde (AAAA-MM-DD)</Text>
-          <TextInput style={s.modalInput} value={genFrom} onChangeText={setGenFrom} placeholder="2026-01-01" autoCapitalize="none" />
-          <Text style={s.modalLabel}>Hasta (AAAA-MM-DD)</Text>
-          <TextInput style={s.modalInput} value={genTo} onChangeText={setGenTo} placeholder="2026-01-31" autoCapitalize="none" />
+          <AppText style={s.modalTitle}>Generar liquidaciones del equipo</AppText>
+          <AppText style={s.modalLabel}>Desde (AAAA-MM-DD)</AppText>
+          <AppTextInput style={s.modalInput} value={genFrom} onChangeText={setGenFrom} placeholder="2026-01-01" autoCapitalize="none" />
+          <AppText style={s.modalLabel}>Hasta (AAAA-MM-DD)</AppText>
+          <AppTextInput style={s.modalInput} value={genTo} onChangeText={setGenTo} placeholder="2026-01-31" autoCapitalize="none" />
           <View style={s.modalButtons}>
             <TouchableOpacity style={s.modalCancelBtn} onPress={() => setShowGen(false)}>
-              <Text style={s.modalCancelText}>Cancelar</Text>
+              <AppText style={s.modalCancelText}>Cancelar</AppText>
             </TouchableOpacity>
             <TouchableOpacity style={s.modalPayBtn} onPress={() => generateMutation.mutate()} disabled={generateMutation.isPending} activeOpacity={0.8}>
-              <Text style={s.modalPayText}>{generateMutation.isPending ? '...' : 'Generar'}</Text>
+              <AppText style={s.modalPayText}>{generateMutation.isPending ? '...' : 'Generar'}</AppText>
             </TouchableOpacity>
           </View>
           <View style={{ height: 20 }} />
@@ -319,30 +331,30 @@ export default function CrewScreen() {
       <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { setPayModal(null); setPayAmount(''); setPayNotes(''); }} />
         <View style={s.modalContent}>
-          <Text style={s.modalTitle}>Registrar pago</Text>
+          <AppText style={s.modalTitle}>Registrar pago</AppText>
           {payModal && (
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <Text style={s.modalWorker}>{payModal.worker_name}</Text>
-              <Text style={s.modalPeriod}>{payModal.period_start} — {payModal.period_end}</Text>
+              <AppText style={s.modalWorker}>{payModal.worker_name}</AppText>
+              <AppText style={s.modalPeriod}>{payModal.period_start} — {payModal.period_end}</AppText>
               <View style={[s.modalInfoRow, { borderBottomWidth: 0 }]}>
-                <Text style={[s.modalInfoLabel, { fontWeight: '700' }]}>Pendiente</Text>
-                <Text style={[s.modalInfoValue, { color: colors.primary, fontWeight: '800' }]}>${(Number(payModal.total_amount) - payModal.totalPaid).toLocaleString()}</Text>
+                <AppText style={[s.modalInfoLabel, { fontWeight: '700' }]}>Pendiente</AppText>
+                <AppText style={[s.modalInfoValue, { color: colors.primary, fontWeight: '800' }]}>${(Number(payModal.total_amount) - payModal.totalPaid).toLocaleString()}</AppText>
               </View>
-              <Text style={s.modalLabel}>Monto ($)</Text>
-              <TextInput style={s.modalInput} value={payAmount ? formatNumber(payAmount) : ''} onChangeText={(t) => setPayAmount(t.replace(/\./g, ''))} keyboardType="numeric" placeholder="0" selectTextOnFocus />
-              <Text style={s.modalLabel}>Notas (opcional)</Text>
-              <TextInput style={s.modalInput} value={payNotes} onChangeText={setPayNotes} placeholder="Transferencia, efectivo..." placeholderTextColor="#9ca3af" />
+              <AppText style={s.modalLabel}>Monto ($)</AppText>
+              <AppTextInput style={s.modalInput} value={payAmount ? formatNumber(payAmount) : ''} onChangeText={(t) => setPayAmount(t.replace(/\./g, ''))} keyboardType="numeric" placeholder="0" selectTextOnFocus />
+              <AppText style={s.modalLabel}>Notas (opcional)</AppText>
+              <AppTextInput style={s.modalInput} value={payNotes} onChangeText={setPayNotes} placeholder="Transferencia, efectivo..." placeholderTextColor="#9ca3af" />
               <View style={s.modalButtons}>
                 <TouchableOpacity style={s.modalCancelBtn} onPress={() => { setPayModal(null); setPayAmount(''); setPayNotes(''); }}>
-                  <Text style={s.modalCancelText}>Cancelar</Text>
+                  <AppText style={s.modalCancelText}>Cancelar</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.modalPayBtn, s.payBtnRow]} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
                   {payMutation.isPending ? (
-                    <Text style={s.modalPayText}>...</Text>
+                    <AppText style={s.modalPayText}>...</AppText>
                   ) : (
                     <>
                       <Ionicons name="checkmark" size={18} color={colors.textWhite} />
-                      <Text style={s.modalPayText}>Pagar</Text>
+                      <AppText style={s.modalPayText}>Pagar</AppText>
                     </>
                   )}
                 </TouchableOpacity>

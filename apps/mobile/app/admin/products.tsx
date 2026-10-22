@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput,
-  Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -14,6 +24,7 @@ import { formatMoney } from '../../src/utils/format';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Field, TextField, SelectField, SubmitButton, RowItem } from '../../src/components/form/FormControls';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 type RateRow = { amount: number; status: string };
 type ProductRow = {
@@ -95,7 +106,7 @@ export default function AdminProductsScreen() {
     <View style={s.container}>
       <View style={s.searchRow}>
         <Ionicons name="search" size={18} color={colors.textMuted} />
-        <TextInput
+        <AppTextInput
           style={s.searchInput}
           placeholder="Buscar producto…"
           placeholderTextColor={colors.textMuted}
@@ -288,7 +299,7 @@ function ProductFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar producto' : 'Nuevo producto'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar producto' : 'Nuevo producto'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -394,7 +405,7 @@ function RateManagerModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Tarifas — {product?.name}</Text>
+            <AppText style={s.sheetTitle}>Tarifas — {product?.name}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -402,10 +413,10 @@ function RateManagerModal({
           <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
             {/* Tarifa vigente */}
             <View style={s.currentCard}>
-              <Text style={s.currentLabel}>TARIFA VIGENTE</Text>
-              <Text style={s.currentValue}>{current ? formatMoney(Number(current.amount)) : 'Sin tarifa'}</Text>
+              <AppText style={s.currentLabel}>TARIFA VIGENTE</AppText>
+              <AppText style={s.currentValue}>{current ? formatMoney(Number(current.amount)) : 'Sin tarifa'}</AppText>
               {current ? (
-                <Text style={s.currentSince}>Desde {new Date(current.created_at).toLocaleDateString('es-CL')}</Text>
+                <AppText style={s.currentSince}>Desde {new Date(current.created_at).toLocaleDateString('es-CL')}</AppText>
               ) : null}
             </View>
 
@@ -418,12 +429,12 @@ function RateManagerModal({
             {/* Historial */}
             {isLoading ? null : history.length > 0 ? (
               <View style={{ marginTop: spacing.xl }}>
-                <Text style={s.histTitle}>Historial</Text>
+                <AppText style={s.histTitle}>Historial</AppText>
                 {history.map((r) => (
                   <View key={r.id} style={s.histRow}>
-                    <Text style={s.histAmount}>{formatMoney(Number(r.amount))}</Text>
-                    <Text style={s.histDate}>{new Date(r.created_at).toLocaleDateString('es-CL')}</Text>
-                    <View style={s.histBadge}><Text style={s.histBadgeText}>Histórica</Text></View>
+                    <AppText style={s.histAmount}>{formatMoney(Number(r.amount))}</AppText>
+                    <AppText style={s.histDate}>{new Date(r.created_at).toLocaleDateString('es-CL')}</AppText>
+                    <View style={s.histBadge}><AppText style={s.histBadgeText}>Histórica</AppText></View>
                   </View>
                 ))}
               </View>
@@ -523,16 +534,16 @@ function VarietyManagerModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Variedades — {product?.name}</Text>
+            <AppText style={s.sheetTitle}>Variedades — {product?.name}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
             {activeCount === 0 ? (
-              <Text style={s.varietyHint}>
+              <AppText style={s.varietyHint}>
                 Al crear la primera variedad, los paños de este producto deberán asignar una variedad.
-              </Text>
+              </AppText>
             ) : null}
 
             <Field label="Nueva variedad" error={error || undefined}>
@@ -541,20 +552,20 @@ function VarietyManagerModal({
             <SubmitButton label="Agregar variedad" loading={loading} onPress={handleCreate} />
 
             {isLoading ? null : (varieties || []).length === 0 ? (
-              <Text style={s.varietyEmpty}>Este producto aún no tiene variedades.</Text>
+              <AppText style={s.varietyEmpty}>Este producto aún no tiene variedades.</AppText>
             ) : (
               <View style={{ marginTop: spacing.xl }}>
-                <Text style={s.histTitle}>Variedades</Text>
+                <AppText style={s.histTitle}>Variedades</AppText>
                 {(varieties || []).map((v) => (
                   <View key={v.id} style={s.histRow}>
-                    <Text style={s.histAmount}>{v.name}</Text>
+                    <AppText style={s.histAmount}>{v.name}</AppText>
                     <View style={[s.histBadge, { backgroundColor: v.status === 'active' ? colors.primaryBg : colors.surface }]}>
-                      <Text style={[s.histBadgeText, v.status === 'active' && { color: colors.primary }]}>
+                      <AppText style={[s.histBadgeText, v.status === 'active' && { color: colors.primary }]}>
                         {v.status === 'active' ? 'Activa' : 'Inactiva'}
-                      </Text>
+                      </AppText>
                     </View>
                     <TouchableOpacity onPress={() => toggleStatus(v)}>
-                      <Text style={s.varietyAction}>{v.status === 'active' ? 'Desactivar' : 'Activar'}</Text>
+                      <AppText style={s.varietyAction}>{v.status === 'active' ? 'Desactivar' : 'Activar'}</AppText>
                     </TouchableOpacity>
                   </View>
                 ))}

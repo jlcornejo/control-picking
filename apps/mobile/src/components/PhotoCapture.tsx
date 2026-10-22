@@ -1,9 +1,17 @@
-import { useRef, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import {
+  useRef,
+  useState,
+  useEffect } from 'react';
+import { View,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { colors, font } from '../constants/theme';
+import { AppText } from './AppText';
 
 interface PhotoCaptureProps {
   /** Se llama con el uri local de la foto tomada. El llamador decide subirla. */
@@ -30,7 +38,7 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
   if (!permission) {
     return (
       <View style={s.container}>
-        <Text style={s.message}>Cargando cámara...</Text>
+        <AppText style={s.message}>Cargando cámara...</AppText>
       </View>
     );
   }
@@ -40,15 +48,15 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
       <View style={s.container}>
         <View style={s.permissionBox}>
           <Ionicons name="camera-outline" size={48} color={colors.textMuted} style={{ marginBottom: 16 }} />
-          <Text style={s.permissionTitle}>Acceso a cámara</Text>
-          <Text style={s.permissionText}>
+          <AppText style={s.permissionTitle}>Acceso a cámara</AppText>
+          <AppText style={s.permissionText}>
             Se necesita acceso a la cámara para tomar la foto de respaldo del registro.
-          </Text>
+          </AppText>
           <TouchableOpacity style={s.permissionBtn} onPress={requestPermission} activeOpacity={0.8}>
-            <Text style={s.permissionBtnText}>Permitir acceso</Text>
+            <AppText style={s.permissionBtnText}>Permitir acceso</AppText>
           </TouchableOpacity>
           <TouchableOpacity style={s.cancelBtn} onPress={onClose}>
-            <Text style={s.cancelBtnText}>Cancelar</Text>
+            <AppText style={s.cancelBtnText}>Cancelar</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -81,11 +89,11 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
         <View style={s.previewBar}>
           <TouchableOpacity style={[s.retakeBtn, s.btnRow]} onPress={() => setPreview(null)} activeOpacity={0.85}>
             <Ionicons name="refresh" size={18} color="#fff" />
-            <Text style={s.retakeBtnText}>Repetir</Text>
+            <AppText style={s.retakeBtnText}>Repetir</AppText>
           </TouchableOpacity>
           <TouchableOpacity style={[s.confirmBtn, s.btnRow]} onPress={confirm} activeOpacity={0.85}>
             <Ionicons name="checkmark" size={18} color="#fff" />
-            <Text style={s.confirmBtnText}>Usar foto</Text>
+            <AppText style={s.confirmBtnText}>Usar foto</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -102,7 +110,7 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
           </TouchableOpacity>
         </View>
         <View style={s.bottomBar}>
-          <Text style={s.hint}>Toma la foto de respaldo del registro</Text>
+          <AppText style={s.hint}>Toma la foto de respaldo del registro</AppText>
           <TouchableOpacity style={s.shutter} onPress={takePhoto} disabled={busy} activeOpacity={0.8}>
             <View style={s.shutterInner} />
           </TouchableOpacity>

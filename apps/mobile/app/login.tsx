@@ -1,10 +1,21 @@
-import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, Animated, Dimensions } from 'react-native';
+import {
+  useState,
+  useRef,
+  useEffect } from 'react';
+import { View,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Animated,
+  Dimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../src/hooks/useAuth';
 import { colors, radius, font } from '../src/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AppText, AppTextInput } from '../src/components/AppText';
 
 const { width } = Dimensions.get('window');
 
@@ -73,15 +84,15 @@ export default function LoginScreen() {
             <View style={s.logoCircle}>
               <Ionicons name="leaf" size={38} color={colors.textWhite} />
             </View>
-            <Text style={s.title}>Fundo360</Text>
-            <Text style={s.subtitle}>Gestión integral de campo</Text>
+            <AppText style={s.title}>Fundo360</AppText>
+            <AppText style={s.subtitle}>Gestión integral de campo</AppText>
           </Animated.View>
 
           {/* Form */}
           <Animated.View style={[s.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslateY }] }]}>
             <View style={s.inputGroup}>
-              <Text style={s.label}>Email</Text>
-              <TextInput
+              <AppText style={s.label}>Email</AppText>
+              <AppTextInput
                 style={s.input}
                 placeholder="correo@ejemplo.cl"
                 placeholderTextColor={colors.textMuted}
@@ -95,9 +106,9 @@ export default function LoginScreen() {
             </View>
 
             <View style={s.inputGroup}>
-              <Text style={s.label}>Contraseña</Text>
+              <AppText style={s.label}>Contraseña</AppText>
               <View style={s.passwordRow}>
-                <TextInput
+                <AppTextInput
                   style={s.passwordInput}
                   placeholder="••••••••"
                   placeholderTextColor={colors.textMuted}
@@ -115,12 +126,12 @@ export default function LoginScreen() {
 
             {errorMsg ? (
               <View style={s.errorBox}>
-                <Text style={s.errorText}>{errorMsg}</Text>
+                <AppText style={s.errorText}>{errorMsg}</AppText>
               </View>
             ) : null}
 
             <TouchableOpacity style={[s.btn, loading && { opacity: 0.6 }]} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
-              <Text style={s.btnText}>{loading ? 'Ingresando...' : 'Ingresar'}</Text>
+              <AppText style={s.btnText}>{loading ? 'Ingresando...' : 'Ingresar'}</AppText>
             </TouchableOpacity>
           </Animated.View>
 

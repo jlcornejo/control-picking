@@ -1,7 +1,15 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity,
-  Modal, ScrollView, Alert, StyleSheet,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -11,6 +19,7 @@ import { colors, radius, spacing, font } from '../../src/constants/theme';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { RowItem } from '../../src/components/form/FormControls';
+import { AppText } from '../../src/components/AppText';
 
 type SupervisorRow = { id: string; full_name: string; phone: string | null; status: string };
 
@@ -65,7 +74,7 @@ export default function AdminSupervisorsScreen() {
             iconColor={colors.orange}
             right={
               <TouchableOpacity style={s.manageBtn} onPress={() => setAssignTarget(item)}>
-                <Text style={s.manageBtnText}>Gestionar</Text>
+                <AppText style={s.manageBtnText}>Gestionar</AppText>
               </TouchableOpacity>
             }
           />
@@ -200,7 +209,7 @@ function AssignmentModal({
       <View style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Asignaciones — {supervisor?.full_name}</Text>
+            <AppText style={s.sheetTitle}>Asignaciones — {supervisor?.full_name}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -208,64 +217,64 @@ function AssignmentModal({
 
           <View style={s.tabs}>
             <TouchableOpacity style={[s.tab, tab === 'workers' && s.tabActive]} onPress={() => setTab('workers')}>
-              <Text style={[s.tabText, tab === 'workers' && s.tabTextActive]}>Trabajadores ({assignments?.workers?.length || 0})</Text>
+              <AppText style={[s.tabText, tab === 'workers' && s.tabTextActive]}>Trabajadores ({assignments?.workers?.length || 0})</AppText>
             </TouchableOpacity>
             <TouchableOpacity style={[s.tab, tab === 'blocks' && s.tabActive]} onPress={() => setTab('blocks')}>
-              <Text style={[s.tabText, tab === 'blocks' && s.tabTextActive]}>Paños ({assignments?.blocks?.length || 0})</Text>
+              <AppText style={[s.tabText, tab === 'blocks' && s.tabTextActive]}>Paños ({assignments?.blocks?.length || 0})</AppText>
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
             {tab === 'workers' ? (
               <>
-                <Text style={s.sectionLabel}>ASIGNADOS</Text>
+                <AppText style={s.sectionLabel}>ASIGNADOS</AppText>
                 {(assignments?.workers || []).length === 0 ? (
-                  <Text style={s.empty}>Ninguno</Text>
+                  <AppText style={s.empty}>Ninguno</AppText>
                 ) : (
                   (assignments?.workers || []).map((a) => (
                     <View key={a.id} style={[s.assignRow, { backgroundColor: colors.violetBg }]}>
-                      <Text style={[s.assignName, { color: colors.violet }]}>{a.name}</Text>
+                      <AppText style={[s.assignName, { color: colors.violet }]}>{a.name}</AppText>
                       <TouchableOpacity onPress={() => unassign.mutate(a.id)}>
-                        <Text style={s.removeText}>Quitar</Text>
+                        <AppText style={s.removeText}>Quitar</AppText>
                       </TouchableOpacity>
                     </View>
                   ))
                 )}
-                <Text style={[s.sectionLabel, { marginTop: spacing.lg }]}>AGREGAR</Text>
+                <AppText style={[s.sectionLabel, { marginTop: spacing.lg }]}>AGREGAR</AppText>
                 {(availableWorkers || []).length === 0 ? (
-                  <Text style={s.empty}>No hay trabajadores disponibles.</Text>
+                  <AppText style={s.empty}>No hay trabajadores disponibles.</AppText>
                 ) : (
                   (availableWorkers || []).map((w) => (
                     <TouchableOpacity key={w.id} style={s.addRow} onPress={() => assignWorker.mutate(w.id)}>
                       <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                      <Text style={s.addName}>{w.full_name}</Text>
+                      <AppText style={s.addName}>{w.full_name}</AppText>
                     </TouchableOpacity>
                   ))
                 )}
               </>
             ) : (
               <>
-                <Text style={s.sectionLabel}>ASIGNADOS</Text>
+                <AppText style={s.sectionLabel}>ASIGNADOS</AppText>
                 {(assignments?.blocks || []).length === 0 ? (
-                  <Text style={s.empty}>Ninguno</Text>
+                  <AppText style={s.empty}>Ninguno</AppText>
                 ) : (
                   (assignments?.blocks || []).map((a) => (
                     <View key={a.id} style={[s.assignRow, { backgroundColor: colors.amberBg }]}>
-                      <Text style={[s.assignName, { color: colors.amber }]}>{a.name}{a.field ? ` · ${a.field}` : ''}</Text>
+                      <AppText style={[s.assignName, { color: colors.amber }]}>{a.name}{a.field ? ` · ${a.field}` : ''}</AppText>
                       <TouchableOpacity onPress={() => unassign.mutate(a.id)}>
-                        <Text style={s.removeText}>Quitar</Text>
+                        <AppText style={s.removeText}>Quitar</AppText>
                       </TouchableOpacity>
                     </View>
                   ))
                 )}
-                <Text style={[s.sectionLabel, { marginTop: spacing.lg }]}>AGREGAR</Text>
+                <AppText style={[s.sectionLabel, { marginTop: spacing.lg }]}>AGREGAR</AppText>
                 {(availableBlocks || []).length === 0 ? (
-                  <Text style={s.empty}>No hay paños disponibles.</Text>
+                  <AppText style={s.empty}>No hay paños disponibles.</AppText>
                 ) : (
                   (availableBlocks || []).map((b) => (
                     <TouchableOpacity key={b.id} style={s.addRow} onPress={() => assignBlock.mutate(b.id)}>
                       <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                      <Text style={s.addName}>{b.name}{b.field ? ` · ${b.field}` : ''}</Text>
+                      <AppText style={s.addName}>{b.name}{b.field ? ` · ${b.field}` : ''}</AppText>
                     </TouchableOpacity>
                   ))
                 )}

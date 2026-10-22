@@ -1,7 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, TextInput, TouchableOpacity, Modal,
-  KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator,
+  useCallback,
+  useMemo,
+  useState } from 'react';
+import {
+  View,
+  FlatList,
+  TouchableOpacity,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -10,6 +19,7 @@ import { supabase } from '../lib/supabase';
 import { localDate } from '../utils/date';
 import { colors, radius, spacing, font } from '../constants/theme';
 import { showAlert } from '../lib/alert';
+import { AppText, AppTextInput } from './AppText';
 
 /**
  * "Mi equipo de hoy": el responsable (Encargado o Supervisor) arma manualmente
@@ -190,20 +200,20 @@ export function DayRosterManager({
   return (
     <>
       <View style={s.header}>
-        <Text style={s.title}>Equipo de hoy</Text>
-        <Text style={s.count}>{members.length}</Text>
+        <AppText style={s.title}>Equipo de hoy</AppText>
+        <AppText style={s.count}>{members.length}</AppText>
       </View>
-      <Text style={s.subtitle}>{formatToday(workDay)}</Text>
+      <AppText style={s.subtitle}>{formatToday(workDay)}</AppText>
 
       <View style={s.actionsRow}>
         <TouchableOpacity style={s.addBtn} onPress={() => { setSearch(''); setShowAdd(true); }} activeOpacity={0.85}>
           <Ionicons name="person-add-outline" size={16} color={colors.textWhite} />
-          <Text style={s.addBtnText}>Agregar</Text>
+          <AppText style={s.addBtnText}>Agregar</AppText>
         </TouchableOpacity>
         {members.length > 0 && (
           <TouchableOpacity style={s.clearBtn} onPress={clearAll} activeOpacity={0.85}>
             <Ionicons name="trash-outline" size={16} color={colors.red} />
-            <Text style={s.clearBtnText}>Vaciar</Text>
+            <AppText style={s.clearBtnText}>Vaciar</AppText>
           </TouchableOpacity>
         )}
       </View>
@@ -213,16 +223,16 @@ export function DayRosterManager({
       ) : members.length === 0 ? (
         <View style={s.emptyCard}>
           <Ionicons name="people-outline" size={22} color={colors.textMuted} />
-          <Text style={s.emptyText}>
+          <AppText style={s.emptyText}>
             Aún no has armado tu equipo de hoy. Toca “Agregar” para incluir a los trabajadores de esta jornada.
-          </Text>
+          </AppText>
         </View>
       ) : (
         members.map((m) => (
           <View key={m.rosterId} style={s.memberRow}>
-            <View style={s.memberAvatar}><Text style={s.memberAvatarText}>{m.fullName.charAt(0) || '?'}</Text></View>
-            <Text style={s.memberName}>{m.fullName}</Text>
-            <Text style={s.memberUnits}>{m.units} hoy</Text>
+            <View style={s.memberAvatar}><AppText style={s.memberAvatarText}>{m.fullName.charAt(0) || '?'}</AppText></View>
+            <AppText style={s.memberName}>{m.fullName}</AppText>
+            <AppText style={s.memberUnits}>{m.units} hoy</AppText>
             <TouchableOpacity onPress={() => confirmRemove(m)} hitSlop={8} style={s.removeIcon}>
               <Ionicons name="close-circle" size={20} color={colors.red} />
             </TouchableOpacity>
@@ -236,7 +246,7 @@ export function DayRosterManager({
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowAdd(false)} />
           <View style={s.sheet}>
             <View style={s.sheetHeader}>
-              <Text style={s.sheetTitle}>Agregar al equipo de hoy</Text>
+              <AppText style={s.sheetTitle}>Agregar al equipo de hoy</AppText>
               <TouchableOpacity onPress={() => setShowAdd(false)} hitSlop={8}>
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
@@ -244,7 +254,7 @@ export function DayRosterManager({
 
             <View style={s.searchRow}>
               <Ionicons name="search" size={16} color={colors.textMuted} />
-              <TextInput
+              <AppTextInput
                 style={s.searchInput}
                 placeholder="Buscar trabajador…"
                 placeholderTextColor={colors.textMuted}
@@ -272,18 +282,18 @@ export function DayRosterManager({
                       activeOpacity={0.7}
                     >
                       <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-                      <Text style={s.availName}>{item.full_name}</Text>
-                      {isBase && <View style={s.baseTag}><Text style={s.baseTagText}>Mi cuadrilla</Text></View>}
+                      <AppText style={s.availName}>{item.full_name}</AppText>
+                      {isBase && <View style={s.baseTag}><AppText style={s.baseTagText}>Mi cuadrilla</AppText></View>}
                     </TouchableOpacity>
                   );
                 }}
                 ListEmptyComponent={
                   <View style={s.emptyCard}>
-                    <Text style={s.emptyText}>
+                    <AppText style={s.emptyText}>
                       {search.trim()
                         ? 'Ningún trabajador coincide con la búsqueda.'
                         : 'No hay trabajadores disponibles para agregar.'}
-                    </Text>
+                    </AppText>
                   </View>
                 }
               />

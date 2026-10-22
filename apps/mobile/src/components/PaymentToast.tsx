@@ -1,7 +1,14 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  useEffect,
+  useRef } from 'react';
+import { View,
+  Animated,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, radius, spacing, font } from '../constants/theme';
+import { AppText } from './AppText';
 
 interface PaymentToastProps {
   visible: boolean;
@@ -51,10 +58,10 @@ export function PaymentToast({ visible, count, onPress, onDismiss }: PaymentToas
           <Ionicons name="checkmark-circle" size={20} color="#fff" />
         </View>
         <View style={s.textWrap}>
-          <Text style={s.title}>
+          <AppText style={s.title}>
             {count === 1 ? '¡Recibiste un pago!' : `¡Recibiste ${count} pagos!`}
-          </Text>
-          <Text style={s.subtitle}>Toca para ver el detalle</Text>
+          </AppText>
+          <AppText style={s.subtitle}>Toca para ver el detalle</AppText>
         </View>
         <TouchableOpacity onPress={dismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="close" size={18} color="rgba(255,255,255,0.7)" />

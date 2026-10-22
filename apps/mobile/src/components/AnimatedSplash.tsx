@@ -1,7 +1,14 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import {
+  useEffect,
+  useRef } from 'react';
+import { View,
+  Animated,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../constants/theme';
+import { AppText } from './AppText';
 
 const { width } = Dimensions.get('window');
 
@@ -87,8 +94,8 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
           transform: [{ translateY: textTranslate }],
         }}
       >
-        <Text style={styles.title}>Fundo360</Text>
-        <Text style={styles.subtitle}>Gestión integral de campo</Text>
+        <AppText style={styles.title}>Fundo360</AppText>
+        <AppText style={styles.subtitle}>Gestión integral de campo</AppText>
       </Animated.View>
     </Animated.View>
   );

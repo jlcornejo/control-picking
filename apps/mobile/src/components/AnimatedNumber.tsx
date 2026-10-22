@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Text, Animated, TextStyle } from 'react-native';
+import { Animated } from 'react-native';
+import type { TextStyle } from 'react-native';
+import { AppText } from './AppText';
 
 interface AnimatedNumberProps {
   value: number;
@@ -45,7 +47,7 @@ export function AnimatedNumber({
     };
   }, [value]);
 
-  return <Text style={style}>{display}</Text>;
+  return <AppText style={style}>{display}</AppText>;
 }
 
 // Manual thousand separator (Hermes doesn't support toLocaleString with locales)

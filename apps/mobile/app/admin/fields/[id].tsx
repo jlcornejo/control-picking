@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, RefreshControl, TouchableOpacity,
-  Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet,
+  useState,
+  useCallback } from 'react';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, Stack } from 'expo-router';
@@ -13,6 +23,7 @@ import { colors, radius, spacing, font } from '../../../src/constants/theme';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ListSkeleton } from '../../../src/components/Skeleton';
 import { Field, TextField, SelectField, SubmitButton, RowItem } from '../../../src/components/form/FormControls';
+import { AppText } from '../../../src/components/AppText';
 
 type ProductOption = { id: string; name: string; unit_measure: string };
 type BlockRow = {
@@ -128,10 +139,10 @@ export default function FieldDetailScreen() {
       <Stack.Screen options={{ title: field?.name || 'Campo' }} />
 
       <View style={s.headerCard}>
-        <Text style={s.headerName}>{field?.name || '—'}</Text>
-        <Text style={s.headerMeta}>
+        <AppText style={s.headerName}>{field?.name || '—'}</AppText>
+        <AppText style={s.headerMeta}>
           {field?.location ? `${field.location} · ` : ''}{field?.total_area ?? '—'} ha · {(blocks || []).length} paño{(blocks || []).length === 1 ? '' : 's'}
-        </Text>
+        </AppText>
       </View>
 
       <FlatList
@@ -239,7 +250,7 @@ function RowsModal({ block, onClose }: { block: BlockRow | null; onClose: () => 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>Melgas · {block?.name}</Text>
+            <AppText style={s.sheetTitle}>Melgas · {block?.name}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -247,22 +258,22 @@ function RowsModal({ block, onClose }: { block: BlockRow | null; onClose: () => 
           <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
             <TouchableOpacity style={s.addRowBtn} onPress={() => setFormRow('new')} activeOpacity={0.85}>
               <Ionicons name="add" size={18} color={colors.primary} />
-              <Text style={s.addRowText}>Nueva melga</Text>
+              <AppText style={s.addRowText}>Nueva melga</AppText>
             </TouchableOpacity>
 
             {isLoading ? (
               <ListSkeleton count={3} />
             ) : (rows || []).length === 0 ? (
-              <Text style={s.noProducts}>No hay melgas en este paño.</Text>
+              <AppText style={s.noProducts}>No hay melgas en este paño.</AppText>
             ) : (
               (rows || []).map((r) => (
                 <View key={r.id} style={s.rowLine}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
                     {r.row_number != null && (
-                      <View style={s.rowNumberBadge}><Text style={s.rowNumberText}>{r.row_number}</Text></View>
+                      <View style={s.rowNumberBadge}><AppText style={s.rowNumberText}>{r.row_number}</AppText></View>
                     )}
-                    <Text style={[s.rowName, r.status !== 'active' && { color: colors.textMuted }]}>{r.name}</Text>
-                    {r.status !== 'active' && <Text style={s.rowInactive}>inactiva</Text>}
+                    <AppText style={[s.rowName, r.status !== 'active' && { color: colors.textMuted }]}>{r.name}</AppText>
+                    {r.status !== 'active' && <AppText style={s.rowInactive}>inactiva</AppText>}
                   </View>
                   <View style={s.actions}>
                     <TouchableOpacity style={s.actionBtn} onPress={() => setFormRow(r)}>
@@ -370,7 +381,7 @@ function RowFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar melga' : 'Nueva melga'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar melga' : 'Nueva melga'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -480,7 +491,7 @@ function BlockFormModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalWrap}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{isEdit ? 'Editar paño' : 'Nuevo paño'}</Text>
+            <AppText style={s.sheetTitle}>{isEdit ? 'Editar paño' : 'Nuevo paño'}</AppText>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
@@ -491,7 +502,7 @@ function BlockFormModal({
             </Field>
             <Field label="Producto" required error={errors.product_id}>
               {productOptions.length === 0 ? (
-                <Text style={s.noProducts}>No hay productos activos. Créalos primero en Productos.</Text>
+                <AppText style={s.noProducts}>No hay productos activos. Créalos primero en Productos.</AppText>
               ) : (
                 <SelectField value={productId} options={productOptions} onChange={setProductId} hasError={!!errors.product_id} />
               )}

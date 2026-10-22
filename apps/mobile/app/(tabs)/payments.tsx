@@ -1,5 +1,18 @@
-import { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Image } from 'react-native';
+import {
+  useState,
+  useCallback,
+  useEffect } from 'react';
+import { View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Image,
+} from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { PAYMENT_EVIDENCE } from '@fundo360/shared';
@@ -17,6 +30,7 @@ import { enqueue } from '../../src/lib/offline-queue';
 import { showAlert } from '../../src/lib/alert';
 import { currentOrgId } from '../../src/lib/picking-evidence';
 import { uploadPaymentEvidence, signedPaymentEvidenceUrl } from '../../src/lib/payment-evidence';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 /**
  * Thumbnails de evidencia (fotos de respaldo) de los pagos de una liquidación.
@@ -54,7 +68,7 @@ function PaymentEvidenceThumbnails({ paymentIds, enabled }: { paymentIds: string
 
   return (
     <View style={s.evidenceBlock}>
-      <Text style={s.evidenceTitle}>Fotos de respaldo</Text>
+      <AppText style={s.evidenceTitle}>Fotos de respaldo</AppText>
       <View style={s.evidenceRow}>
         {urls.map((url) => (
           <Image key={url} source={{ uri: url }} style={s.evidenceThumb} />
@@ -288,20 +302,20 @@ export default function PaymentsScreen() {
       ListHeaderComponent={
         <>
           <View style={s.hero}>
-            <Text style={s.heroLabel}>{worker?.role === 'worker' ? 'Saldo pendiente de cobro' : 'Total pendiente de pago'}</Text>
-            <Text style={s.heroValue}>${Math.round(balance?.pending || 0).toLocaleString()}</Text>
+            <AppText style={s.heroLabel}>{worker?.role === 'worker' ? 'Saldo pendiente de cobro' : 'Total pendiente de pago'}</AppText>
+            <AppText style={s.heroValue}>${Math.round(balance?.pending || 0).toLocaleString()}</AppText>
             <View style={s.heroFooter}>
               <View>
-                <Text style={s.heroSubLabel}>Liquidado</Text>
-                <Text style={s.heroSubValue}>${Math.round(balance?.owed || 0).toLocaleString()}</Text>
+                <AppText style={s.heroSubLabel}>Liquidado</AppText>
+                <AppText style={s.heroSubValue}>${Math.round(balance?.owed || 0).toLocaleString()}</AppText>
               </View>
               <View>
-                <Text style={s.heroSubLabel}>Pagado</Text>
-                <Text style={s.heroSubValue}>${Math.round(balance?.paid || 0).toLocaleString()}</Text>
+                <AppText style={s.heroSubLabel}>Pagado</AppText>
+                <AppText style={s.heroSubValue}>${Math.round(balance?.paid || 0).toLocaleString()}</AppText>
               </View>
             </View>
           </View>
-          <Text style={s.sectionTitle}>{worker?.role === 'worker' ? 'Mis Liquidaciones' : 'Todas las Liquidaciones'}</Text>
+          <AppText style={s.sectionTitle}>{worker?.role === 'worker' ? 'Mis Liquidaciones' : 'Todas las Liquidaciones'}</AppText>
         </>
       }
       data={settlements || []}
@@ -316,50 +330,50 @@ export default function PaymentsScreen() {
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
-                {item.worker_name ? <Text style={s.cardWorker}>{item.worker_name}</Text> : null}
-                <Text style={s.cardPeriod}>{item.period_start} — {item.period_end}</Text>
+                {item.worker_name ? <AppText style={s.cardWorker}>{item.worker_name}</AppText> : null}
+                <AppText style={s.cardPeriod}>{item.period_start} — {item.period_end}</AppText>
               </View>
-              <Text style={s.cardAmount}>${Math.round(Number(item.total_amount)).toLocaleString()}</Text>
+              <AppText style={s.cardAmount}>${Math.round(Number(item.total_amount)).toLocaleString()}</AppText>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
               <View style={[s.statusBadge, { backgroundColor: statusColor[item.status] + '20' }]}>
-                <Text style={[s.statusText, { color: statusColor[item.status] }]}>{statusLabel[item.status]}</Text>
+                <AppText style={[s.statusText, { color: statusColor[item.status] }]}>{statusLabel[item.status]}</AppText>
               </View>
               {item.totalPaid > 0 && (
-                <Text style={s.paidLabel}>Pagado: {formatMoney(item.totalPaid)}</Text>
+                <AppText style={s.paidLabel}>Pagado: {formatMoney(item.totalPaid)}</AppText>
               )}
             </View>
             {item.status !== 'paid' && (
               <View style={s.owedRow}>
-                <Text style={s.owedLabel}>Adeudado: {formatMoney(Number(item.total_amount) - item.totalPaid)}</Text>
+                <AppText style={s.owedLabel}>Adeudado: {formatMoney(Number(item.total_amount) - item.totalPaid)}</AppText>
               </View>
             )}
 
             {/* Pay button for admin */}
             {worker?.role !== 'worker' && item.status !== 'paid' && (
               <TouchableOpacity style={s.payBtn} onPress={() => { setPayModal(item); setPayAmount(String(Number(item.total_amount) - item.totalPaid)); setPayNotes(''); setPhotoUris([]); setShowPhoto(false); }} activeOpacity={0.7}>
-                <Text style={s.payBtnText}>Pagar</Text>
+                <AppText style={s.payBtnText}>Pagar</AppText>
               </TouchableOpacity>
             )}
 
             {/* Expanded payment details */}
             {expandedId === item.id && item.payments.length > 0 && (
               <View style={s.paymentsList}>
-                <Text style={s.paymentsTitle}>Detalle de pagos</Text>
+                <AppText style={s.paymentsTitle}>Detalle de pagos</AppText>
                 {item.payments.map((p: any) => (
                   <View key={p.id} style={s.paymentRow}>
                     <View>
-                      <Text style={s.paymentDate}>{new Date(p.paid_at).toLocaleDateString('es-CL')}</Text>
-                      {p.notes && <Text style={s.paymentNotes}>{p.notes}</Text>}
+                      <AppText style={s.paymentDate}>{new Date(p.paid_at).toLocaleDateString('es-CL')}</AppText>
+                      {p.notes && <AppText style={s.paymentNotes}>{p.notes}</AppText>}
                     </View>
-                    <Text style={s.paymentAmount}>${Number(p.amount).toLocaleString()}</Text>
+                    <AppText style={s.paymentAmount}>${Number(p.amount).toLocaleString()}</AppText>
                   </View>
                 ))}
               </View>
             )}
             {expandedId === item.id && item.payments.length === 0 && (
               <View style={s.paymentsList}>
-                <Text style={s.paymentsEmpty}>Sin pagos registrados</Text>
+                <AppText style={s.paymentsEmpty}>Sin pagos registrados</AppText>
               </View>
             )}
 
@@ -392,26 +406,26 @@ export default function PaymentsScreen() {
       <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closePayModal} />
         <View style={s.modalContent}>
-          <Text style={s.modalTitle}>Registrar Pago</Text>
+          <AppText style={s.modalTitle}>Registrar Pago</AppText>
           {payModal && (
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <Text style={s.modalWorker}>{payModal.worker_name || 'Trabajador'}</Text>
-              <Text style={s.modalPeriod}>{payModal.period_start} — {payModal.period_end}</Text>
+              <AppText style={s.modalWorker}>{payModal.worker_name || 'Trabajador'}</AppText>
+              <AppText style={s.modalPeriod}>{payModal.period_start} — {payModal.period_end}</AppText>
               <View style={s.modalInfoRow}>
-                <Text style={s.modalInfoLabel}>Total liquidación</Text>
-                <Text style={s.modalInfoValue}>${Number(payModal.total_amount).toLocaleString()}</Text>
+                <AppText style={s.modalInfoLabel}>Total liquidación</AppText>
+                <AppText style={s.modalInfoValue}>${Number(payModal.total_amount).toLocaleString()}</AppText>
               </View>
               <View style={s.modalInfoRow}>
-                <Text style={s.modalInfoLabel}>Ya pagado</Text>
-                <Text style={s.modalInfoValue}>${payModal.totalPaid.toLocaleString()}</Text>
+                <AppText style={s.modalInfoLabel}>Ya pagado</AppText>
+                <AppText style={s.modalInfoValue}>${payModal.totalPaid.toLocaleString()}</AppText>
               </View>
               <View style={[s.modalInfoRow, { borderBottomWidth: 0 }]}>
-                <Text style={[s.modalInfoLabel, { fontWeight: '700' }]}>Pendiente</Text>
-                <Text style={[s.modalInfoValue, { color: '#1b5e20', fontWeight: '800' }]}>${(Number(payModal.total_amount) - payModal.totalPaid).toLocaleString()}</Text>
+                <AppText style={[s.modalInfoLabel, { fontWeight: '700' }]}>Pendiente</AppText>
+                <AppText style={[s.modalInfoValue, { color: '#1b5e20', fontWeight: '800' }]}>${(Number(payModal.total_amount) - payModal.totalPaid).toLocaleString()}</AppText>
               </View>
 
-              <Text style={s.modalLabel}>Monto ($)</Text>
-              <TextInput
+              <AppText style={s.modalLabel}>Monto ($)</AppText>
+              <AppTextInput
                 style={s.modalInput}
                 value={payAmount ? formatNumber(payAmount) : ''}
                 onChangeText={(text) => setPayAmount(text.replace(/\./g, ''))}
@@ -420,8 +434,8 @@ export default function PaymentsScreen() {
                 selectTextOnFocus
               />
 
-              <Text style={s.modalLabel}>Notas (opcional)</Text>
-              <TextInput
+              <AppText style={s.modalLabel}>Notas (opcional)</AppText>
+              <AppTextInput
                 style={s.modalInput}
                 value={payNotes}
                 onChangeText={setPayNotes}
@@ -432,7 +446,7 @@ export default function PaymentsScreen() {
               {/* Fotos de respaldo (opcional, bajo feature flag payment_photo_evidence). */}
               {photoEnabled && (
                 <View style={s.photoBox}>
-                  <Text style={s.modalLabel}>Fotos de respaldo (opcional, máx {PAYMENT_EVIDENCE.MAX_IMAGES})</Text>
+                  <AppText style={s.modalLabel}>Fotos de respaldo (opcional, máx {PAYMENT_EVIDENCE.MAX_IMAGES})</AppText>
                   {photoUris.length > 0 && (
                     <View style={s.photoThumbs}>
                       {photoUris.map((uri, i) => (
@@ -443,7 +457,7 @@ export default function PaymentsScreen() {
                             onPress={() => setPhotoUris((p) => p.filter((_, idx) => idx !== i))}
                             activeOpacity={0.8}
                           >
-                            <Text style={s.photoRemoveText}>Quitar</Text>
+                            <AppText style={s.photoRemoveText}>Quitar</AppText>
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -456,22 +470,22 @@ export default function PaymentsScreen() {
                     activeOpacity={0.85}
                   >
                     <Ionicons name="camera-outline" size={18} color="#6b7280" />
-                    <Text style={s.photoAddText}>Agregar foto</Text>
+                    <AppText style={s.photoAddText}>Agregar foto</AppText>
                   </TouchableOpacity>
                 </View>
               )}
 
               <View style={s.modalButtons}>
                 <TouchableOpacity style={s.modalCancelBtn} onPress={closePayModal}>
-                  <Text style={s.modalCancelText}>Cancelar</Text>
+                  <AppText style={s.modalCancelText}>Cancelar</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.modalPayBtn, s.payBtnRow]} onPress={() => payMutation.mutate()} disabled={payMutation.isPending} activeOpacity={0.8}>
                   {payMutation.isPending ? (
-                    <Text style={s.modalPayText}>...</Text>
+                    <AppText style={s.modalPayText}>...</AppText>
                   ) : (
                     <>
                       <Ionicons name="checkmark" size={18} color="#fff" />
-                      <Text style={s.modalPayText}>Pagar</Text>
+                      <AppText style={s.modalPayText}>Pagar</AppText>
                     </>
                   )}
                 </TouchableOpacity>

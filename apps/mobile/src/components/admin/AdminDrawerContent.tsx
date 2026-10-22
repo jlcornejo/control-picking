@@ -1,4 +1,8 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import {
   DrawerContentScrollView,
   type DrawerContentComponentProps,
@@ -10,6 +14,7 @@ import { useOrgSettings } from '../../hooks/useOrgSettings';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { usePermissions } from '../../hooks/usePermissions';
 import { colors, radius, spacing, font } from '../../constants/theme';
+import { AppText } from '../AppText';
 
 type DrawerSection = 'master' | 'admin';
 
@@ -48,7 +53,7 @@ export function AdminDrawerContent(props: DrawerContentComponentProps) {
       <DrawerContentScrollView {...props}>
         <View style={s.restricted}>
           <Ionicons name="lock-closed-outline" size={24} color={colors.amber} />
-          <Text style={s.restrictedText}>Acceso restringido</Text>
+          <AppText style={s.restrictedText}>Acceso restringido</AppText>
         </View>
       </DrawerContentScrollView>
     );
@@ -93,7 +98,7 @@ export function AdminDrawerContent(props: DrawerContentComponentProps) {
         <View style={[s.icon, { backgroundColor: `${m.color}15` }]}>
           <Ionicons name={m.icon as never} size={20} color={m.color} />
         </View>
-        <Text style={[s.itemText, active && s.itemTextActive]}>{m.title}</Text>
+        <AppText style={[s.itemText, active && s.itemTextActive]}>{m.title}</AppText>
       </TouchableOpacity>
     );
   };
@@ -111,21 +116,21 @@ export function AdminDrawerContent(props: DrawerContentComponentProps) {
         <View style={[s.icon, { backgroundColor: `${colors.primary}15` }]}>
           <Ionicons name="grid" size={20} color={colors.primary} />
         </View>
-        <Text style={[s.itemText, activeRoute === 'index' && s.itemTextActive]}>
+        <AppText style={[s.itemText, activeRoute === 'index' && s.itemTextActive]}>
           Administración
-        </Text>
+        </AppText>
       </TouchableOpacity>
 
       {masterItems.length > 0 && (
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Datos maestros</Text>
+          <AppText style={s.sectionTitle}>Datos maestros</AppText>
           {masterItems.map(renderItem)}
         </View>
       )}
 
       {adminItems.length > 0 && (
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Administración</Text>
+          <AppText style={s.sectionTitle}>Administración</AppText>
           {adminItems.map(renderItem)}
         </View>
       )}

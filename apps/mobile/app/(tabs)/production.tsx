@@ -1,5 +1,15 @@
-import { useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, StyleSheet, PanResponder, Modal as RNModal, TextInput } from 'react-native';
+import {
+  useState,
+  useCallback,
+  useRef } from 'react';
+import { View,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  StyleSheet,
+  PanResponder,
+  Modal as RNModal,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
@@ -14,6 +24,7 @@ import { ListSkeleton, ProductionHeaderSkeleton } from '../../src/components/Ske
 import { EmptyState } from '../../src/components/EmptyState';
 import { AnimatedCard } from '../../src/components/AnimatedCard';
 import { usePickingCorrection } from '../../src/hooks/usePickingCorrection';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 export default function ProductionScreen() {
   const { worker } = useAuth();
@@ -160,23 +171,23 @@ export default function ProductionScreen() {
         <View style={s.headerTop}>
           {showBoxes && (
             <View style={s.headerStat}>
-              <Text style={s.headerValue}>{formatNumber(data?.totalBoxes || 0)}</Text>
-              <Text style={s.headerUnit}>cajas</Text>
+              <AppText style={s.headerValue}>{formatNumber(data?.totalBoxes || 0)}</AppText>
+              <AppText style={s.headerUnit}>cajas</AppText>
             </View>
           )}
           {showKg && (
             <>
               {showBoxes && <View style={s.headerDivider} />}
               <View style={s.headerStat}>
-                <Text style={s.headerValue}>{formatKg(data?.totalKg || 0)}</Text>
-                <Text style={s.headerUnit}>kilos</Text>
+                <AppText style={s.headerValue}>{formatKg(data?.totalKg || 0)}</AppText>
+                <AppText style={s.headerUnit}>kilos</AppText>
               </View>
             </>
           )}
           <View style={s.headerDivider} />
           <View style={s.headerStat}>
-            <Text style={s.headerMoney}>{formatMoney(data?.totalEarnings || 0)}</Text>
-            <Text style={s.headerUnit}>estimado</Text>
+            <AppText style={s.headerMoney}>{formatMoney(data?.totalEarnings || 0)}</AppText>
+            <AppText style={s.headerUnit}>estimado</AppText>
           </View>
         </View>
       </LinearGradient>
@@ -184,14 +195,14 @@ export default function ProductionScreen() {
       {/* Day navigation */}
       <View style={s.dayNav} {...panResponder.panHandlers}>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDayOffset(dayOffset - 1); }} style={s.dayBtn} activeOpacity={0.7}>
-          <Text style={s.dayBtnText}>‹ Ayer</Text>
+          <AppText style={s.dayBtnText}>‹ Ayer</AppText>
         </TouchableOpacity>
         <View style={s.dayCenter}>
-          <Text style={s.dayDate}>{isToday ? 'Hoy' : selectedDate}</Text>
+          <AppText style={s.dayDate}>{isToday ? 'Hoy' : selectedDate}</AppText>
           {isToday && <View style={s.liveDot} />}
         </View>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDayOffset(Math.min(0, dayOffset + 1)); }} disabled={isToday} style={[s.dayBtn, isToday && { opacity: 0.3 }]} activeOpacity={0.7}>
-          <Text style={s.dayBtnText}>Mañana ›</Text>
+          <AppText style={s.dayBtnText}>Mañana ›</AppText>
         </TouchableOpacity>
       </View>
 
@@ -203,22 +214,22 @@ export default function ProductionScreen() {
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 100 }}
         ListHeaderComponent={
           <View style={s.listHeader}>
-            <Text style={s.listTitle}>Registros</Text>
-            <Text style={s.listCount}>{data?.records.length || 0}</Text>
+            <AppText style={s.listTitle}>Registros</AppText>
+            <AppText style={s.listCount}>{data?.records.length || 0}</AppText>
           </View>
         }
         renderItem={({ item, index }: { item: any; index: number }) => (
           <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedRecord(item)}>
           <AnimatedCard index={index} style={s.card}>
             <View style={{ flex: 1 }}>
-              {item.worker_name ? <Text style={s.cardWorker}>{item.worker_name}</Text> : null}
-              <Text style={s.cardBlock}>{item.block_name}</Text>
-              <Text style={s.cardTime}>{new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</Text>
+              {item.worker_name ? <AppText style={s.cardWorker}>{item.worker_name}</AppText> : null}
+              <AppText style={s.cardBlock}>{item.block_name}</AppText>
+              <AppText style={s.cardTime}>{new Date(item.recorded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</AppText>
             </View>
             <View style={s.cardRight}>
-              <Text style={s.cardQty}>{item.unit === 'kg' ? formatKg(Number(item.base)) : Number(item.base)}</Text>
-              <Text style={s.cardUnit}>{item.unit === 'kg' ? 'kg' : 'cj'}</Text>
-              <Text style={s.cardEarn}>{formatMoney(Number(item.subtotal))}</Text>
+              <AppText style={s.cardQty}>{item.unit === 'kg' ? formatKg(Number(item.base)) : Number(item.base)}</AppText>
+              <AppText style={s.cardUnit}>{item.unit === 'kg' ? 'kg' : 'cj'}</AppText>
+              <AppText style={s.cardEarn}>{formatMoney(Number(item.subtotal))}</AppText>
             </View>
           </AnimatedCard>
           </TouchableOpacity>
@@ -243,7 +254,7 @@ export default function ProductionScreen() {
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSelectedRecord(null)} />
           <View style={s.modalContent}>
             <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>Detalle del registro</Text>
+              <AppText style={s.modalTitle}>Detalle del registro</AppText>
               <TouchableOpacity onPress={() => setSelectedRecord(null)}>
                 <Ionicons name="close" size={22} color={colors.textMuted} />
               </TouchableOpacity>
@@ -252,9 +263,9 @@ export default function ProductionScreen() {
               <View style={s.detailBody}>
                 {/* Amount highlight */}
                 <View style={s.detailHighlight}>
-                  <Text style={s.detailHighlightQty}>{selectedRecord.unit === 'kg' ? formatKg(Number(selectedRecord.base)) : Number(selectedRecord.base)}</Text>
-                  <Text style={s.detailHighlightUnit}>{selectedRecord.unit === 'kg' ? 'kilos' : 'cajas'}</Text>
-                  <Text style={s.detailHighlightAmount}>{formatMoney(Number(selectedRecord.subtotal))}</Text>
+                  <AppText style={s.detailHighlightQty}>{selectedRecord.unit === 'kg' ? formatKg(Number(selectedRecord.base)) : Number(selectedRecord.base)}</AppText>
+                  <AppText style={s.detailHighlightUnit}>{selectedRecord.unit === 'kg' ? 'kilos' : 'cajas'}</AppText>
+                  <AppText style={s.detailHighlightAmount}>{formatMoney(Number(selectedRecord.subtotal))}</AppText>
                 </View>
 
                 {/* Detail rows */}
@@ -276,7 +287,7 @@ export default function ProductionScreen() {
                     activeOpacity={0.8}
                   >
                     <Ionicons name="create-outline" size={18} color={colors.primary} />
-                    <Text style={s.correctBtnText}>{selectedRecord.unit === 'kg' ? 'Corregir kilos' : 'Corregir cantidad'}</Text>
+                    <AppText style={s.correctBtnText}>{selectedRecord.unit === 'kg' ? 'Corregir kilos' : 'Corregir cantidad'}</AppText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -291,19 +302,19 @@ export default function ProductionScreen() {
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { setCorrectRecord(null); setCorrectQty(''); }} />
           <View style={s.modalContent}>
             <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>Corregir registro</Text>
+              <AppText style={s.modalTitle}>Corregir registro</AppText>
               <TouchableOpacity onPress={() => { setCorrectRecord(null); setCorrectQty(''); }}>
                 <Ionicons name="close" size={22} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             {correctRecord && (
               <View style={{ paddingBottom: 8 }}>
-                <Text style={s.correctInfo}>
+                <AppText style={s.correctInfo}>
                   {correctRecord.worker_name ? `${correctRecord.worker_name} · ` : ''}{correctRecord.block_name}
-                </Text>
-                <Text style={s.correctInfoSub}>Cantidad actual: {correctRecord.unit === 'kg' ? formatKg(Number(correctRecord.base)) : Number(correctRecord.base)} {correctRecord.unit === 'kg' ? 'kg' : 'cajas'}</Text>
-                <Text style={s.correctLabel}>{correctRecord.unit === 'kg' ? 'Nuevos kilos' : 'Nueva cantidad'}</Text>
-                <TextInput
+                </AppText>
+                <AppText style={s.correctInfoSub}>Cantidad actual: {correctRecord.unit === 'kg' ? formatKg(Number(correctRecord.base)) : Number(correctRecord.base)} {correctRecord.unit === 'kg' ? 'kg' : 'cajas'}</AppText>
+                <AppText style={s.correctLabel}>{correctRecord.unit === 'kg' ? 'Nuevos kilos' : 'Nueva cantidad'}</AppText>
+                <AppTextInput
                   style={s.correctInput}
                   value={correctQty}
                   onChangeText={setCorrectQty}
@@ -313,7 +324,7 @@ export default function ProductionScreen() {
                   placeholder="0"
                   placeholderTextColor={colors.textMuted}
                 />
-                <Text style={s.correctHint}>Se conserva el registro original como auditoría. Solo se puede corregir el día actual.</Text>
+                <AppText style={s.correctHint}>Se conserva el registro original como auditoría. Solo se puede corregir el día actual.</AppText>
                 <TouchableOpacity
                   style={[s.correctConfirm, s.correctConfirmRow, (!correctQty || parseFloat(correctQty) <= 0 || correctMutation.isPending) && { opacity: 0.5 }]}
                   onPress={submitCorrection}
@@ -321,11 +332,11 @@ export default function ProductionScreen() {
                   activeOpacity={0.85}
                 >
                   {correctMutation.isPending ? (
-                    <Text style={s.correctConfirmText}>Guardando...</Text>
+                    <AppText style={s.correctConfirmText}>Guardando...</AppText>
                   ) : (
                     <>
                       <Ionicons name="checkmark" size={18} color={colors.textWhite} />
-                      <Text style={s.correctConfirmText}>Guardar corrección</Text>
+                      <AppText style={s.correctConfirmText}>Guardar corrección</AppText>
                     </>
                   )}
                 </TouchableOpacity>
@@ -343,9 +354,9 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
     <View style={s.detailRow}>
       <View style={s.detailRowLeft}>
         <Ionicons name={icon as any} size={16} color={colors.textMuted} />
-        <Text style={s.detailRowLabel}>{label}</Text>
+        <AppText style={s.detailRowLabel}>{label}</AppText>
       </View>
-      <Text style={s.detailRowValue}>{value}</Text>
+      <AppText style={s.detailRowValue}>{value}</AppText>
     </View>
   );
 }

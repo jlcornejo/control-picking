@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
+import {
+  useState } from 'react';
+import { View,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Image,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { evaluateBoxTolerance, ToleranceUnit } from '@fundo360/shared';
@@ -17,6 +23,7 @@ import { useConnectivity } from '../../src/hooks/useConnectivity';
 import { enqueue } from '../../src/lib/offline-queue';
 import { newUuid, uploadPickingEvidence, currentOrgId } from '../../src/lib/picking-evidence';
 import { showAlert } from '../../src/lib/alert';
+import { AppText, AppTextInput } from '../../src/components/AppText';
 
 /** Tipo de caja/envase con destare y tolerancia (control de merma). */
 type BoxTypeOption = {
@@ -387,30 +394,30 @@ export default function RegisterScreen() {
         {selectedBlock && (
           <View style={s.quickBanner}>
             <View style={{ flex: 1 }}>
-              <Text style={s.quickLabel}>Paño seleccionado</Text>
+              <AppText style={s.quickLabel}>Paño seleccionado</AppText>
               <View style={s.chipRow}>
                 <Ionicons name="location" size={14} color="#1e40af" />
-                <Text style={s.quickValue}>{selectedBlock.name}</Text>
+                <AppText style={s.quickValue}>{selectedBlock.name}</AppText>
               </View>
             </View>
-            <TouchableOpacity onPress={() => setSelectedBlock(null)} style={s.quickChange}><Text style={s.quickChangeText}>Cambiar</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setSelectedBlock(null)} style={s.quickChange}><AppText style={s.quickChangeText}>Cambiar</AppText></TouchableOpacity>
           </View>
         )}
 
         <View style={s.center}>
           <TouchableOpacity style={s.scanBtn} onPress={() => setShowScanner(true)} activeOpacity={0.85}>
             <Ionicons name="camera-outline" size={40} color={colors.primary} />
-            <Text style={s.scanBtnText}>Escanear Badge</Text>
+            <AppText style={s.scanBtnText}>Escanear Badge</AppText>
           </TouchableOpacity>
 
           <View style={s.dividerRow}>
-            <View style={s.dividerLine} /><Text style={s.dividerText}>o manual</Text><View style={s.dividerLine} />
+            <View style={s.dividerLine} /><AppText style={s.dividerText}>o manual</AppText><View style={s.dividerLine} />
           </View>
 
-          <TextInput style={s.input} placeholder="Código del badge" placeholderTextColor={colors.textMuted}
+          <AppTextInput style={s.input} placeholder="Código del badge" placeholderTextColor={colors.textMuted}
             value={qrInput} onChangeText={setQrInput} onSubmitEditing={handleScan} />
           <TouchableOpacity style={s.primaryBtn} onPress={handleScan} activeOpacity={0.85}>
-            <Text style={s.primaryBtnText}>Identificar</Text>
+            <AppText style={s.primaryBtnText}>Identificar</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -427,7 +434,7 @@ export default function RegisterScreen() {
 
         <View style={[s.workerChip, s.chipRow]}>
           <Ionicons name="person" size={13} color={colors.primaryDark} />
-          <Text style={s.workerChipText}>{selectedWorker?.full_name}</Text>
+          <AppText style={s.workerChipText}>{selectedWorker?.full_name}</AppText>
         </View>
 
         <FlatList
@@ -437,17 +444,17 @@ export default function RegisterScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity style={s.blockCard} onPress={() => chooseBlock(item)} activeOpacity={0.7}>
               <View>
-                <Text style={s.blockName}>{item.name}</Text>
-                <Text style={s.blockProduct}>{item.product_name}</Text>
+                <AppText style={s.blockName}>{item.name}</AppText>
+                <AppText style={s.blockProduct}>{item.product_name}</AppText>
               </View>
-              <Text style={s.blockArrow}>›</Text>
+              <AppText style={s.blockArrow}>›</AppText>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>Sin paños disponibles</Text></View>}
+          ListEmptyComponent={<View style={s.empty}><AppText style={s.emptyText}>Sin paños disponibles</AppText></View>}
         />
         <TouchableOpacity style={[s.backBtn, s.chipRow]} onPress={resetForm}>
           <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
-          <Text style={s.backBtnText}>Volver</Text>
+          <AppText style={s.backBtnText}>Volver</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -463,13 +470,13 @@ export default function RegisterScreen() {
 
         <View style={[s.workerChip, s.chipRow]}>
           <Ionicons name="person" size={13} color={colors.primaryDark} />
-          <Text style={s.workerChipText}>{selectedWorker?.full_name}</Text>
-          <Text style={s.workerChipText}>  •  </Text>
+          <AppText style={s.workerChipText}>{selectedWorker?.full_name}</AppText>
+          <AppText style={s.workerChipText}>  •  </AppText>
           <Ionicons name="location" size={13} color={colors.primaryDark} />
-          <Text style={s.workerChipText}>{selectedBlock?.name}</Text>
+          <AppText style={s.workerChipText}>{selectedBlock?.name}</AppText>
         </View>
 
-        <Text style={s.rowHint}>Seleccione la melga</Text>
+        <AppText style={s.rowHint}>Seleccione la melga</AppText>
 
         <FlatList
           data={rowChoices}
@@ -483,18 +490,18 @@ export default function RegisterScreen() {
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 {item.row_number != null && (
-                  <View style={s.rowNumberBadge}><Text style={s.rowNumberText}>{item.row_number}</Text></View>
+                  <View style={s.rowNumberBadge}><AppText style={s.rowNumberText}>{item.row_number}</AppText></View>
                 )}
-                <Text style={s.blockName}>{item.name}</Text>
+                <AppText style={s.blockName}>{item.name}</AppText>
               </View>
-              <Text style={s.blockArrow}>›</Text>
+              <AppText style={s.blockArrow}>›</AppText>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>Sin melgas disponibles</Text></View>}
+          ListEmptyComponent={<View style={s.empty}><AppText style={s.emptyText}>Sin melgas disponibles</AppText></View>}
         />
         <TouchableOpacity style={[s.backBtn, s.chipRow]} onPress={() => setStep('select-block')}>
           <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
-          <Text style={s.backBtnText}>Paño</Text>
+          <AppText style={s.backBtnText}>Paño</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -521,15 +528,15 @@ export default function RegisterScreen() {
 
       <View style={[s.workerChip, s.chipRow]}>
         <Ionicons name="person" size={13} color={colors.primaryDark} />
-        <Text style={s.workerChipText}>{selectedWorker?.full_name}</Text>
-        <Text style={s.workerChipText}>  •  </Text>
+        <AppText style={s.workerChipText}>{selectedWorker?.full_name}</AppText>
+        <AppText style={s.workerChipText}>  •  </AppText>
         <Ionicons name="location" size={13} color={colors.primaryDark} />
-        <Text style={s.workerChipText}>{selectedBlock?.name}</Text>
+        <AppText style={s.workerChipText}>{selectedBlock?.name}</AppText>
         {selectedRow ? (
           <>
-            <Text style={s.workerChipText}>  •  </Text>
+            <AppText style={s.workerChipText}>  •  </AppText>
             <Ionicons name="leaf-outline" size={13} color={colors.primaryDark} />
-            <Text style={s.workerChipText}>{selectedRow.name}</Text>
+            <AppText style={s.workerChipText}>{selectedRow.name}</AppText>
           </>
         ) : null}
       </View>
@@ -539,23 +546,23 @@ export default function RegisterScreen() {
             peso de la caja (no se escribe cantidad). Caja: cantidad de cajas. */}
         {kgManualApplies ? (
           <>
-            <TextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
+            <AppTextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
               value={manualKg} onChangeText={setManualKg} keyboardType="numeric" autoFocus selectTextOnFocus />
-            <Text style={s.unitLabel}>kilos</Text>
+            <AppText style={s.unitLabel}>kilos</AppText>
           </>
         ) : kgTareApplies ? (
-          <Text style={s.unitLabel}>Pesa la caja para registrar los kilos</Text>
+          <AppText style={s.unitLabel}>Pesa la caja para registrar los kilos</AppText>
         ) : (
           <>
-            <TextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
+            <AppTextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
               value={quantity} onChangeText={setQuantity} keyboardType="numeric" autoFocus selectTextOnFocus />
-            <Text style={s.unitLabel}>cajas</Text>
+            <AppText style={s.unitLabel}>cajas</AppText>
           </>
         )}
 
         {(tareApplies || kgTareApplies) && (
           <View style={s.tareBox}>
-            <Text style={s.tareLabel}>Tipo de caja</Text>
+            <AppText style={s.tareLabel}>Tipo de caja</AppText>
             <View style={s.tareChips}>
               {(boxTypes || []).map((bt) => {
                 const active = selectedBoxType?.id === bt.id;
@@ -566,14 +573,14 @@ export default function RegisterScreen() {
                     style={[s.tareChip, active && s.tareChipActive]}
                     activeOpacity={0.85}
                   >
-                    <Text style={[s.tareChipText, active && s.tareChipTextActive]}>{bt.name}</Text>
+                    <AppText style={[s.tareChipText, active && s.tareChipTextActive]}>{bt.name}</AppText>
                   </TouchableOpacity>
                 );
               })}
             </View>
             {selectedBoxType && (
               <>
-                <TextInput
+                <AppTextInput
                   style={s.tareInput}
                   placeholder={`Peso bruto (objetivo ${selectedBoxType.target_net_weight_kg} kg + tara ${selectedBoxType.tare_weight_kg} kg)`}
                   placeholderTextColor={colors.textMuted}
@@ -584,9 +591,9 @@ export default function RegisterScreen() {
                 {!!grossWeight && parseFloat(grossWeight) > 0 && (() => {
                   const ev = evaluateBoxTolerance(parseFloat(grossWeight), selectedBoxType.tare_weight_kg, selectedBoxType);
                   return (
-                    <Text style={[s.tareNet, ev.out_of_tolerance && s.tareNetWarn]}>
+                    <AppText style={[s.tareNet, ev.out_of_tolerance && s.tareNetWarn]}>
                       Neto {ev.net_weight_kg} kg {ev.out_of_tolerance ? '— fuera de tolerancia' : '— dentro de rango'}
-                    </Text>
+                    </AppText>
                   );
                 })()}
               </>
@@ -601,17 +608,17 @@ export default function RegisterScreen() {
               <View style={s.photoRow}>
                 <Image source={{ uri: photoUri }} style={s.photoThumb} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.photoLabel}>Foto de respaldo adjunta</Text>
+                  <AppText style={s.photoLabel}>Foto de respaldo adjunta</AppText>
                   <View style={s.photoActions}>
-                    <TouchableOpacity onPress={() => setShowPhoto(true)}><Text style={s.photoAction}>Reemplazar</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => setPhotoUri(null)}><Text style={[s.photoAction, s.photoActionRemove]}>Quitar</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowPhoto(true)}><AppText style={s.photoAction}>Reemplazar</AppText></TouchableOpacity>
+                    <TouchableOpacity onPress={() => setPhotoUri(null)}><AppText style={[s.photoAction, s.photoActionRemove]}>Quitar</AppText></TouchableOpacity>
                   </View>
                 </View>
               </View>
             ) : (
               <TouchableOpacity style={s.photoBtn} onPress={() => setShowPhoto(true)} activeOpacity={0.85}>
                 <Ionicons name="camera-outline" size={18} color={colors.textSecondary} />
-                <Text style={s.photoBtnText}>Agregar foto de respaldo</Text>
+                <AppText style={s.photoBtnText}>Agregar foto de respaldo</AppText>
               </TouchableOpacity>
             )}
           </View>
@@ -621,18 +628,18 @@ export default function RegisterScreen() {
       <View style={s.bottomRow}>
         <TouchableOpacity style={[s.backBtn2, s.chipRow]} onPress={() => setStep(rowChoices.length > 0 ? 'select-row' : 'select-block')}>
           <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
-          <Text style={s.backBtnText}>{rowChoices.length > 0 ? 'Melga' : 'Paño'}</Text>
+          <AppText style={s.backBtnText}>{rowChoices.length > 0 ? 'Melga' : 'Paño'}</AppText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.confirmBtn, s.chipRow, (!canSubmit || submitMutation.isPending) && { opacity: 0.4 }]}
           onPress={() => submitMutation.mutate()}
           disabled={!canSubmit || submitMutation.isPending} activeOpacity={0.85}>
           {submitMutation.isPending ? (
-            <Text style={s.confirmBtnText}>...</Text>
+            <AppText style={s.confirmBtnText}>...</AppText>
           ) : (
             <>
               <Ionicons name="checkmark" size={18} color={colors.textWhite} />
-              <Text style={s.confirmBtnText}>Confirmar</Text>
+              <AppText style={s.confirmBtnText}>Confirmar</AppText>
             </>
           )}
         </TouchableOpacity>
