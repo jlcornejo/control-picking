@@ -62,6 +62,7 @@ export const FEATURE_FLAGS = {
   BOX_TARE_CONTROL: 'box_tare_control',
   DISPATCH_GUIDES: 'dispatch_guides',
   PAYMENT_PHOTO_EVIDENCE: 'payment_photo_evidence',
+  BLUETOOTH_SCALE: 'bluetooth_scale',
 } as const;
 
 /** Payment photo evidence limits (M2-01b). */

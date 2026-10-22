@@ -3,8 +3,10 @@ import {
 import { View,
   TouchableOpacity,
   FlatList,
+  ScrollView,
   StyleSheet,
   Image,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +26,8 @@ import { enqueue } from '../../src/lib/offline-queue';
 import { newUuid, uploadPickingEvidence, currentOrgId } from '../../src/lib/picking-evidence';
 import { showAlert } from '../../src/lib/alert';
 import { AppText, AppTextInput } from '../../src/components/AppText';
+import { useBluetoothScale } from '../../src/hooks/useBluetoothScale';
+import { round3 } from '../../src/lib/scale/round3';
 
 /** Tipo de caja/envase con destare y tolerancia (control de merma). */
 type BoxTypeOption = {
@@ -63,11 +67,15 @@ export default function RegisterScreen() {
   // Solo cuando el flag picking_photo_evidence está activo.
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [showPhoto, setShowPhoto] = useState(false);
+  // Panel de depuración del stream crudo de la balanza (solo Android + flag).
+  const [showScaleDebug, setShowScaleDebug] = useState(false);
 
   const { enabled: tareEnabled } = useFeatureFlag('box_tare_control');
   const { enabled: photoEnabled } = useFeatureFlag('picking_photo_evidence');
   // Pago por kilo: si el flag está off, no se ofrecen productos kg (CA-21).
   const { enabled: kgEnabled } = useFeatureFlag('kg_payment');
+  // Lectura de balanza Bluetooth: solo Android y detrás del flag bluetooth_scale.
+  const { enabled: scaleEnabled } = useFeatureFlag('bluetooth_scale');
 
   const { data: blocks } = useQuery({
     queryKey: ['my-blocks', kgEnabled],
@@ -188,12 +196,21 @@ export default function RegisterScreen() {
   // Pago por kilo manual: el paño es kg y NO hay destare -> se capturan los kilos.
   const kgManualApplies = isKgBlock && !kgTareApplies;
 
+  // ¿Aplica la lectura de balanza Bluetooth? Mismo criterio que el input manual
+  // de kilos (kgManualApplies) + flag activo + SOLO Android. En iOS o con el flag
+  // apagado scaleApplies es false y la pantalla queda EXACTAMENTE como hoy.
+  const scaleApplies = scaleEnabled && Platform.OS === 'android' && kgManualApplies;
+  // El hook no puede llamarse condicionalmente: siempre se monta pero queda
+  // inerte (nunca toca el módulo nativo) cuando enabled es false o no es Android.
+  const scale = useBluetoothScale({ enabled: scaleApplies });
+
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!selectedWorker || !selectedBlock) throw new Error('Datos incompletos');
 
       const paymentUnit: 'box' | 'kg' = isKgBlock ? 'kg' : 'box';
-      const round3 = (x: number) => Math.round(x * 1000) / 1000;
+      // round3 compartido (apps/mobile/src/lib/scale/round3.ts): misma fórmula
+      // que usa el autocompletado de la balanza, para evitar divergencias.
 
       // Destare (opcional): si aplica y el supervisor eligió caja + pesó, se
       // calcula el neto y se marca fuera de tolerancia. En productos por caja el
@@ -367,7 +384,21 @@ export default function RegisterScreen() {
     onError: (err: any) => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); showAlert('Error', err.message); },
   });
 
-  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
+  // "Leer balanza": conecta si hace falta y vuelca el último peso estabilizado en
+  // el input manual de kilos (manualKg). El input sigue editable como respaldo.
+  async function handleReadScale() {
+    if (!scaleApplies) return;
+    Haptics.selectionAsync();
+    if (scale.status !== 'connected') {
+      await scale.connect();
+    }
+    const kg = scale.lastWeightKg;
+    if (kg !== null && Number.isFinite(kg)) {
+      setManualKg(String(round3(kg)));
+    }
+  }
+
+  function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); scale.clearLog(); }
   function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
 
   if (showScanner) return <QRScanner onScan={handleQRScanned} onClose={() => setShowScanner(false)} />;
@@ -549,6 +580,69 @@ export default function RegisterScreen() {
             <AppTextInput style={s.bigInput} placeholder="0" placeholderTextColor={colors.primaryMuted}
               value={manualKg} onChangeText={setManualKg} keyboardType="numeric" autoFocus selectTextOnFocus />
             <AppText style={s.unitLabel}>kilos</AppText>
+
+            {/* Lectura de balanza Bluetooth (solo Android + flag bluetooth_scale).
+                El input de arriba sigue editable siempre como respaldo manual. */}
+            {scaleApplies && (
+              <View style={s.scaleBox}>
+                <TouchableOpacity
+                  style={[s.scaleBtn, s.chipRow, scale.status === 'connecting' && { opacity: 0.6 }]}
+                  onPress={handleReadScale}
+                  disabled={scale.status === 'connecting'}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="bluetooth" size={18} color={colors.primary} />
+                  <AppText style={s.scaleBtnText}>Leer balanza</AppText>
+                </TouchableOpacity>
+
+                <AppText style={[s.scaleStatus, scale.status === 'error' && s.scaleStatusError]}>
+                  {scale.status === 'connecting'
+                    ? 'Conectando…'
+                    : scale.status === 'connected'
+                      ? `Balanza conectada${scale.lastWeightKg !== null ? ` · ${round3(scale.lastWeightKg)} kg` : ''}`
+                      : scale.status === 'error'
+                        ? scale.error ?? 'Sin conexión con la balanza'
+                        : 'Balanza desconectada'}
+                </AppText>
+
+                <TouchableOpacity onPress={() => setShowScaleDebug((v) => !v)} activeOpacity={0.7}>
+                  <AppText style={s.scaleDebugToggle}>{showScaleDebug ? 'Ocultar crudo' : 'Ver crudo'}</AppText>
+                </TouchableOpacity>
+
+                {showScaleDebug && (
+                  <View style={s.scaleDebugPanel}>
+                    {/* Selector de dispositivos emparejados (bonded). */}
+                    <View style={s.chipRow}>
+                      <TouchableOpacity onPress={() => { void scale.refreshDevices(); }} activeOpacity={0.7}>
+                        <AppText style={s.scaleDebugAction}>Buscar emparejados</AppText>
+                      </TouchableOpacity>
+                      <AppText style={s.scaleDebugAction}>  ·  </AppText>
+                      <TouchableOpacity onPress={() => scale.clearLog()} activeOpacity={0.7}>
+                        <AppText style={s.scaleDebugAction}>Limpiar</AppText>
+                      </TouchableOpacity>
+                    </View>
+                    {scale.devices.map((d) => (
+                      <TouchableOpacity key={d.address} onPress={() => { void scale.connect(d.address); }} activeOpacity={0.7}>
+                        <AppText style={s.scaleDeviceRow}>{d.name ?? '(sin nombre)'} — {d.address}</AppText>
+                      </TouchableOpacity>
+                    ))}
+                    {/* Stream crudo: cada línea tal cual se recibió, con los
+                        terminadores CR/LF visibles para afinar el parser. */}
+                    <ScrollView style={s.scaleRawScroll} nestedScrollEnabled>
+                      {scale.rawLog.length === 0 ? (
+                        <AppText style={s.scaleRawEmpty}>Sin datos todavía. Conecta y pesa para capturar el stream.</AppText>
+                      ) : (
+                        scale.rawLog.map((line, i) => (
+                          <AppText key={i} style={s.scaleRawLine} selectable>
+                            {line.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}
+                          </AppText>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         ) : kgTareApplies ? (
           <AppText style={s.unitLabel}>Pesa la caja para registrar los kilos</AppText>
@@ -712,4 +806,17 @@ const s = StyleSheet.create({
   photoActions: { flexDirection: 'row', gap: spacing.lg, marginTop: 6 },
   photoAction: { fontSize: 13, fontWeight: font.medium, color: colors.primary },
   photoActionRemove: { color: colors.red },
+  // Lectura de balanza Bluetooth (solo Android + flag bluetooth_scale)
+  scaleBox: { width: '100%', marginTop: spacing.lg, alignItems: 'center' },
+  scaleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.primaryMuted, borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: spacing.lg, backgroundColor: colors.primaryBg },
+  scaleBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary },
+  scaleStatus: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' },
+  scaleStatusError: { color: colors.red },
+  scaleDebugToggle: { fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline', marginTop: spacing.sm },
+  scaleDebugPanel: { width: '100%', marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder },
+  scaleDebugAction: { fontSize: 13, fontWeight: font.medium, color: colors.primary },
+  scaleDeviceRow: { fontSize: 12, color: colors.textSecondary, paddingVertical: 4 },
+  scaleRawScroll: { maxHeight: 160, marginTop: spacing.sm, backgroundColor: colors.background, borderRadius: radius.sm, padding: spacing.sm },
+  scaleRawEmpty: { fontSize: 12, color: colors.textMuted },
+  scaleRawLine: { fontSize: 12, color: colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
 });
