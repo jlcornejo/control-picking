@@ -1,0 +1,25 @@
+{
+  "project_type": "Turborepo monorepo; this task is entirely in the Expo React Native app at apps/mobile (expo-router file-based routing).",
+  "language": "TypeScript (strict), React 19.1 + React Native 0.81.5, Expo SDK ~54.0.0, expo-router ~6, Metro bundler.",
+  "build_system": "npm workspaces + Turborepo. Work from apps/mobile. No 'typecheck' npm script exists — invoke tsc directly. expo-router is hoisted to the repo-root node_modules (not under apps/mobile/node_modules), so entry-file paths must be resolved via require.resolve, not a literal relative path.",
+  "test_framework": "vitest (npm test), but there are NO unit tests for UI components here; verification for this task is tsc + the Metro release bundle (export:embed) + eslint, not vitest.",
+  "build_command": "From apps/mobile: npx tsc --noEmit",
+  "test_command": "From apps/mobile, the release-bundle gate (most important): npx expo export:embed --eager --platform android --dev false --entry-file \"$(node -e \"console.log(require.resolve('expo-router/entry.js'))\")\" --bundle-output /tmp/fundo360-verify.bundle",
+  "verification_instructions": "Run all from apps/mobile, in order: (1) npx tsc --noEmit exits 0. (2) npx expo export:embed --eager --platform android --dev false --entry-file \"$(node -e \"console.log(require.resolve('expo-router/entry.js'))\")\" --bundle-output /tmp/fundo360-verify.bundle exits 0 and prints 'Android Bundled' — this is the single most important gate because it is what the release build runs and it previously caught a dynamic-require error that tsc/lint missed. (3) npm run lint has 0 errors (pre-existing @typescript-eslint 'any' warnings are acceptable). On-device visual verification requires a rebuilt APK done by the orchestrator AFTER approval; the workflow must NOT claim on-device verification.",
+  "snapshot_or_generated_files": "None checked in. The export:embed bundle output goes to /tmp/fundo360-verify.bundle (throwaway, do not commit).",
+  "environment_constraints": "macOS. Do NOT use the `timeout` command (not available on macOS). export:embed can take a couple of minutes; allow a generous timeout. expo-router entry resolves to /Users/ericksegura/Documents/backupHDD/personal/control-picking/node_modules/expo-router/entry.js. eslint config is apps/mobile/eslint.config.js (flat config).",
+  "contribution_requirements": "Conventional Commits (type(scope): description); scope here is roughly 'mobile' or a component area. Code/identifiers in English; UI copy in Spanish and MUST NOT be shortened. TypeScript strict, no `any` (use unknown + guards). Only use existing theme tokens from src/constants/theme.ts for any style change.",
+  "key_patterns": "Screens import { Text, TextInput, View, StyleSheet, ... } from 'react-native' and build styles with StyleSheet.create referencing colors/spacing/radius/font from '../constants/theme'. Reusable form pieces (Field, TextField, SelectField, SubmitButton, RowItem) live in src/components/form/FormControls.tsx and are consumed by most admin screens — fixing them centrally fixes many rows. profile.tsx already contains the reference clipping fixes (flexShrink, minWidth:0, flex:1, numberOfLines+adjustsFontSizeToFit on tiny chips, textAlign, includeFontPadding:false on the role pill). The FontScale context default already returns factor 1 so components rendered outside the provider (AnimatedSplash, OfflineBanner) are safe.",
+  "relevant_files": [
+    "apps/mobile/src/hooks/useFontScale.tsx (REWRITE: remove module-override/monkeypatch/Fragment-key; keep public API)",
+    "apps/mobile/src/components/AppText.tsx (CREATE: AppText + AppTextInput)",
+    "apps/mobile/src/constants/theme.ts (READ ONLY: token source)",
+    "apps/mobile/app/_layout.tsx (READ: provider wiring; FontScaleProvider wraps ThemeProvider inside AuthGate; AnimatedSplash/OfflineBanner are outside it)",
+    "apps/mobile/app/(tabs)/profile.tsx (reference clipping fixes + consumes FONT_SCALES/FONT_SCALE_LABELS/useFontScale)",
+    "apps/mobile/src/components/form/FormControls.tsx (reused by admin screens)",
+    "apps/mobile/src/components/AnimatedNumber.tsx (numeric ticker Text)",
+    "apps/mobile/eslint.config.js",
+    "apps/mobile/tsconfig.json (noEmit, moduleResolution bundler)"
+  ],
+  "directory_structure": "apps/mobile/app/* = expo-router screens (tabs group (tabs)/, admin group admin/, plus login.tsx, change-password.tsx, _layout.tsx). apps/mobile/src/components/* = shared UI (AppText.tsx to be added here, plus form/FormControls.tsx and admin/AdminDrawerContent.tsx). apps/mobile/src/hooks/* = hooks incl. useFontScale.tsx. apps/mobile/src/constants/theme.ts = design tokens."
+}

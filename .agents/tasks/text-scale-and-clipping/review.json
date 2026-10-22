@@ -1,0 +1,16 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "info",
+      "file": "apps/mobile/app/(tabs)/payments.tsx",
+      "detail": "Pre-existing hardcoded hex colors ('#9ca3af' placeholderTextColor, '#1b5e20' inline value color) are carried through the Text->AppTextInput/AppText swap unchanged. They predate this task (present on the removed '-' lines), so they are out of scope for this review. Non-blocking: a future cleanup could move them to theme tokens, but the task's constraint ('style changes use only theme tokens') applies to NEW style changes, and none were introduced here."
+    },
+    {
+      "severity": "info",
+      "file": "apps/mobile/src/components/AppText.tsx",
+      "detail": "On-device visual verification at font factors 1.0/1.15/1.3 is NOT claimed in this review. The release bundle gate (export:embed) proves the context-only scaling mechanism compiles and bundles in a minified/release build, but visual confirmation of no clipping across dense admin lists, period chips, FloatingTabBar labels, and payment modals is deferred to the orchestrator's rebuilt APK."
+    }
+  ],
+  "summary": "APPROVED. All six checks pass with zero required changes. (1) Font scaling now uses plain React composition: AppText/AppTextInput read useFontScale().factor via context and scale only their own fontSize; src/hooks/useFontScale.tsx contains NO module-override, monkeypatch, require() of RN internals, makeScaledComponent/wrapModuleDefault/installFontScaleOverride, or Fragment-key remount (grep confirmed empty). (2) useFontScale public API is byte-for-byte preserved: FontScaleKey, FONT_SCALES {normal:1,grande:1.15,extra:1.3}, FONT_SCALE_LABELS {Normal,Grande,Extra grande}, FontScaleProvider, useFontScale -> {scale,factor,setScale,loaded}, storage key 'fundo360.font_scale.v1', and the out-of-provider default factor 1. (3) A reliable parse of every react-native import found exactly 2 bare Text/TextInput component imports, both in AppText.tsx; all 34 migrated files use type-only imports or AppText/AppTextInput, and zero stray <Text/<TextInput JSX tags remain. (4) AppText sets allowFontScaling={false} internally (no call-site overrides anywhere), scales only a numeric fontSize present in its own flattened style, and injects nothing when absent, so nested text scales exactly once. (5) Clipping fixes (RowItem wrapper flex:1+minWidth:0, numberOfLines, adjustsFontSizeToFit on tiny chips/badges/tab labels, FloatingTabBar single-line with a documenting comment) use only existing theme tokens (colors/radius/spacing/font) plus layout primitives; no Spanish copy was shortened (string-content diff shows only tag-name + layout-prop changes); profile.tsx kept its pre-existing fixes and got only the Text->AppText swap. (6) Gates re-run from apps/mobile in this environment: npx tsc --noEmit exits 0 with ZERO errors; npm run lint exits 0 (0 errors, 89 pre-existing warnings); the RELEASE gate npx expo export:embed --dev false exits 0 and prints 'Android Bundled ... (1989 modules)', proving the context mechanism survives a minified release bundle where the two prior mechanisms failed. On-device visual verification at factors 1.0/1.15/1.3 is deferred to the orchestrator's rebuilt APK and is not claimed here."
+}

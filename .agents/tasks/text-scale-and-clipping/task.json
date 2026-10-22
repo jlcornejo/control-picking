@@ -1,0 +1,7 @@
+{
+  "task_id": "task-text-scale-and-clipping",
+  "task_description": "UI-only. Fix broken in-app font scaling on the release Android APK and fix text clipping across most mobile screens. Replace the failed module-override font-scale mechanism with an app-owned AppText/AppTextInput that reads the FontScale context and applies a scaled fontSize via plain React composition, migrate all 34 files that import Text/TextInput from 'react-native', and apply layout-only clipping fixes (flexShrink/minWidth:0/flex/numberOfLines/adjustsFontSizeToFit/textAlign/includeFontPadding) so no Spanish text is clipped at font factors 1.0/1.15/1.3. No domain invariants affected.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
