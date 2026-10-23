@@ -8,5 +8,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "moduleDetection": "force"
-  }
+  },
+  "extends": "expo/tsconfig.base"
 }
