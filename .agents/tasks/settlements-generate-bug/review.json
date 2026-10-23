@@ -1,0 +1,8 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Org-not-found handling (possible, non-blocking): organizations lookup uses .single() and returns a 400 if the JWT orgId has no matching row, instead of falling back to crew_mode=false. Benign for a provisioned tenant; fails closed.",
+    "handleCrewGenerate not exercised by its own evidence (possible, non-blocking): the crew-generate path received the identical fix by inspection but has no dedicated curl/DB evidence. Covered transitively by the shared read logic and the crew-mode no-regression test."
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.agents/tasks/settlements-generate-bug/review.md"
+}

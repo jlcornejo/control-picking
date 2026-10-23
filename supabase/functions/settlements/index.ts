@@ -172,23 +172,48 @@ async function handleGenerate(req: Request, supabase: any) {
   const orgId = getOrgId(req);
   if (!orgId) return error('ORG_CONTEXT_REQUIRED', 'Contexto de organización requerido', 403);
 
-  // Traer los registros del período con el contexto necesario para clasificar:
-  // - crew del trabajador (workers.crew_id)
-  // - crew_mode efectivo del campo del block (field override ?? org default)
-  // - unidad de pago y kilos pagables para el cálculo por unidad.
-  const { data: records } = await supabase
+  // Traer los registros del período con el contexto necesario para clasificar.
+  // El worker se embebe con el HINT de la FK compuesta correcta
+  // (workers!fk_picking_worker_org); picking_records tiene 2 FKs a workers
+  // (worker_id y recorded_by), por eso el hint es obligatorio para desambiguar.
+  // El crew_mode efectivo se resuelve con queries separadas y confiables (abajo)
+  // para no depender de un embed anidado frágil de 3 niveles.
+  const { data: records, error: recErr } = await supabase
     .from('picking_records')
     .select(`
       quantity,
       payment_unit,
       paid_quantity_kg,
       rate_amount_snapshot,
-      worker:workers!picking_records_worker_id_fkey(id, crew_id),
-      block:blocks(field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)))
+      worker:workers!fk_picking_worker_org(id, crew_id),
+      block:blocks!fk_picking_block_org(field_id)
     `)
     .gte('work_day', body.period_start)
     .lte('work_day', body.period_end)
     .is('original_record_id', null);
+  if (recErr) return error('VALIDATION_ERROR', recErr.message, 400);
+
+  // crew_mode efectivo = field.crew_mode_enabled ?? org.crew_mode_enabled.
+  // Default de la organización (del JWT) en una sola query simple.
+  const { data: org, error: orgErr } = await supabase
+    .from('organizations')
+    .select('crew_mode_enabled')
+    .eq('id', orgId)
+    .single();
+  if (orgErr) return error('VALIDATION_ERROR', orgErr.message, 400);
+  const orgDefaultCrewMode = org?.crew_mode_enabled ?? false;
+
+  // Override por campo, resuelto con una query simple sobre fields.
+  const fieldIds = [...new Set((records ?? []).map((r: any) => r.block?.field_id).filter(Boolean))];
+  const fieldModeById = new Map<string, boolean | null>();
+  if (fieldIds.length) {
+    const { data: fields, error: fErr } = await supabase
+      .from('fields')
+      .select('id, crew_mode_enabled')
+      .in('id', fieldIds);
+    if (fErr) return error('VALIDATION_ERROR', fErr.message, 400);
+    for (const f of fields ?? []) fieldModeById.set(f.id, f.crew_mode_enabled);
+  }
 
   // Agregar montos por sujeto de pago + totales segmentados por unidad.
   const workerTotals = new Map<string, number>();
@@ -203,9 +228,8 @@ async function handleGenerate(req: Request, supabase: any) {
     if (amount <= 0) continue;
     totalAmountGlobal += amount;
 
-    const fieldMode = r.block?.field?.crew_mode_enabled;
-    const orgMode = r.block?.field?.organization?.crew_mode_enabled ?? false;
-    const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgMode : fieldMode;
+    const fieldMode = fieldModeById.get(r.block?.field_id) ?? null;
+    const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgDefaultCrewMode : fieldMode;
 
     const crewId = r.worker?.crew_id ?? null;
 
@@ -274,7 +298,9 @@ async function handleGenerate(req: Request, supabase: any) {
         total_amount: Math.round(total * 100) / 100,
         status: 'pending',
       })
-      .select('*, crews(name, crew_lead_id)')
+      // settlements tiene 2 FKs a crews (fk_settlements_crew_org y
+      // settlements_crew_id_fkey); el HINT desambigua el embed (evita PGRST201).
+      .select('*, crews!fk_settlements_crew_org(name, crew_lead_id)')
       .single();
     if (!sErr && settlement) results.push(settlement);
   }
@@ -309,28 +335,49 @@ async function handleCrewGenerate(req: Request, supabase: any) {
   // Producción del período de los trabajadores de la cuadrilla del encargado.
   // RLS (crew_lead_read_crew_picking) ya limita a la cuadrilla actual; se filtra
   // además por campos con modo capataz efectivo, que es lo que el encargado reparte.
-  const { data: records } = await supabase
+  // Mismo fix que handleGenerate: hint de FK correcto + manejo de error + crew_mode
+  // resuelto con queries separadas (evita el embed anidado de 3 niveles roto).
+  const { data: records, error: recErr } = await supabase
     .from('picking_records')
     .select(`
       quantity,
       payment_unit,
       paid_quantity_kg,
       rate_amount_snapshot,
-      worker:workers!picking_records_worker_id_fkey(id, crew_id),
-      block:blocks(field:fields(crew_mode_enabled, organization:organizations(crew_mode_enabled)))
+      worker:workers!fk_picking_worker_org(id, crew_id),
+      block:blocks!fk_picking_block_org(field_id)
     `)
     .gte('work_day', body.period_start)
     .lte('work_day', body.period_end)
     .is('original_record_id', null);
+  if (recErr) return error('VALIDATION_ERROR', recErr.message, 400);
+
+  const { data: org, error: orgErr } = await supabase
+    .from('organizations')
+    .select('crew_mode_enabled')
+    .eq('id', orgId)
+    .single();
+  if (orgErr) return error('VALIDATION_ERROR', orgErr.message, 400);
+  const orgDefaultCrewMode = org?.crew_mode_enabled ?? false;
+
+  const fieldIds = [...new Set((records ?? []).map((r: any) => r.block?.field_id).filter(Boolean))];
+  const fieldModeById = new Map<string, boolean | null>();
+  if (fieldIds.length) {
+    const { data: fields, error: fErr } = await supabase
+      .from('fields')
+      .select('id, crew_mode_enabled')
+      .in('id', fieldIds);
+    if (fErr) return error('VALIDATION_ERROR', fErr.message, 400);
+    for (const f of fields ?? []) fieldModeById.set(f.id, f.crew_mode_enabled);
+  }
 
   const workerTotals = new Map<string, number>();
   const unitsByUnit = { box: 0, kg: 0 };
   let totalAmountGlobal = 0;
 
   for (const r of records || []) {
-    const fieldMode = r.block?.field?.crew_mode_enabled;
-    const orgMode = r.block?.field?.organization?.crew_mode_enabled ?? false;
-    const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgMode : fieldMode;
+    const fieldMode = fieldModeById.get(r.block?.field_id) ?? null;
+    const crewModeEffective = fieldMode === null || fieldMode === undefined ? orgDefaultCrewMode : fieldMode;
     if (!crewModeEffective) continue; // solo producción en modo capataz
 
     const amount = pickingSubtotal(r);
