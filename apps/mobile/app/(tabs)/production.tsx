@@ -11,9 +11,10 @@ import { View,
   Modal as RNModal,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { UnitMeasure, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
+import { UnitMeasure, CAPABILITIES, pickingPayableBase, pickingSubtotal } from '@fundo360/shared';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/hooks/useAuth';
+import { usePermissions } from '../../src/hooks/usePermissions';
 import { localDate } from '../../src/utils/date';
 import { formatMoney, formatNumber } from '../../src/utils/format';
 import { colors, radius, spacing, font } from '../../src/constants/theme';
@@ -28,6 +29,7 @@ import { AppText, AppTextInput } from '../../src/components/AppText';
 
 export default function ProductionScreen() {
   const { worker } = useAuth();
+  const { has, loading: permsLoading } = usePermissions();
   const [refreshing, setRefreshing] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -163,6 +165,26 @@ export default function ProductionScreen() {
   const formatKg = (n: number) => (Math.round(n * 1000) / 1000).toLocaleString('es-CL', { maximumFractionDigits: 3 });
   const showKg = !!data?.hasKg;
   const showBoxes = !!data?.hasBoxes || !showKg;
+
+  // M3-01: defensa en profundidad para deep-links. Solo aplica al rol worker:
+  // si un perfil le restringe own_production.view, la pantalla "Mi Día" degrada
+  // limpio (EmptyState, sin crash). Mientras carga el perfil no se oculta (evita
+  // flash); roles no-worker nunca entran aquí. La ausencia de perfil = visible.
+  const productionHidden =
+    worker?.role === 'worker' && !permsLoading && !has(CAPABILITIES.OWN_PRODUCTION_VIEW);
+
+  if (productionHidden) {
+    return (
+      <View style={s.container}>
+        <EmptyState
+          icon="eye-off-outline"
+          title="Vista no disponible"
+          message="Tu administrador no habilitó la vista de tu producción. Consulta con tu supervisor si necesitas acceso."
+          iconColor={colors.textMuted}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={s.container}>

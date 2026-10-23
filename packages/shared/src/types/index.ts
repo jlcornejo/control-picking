@@ -489,6 +489,7 @@ export const CAPABILITIES = {
   METRICS_VIEW: 'metrics.view',
   REPORTS_EXPORT: 'reports.export',
   SETTINGS_MANAGE: 'settings.manage',
+  OWN_PRODUCTION_VIEW: 'own_production.view',
 } as const;
 
 /** A capability key (value of CAPABILITIES). */
@@ -511,6 +512,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   [CAPABILITIES.METRICS_VIEW]: 'Ver métricas',
   [CAPABILITIES.REPORTS_EXPORT]: 'Exportar informes',
   [CAPABILITIES.SETTINGS_MANAGE]: 'Gestionar configuración',
+  [CAPABILITIES.OWN_PRODUCTION_VIEW]: 'Ver su propia producción',
 };
 
 /**

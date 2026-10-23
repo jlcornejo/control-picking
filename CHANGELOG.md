@@ -15,6 +15,23 @@ Convenciones:
 
 ### Añadido
 
+- **Visibilidad de la propia cosecha del trabajador** (M3-01, capacidad RBAC
+  `own_production.view`, bajo el flag existente `configurable_rbac`): el Admin Cliente puede
+  decidir, por trabajador, si éste ve su pantalla **"Mi Día"** (su propia producción) en la
+  app móvil. Es una capacidad más del RBAC configurable (no se crea un flag nuevo). Por la
+  semántica **restrictiva** del RBAC, el **default es VISIBLE**: un worker sin perfil (o con
+  un perfil que incluya la capacidad) conserva la vista; **no hay migración destructiva** ni
+  se rompe la métrica de adopción. **Ocultar** es una acción explícita: asignar al worker un
+  perfil —autorizado para trabajadores— que **omita** `own_production.view`. Al ocultarla, la
+  pestaña "Mi Día" desaparece (`href: null` en el tab bar) y la pantalla degrada limpio con
+  un `EmptyState` (sin error ni crash) si se alcanza por deep-link. La capacidad aparece
+  automáticamente como toggle "Ver su propia producción" en el editor móvil de perfiles
+  (`permission-profiles.tsx`, deriva de `ALL_CAPABILITIES`). **Pagos y liquidaciones quedan
+  fuera de alcance** (no se tocan). El resumen de producción del Perfil (`profile.tsx`) **no**
+  se gatea en esta iteración (limitación aceptada). Migración documental no destructiva
+  `20261008000001_capability_own_production_view.sql` (solo actualiza el COMMENT de
+  `has_permission`; sin cambio de datos/esquema/RLS). Es gating de **presentación**, no un
+  control de seguridad duro (el worker sigue siendo dueño de sus datos vía RLS).
 - **Guías de despacho** (F-04, feature flag `dispatch_guides`, override por organización,
   default **off**): documento logístico de la fruta que sale del campo hacia el cliente.
   Agrega la cosecha (`picking_records`) por **paño/cuartel** o como **cierre diario del

@@ -1,0 +1,28 @@
+-- ============================================================
+-- CAPABILITY: own_production.view (M3-01)
+-- ============================================================
+-- M3-01 incorpora la capacidad RBAC `own_production.view` al catálogo de
+-- permisos. Gobierna SOLO la visibilidad de la pantalla "Mi Día" (producción
+-- propia) del trabajador en la app móvil. La fuente de verdad del catálogo de
+-- capacidades es `@fundo360/shared` (CAPABILITIES / CAPABILITY_LABELS /
+-- ALL_CAPABILITIES); las keys viven como strings JSONB en
+-- permission_profiles.capabilities, por lo que esta capacidad NO requiere
+-- cambio de esquema para funcionar.
+--
+-- Esta migración es DOCUMENTAL y NO destructiva: NO altera datos, NO crea
+-- tablas, NO cambia políticas RLS ni la definición de has_permission. Solo
+-- actualiza el COMMENT de has_permission para dejar constancia de que
+-- own_production.view es una capacidad de PRESENTACIÓN (gating de UI), no un
+-- control de seguridad duro: su ausencia en un perfil oculta la pantalla, pero
+-- el trabajador sigue siendo dueño de sus datos vía RLS.
+--
+-- Default: VISIBLE. Por la semántica restrictiva del RBAC, un worker sin perfil
+-- (o con perfil que incluya la capacidad) conserva la vista. Ocultar es una
+-- acción explícita del Admin (asignar un perfil que omita own_production.view).
+--
+-- Reversibilidad (documentada; sin `down` automático, igual que el resto del
+-- historial): restaurar el COMMENT previo de has_permission:
+--   COMMENT ON FUNCTION public.has_permission IS 'True si el usuario tiene la capacidad: sin claim permissions = sin restricción (capacidades completas del rol); con claim, la capacidad debe estar listada. Platform admin siempre pasa.';
+-- ============================================================
+
+COMMENT ON FUNCTION public.has_permission IS 'True si el usuario tiene la capacidad: sin claim permissions = sin restricción (capacidades completas del rol); con claim, la capacidad debe estar listada. Platform admin siempre pasa. Nota: own_production.view (M3-01) es una capacidad de PRESENTACIÓN (gating de UI de la producción propia del worker), no un control de seguridad duro; su ausencia en un perfil oculta la pantalla pero el worker sigue siendo dueño de sus datos vía RLS.';

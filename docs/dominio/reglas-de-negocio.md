@@ -64,6 +64,7 @@ Capa opcional sobre el RBAC por rol, activable con el feature flag `configurable
 37. El primer Administrador de una Organización nunca lleva perfil restrictivo (debe poder gestionar el RBAC de su organización).
 38. La capacidad se verifica en tres capas: base de datos (RLS), backend (Edge Function) e interfaz (solo cosmético). La barrera real de seguridad es backend + RLS; la UI solo oculta lo que no corresponde.
 39. Un perfil pertenece a una sola Organización; al borrarlo, los trabajadores que lo tenían vuelven a las capacidades completas de su rol.
+40. La capacidad `own_production.view` (**"Ver su propia producción"**, M3-01) gobierna si un **trabajador** ve su pantalla **"Mi Día"** (su propia producción) en la app móvil. Por la regla 35, el **default es visible**: un worker sin perfil (o con un perfil que la incluya) la conserva. **Para ocultarla** se le asigna un perfil —**autorizado para trabajadores**— que incluya el resto de capacidades relevantes y **omita solo** `own_production.view`. Asignar a un worker un perfil de **gestión** (concebido para admin/secretaría) **no** es el flujo previsto de M3-01 (el selector de `workers.tsx` aún no filtra perfiles por rol; afinarlo es mejora futura). Es una capacidad de **presentación** (gating de UI), no un control de seguridad: el trabajador sigue siendo dueño de sus datos vía RLS. Ocultar "Mi Día" **no** oculta el resumen de producción del Perfil (limitación aceptada; fuera de M3-01).
 
 ### Estructura de campo
 

@@ -5,6 +5,8 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { colors, font, radius } from '../../src/constants/theme';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../src/lib/supabase';
+import { usePermissions } from '../../src/hooks/usePermissions';
+import { CAPABILITIES } from '@fundo360/shared';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function TabsLayout() {
@@ -23,6 +25,12 @@ export default function TabsLayout() {
   // encargado (crew_lead) arma su cuadrilla y consulta, pero NO registra cosecha
   // (el backend ya lo rechaza en picking-records: requireRole admin/supervisor).
   const canRegisterPicking = worker?.role === 'admin' || worker?.role === 'supervisor';
+  // M3-01: la pestaña de producción del worker ("Mi Día") se gobierna por la
+  // capacidad RBAC own_production.view. Los roles de terreno (isAdmin incluye
+  // admin/supervisor/crew_lead) siempre ven "Campo"; un worker la ve salvo que
+  // un perfil asignado la restrinja (ausencia de restricción = visible).
+  const { has } = usePermissions();
+  const showProduction = isAdmin || has(CAPABILITIES.OWN_PRODUCTION_VIEW);
 
   const { data: recentPayments } = useQuery({
     queryKey: ['recent-payments-badge', worker?.id],
@@ -108,6 +116,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'leaf' : 'leaf-outline'} size={22} color={color} />
           ),
+          href: showProduction ? undefined : null,
         }}
       />
 
