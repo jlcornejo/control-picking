@@ -9,7 +9,7 @@
 - **Administrador de plataforma** (Fundo360): da de alta a cada cliente y entrega la primera cuenta de administrador. Es un paso que hace el equipo Fundo360, no el cliente.
 - **Administrador del cliente**: configura todo lo de su empresa desde el dashboard web — accesos de su equipo, trabajadores, campos, productos, tarifas — y gestiona liquidaciones y pagos.
 - **Supervisor**: desde la app móvil, arma el equipo del día y registra la producción escaneando el badge QR de cada trabajador.
-- **Encargado (modo capataz)**: lidera una cuadrilla y registra la producción de su equipo desde la app móvil.
+- **Encargado (modo capataz)**: arma su cuadrilla del día y consulta la producción y las liquidaciones de su equipo desde la app móvil. Si el cliente le paga a nivel de cuadrilla, el encargado gestiona el pago a los trabajadores de su equipo. **No registra la recolección de fruta** (eso lo hace el supervisor) ni accede al resto de la configuración.
 - **Trabajador recolector**: no inicia sesión; se identifica con su **badge QR**.
 
 ---
