@@ -17,8 +17,12 @@ export default function TabsLayout() {
   // recorte cuando el inset del sistema es 0 (p. ej. en web).
   const BAR_CONTENT_HEIGHT = 76;
   const bottomInset = insets.bottom;
-  // Operadores de terreno (registran producción y ven dashboard): admin, supervisor y encargado.
+  // Operadores de terreno (ven dashboard y producción de su equipo): admin, supervisor y encargado.
   const isAdmin = worker?.role === 'admin' || worker?.role === 'supervisor' || worker?.role === 'crew_lead';
+  // Registrar la recolección (picking) es solo del admin y el supervisor. El
+  // encargado (crew_lead) arma su cuadrilla y consulta, pero NO registra cosecha
+  // (el backend ya lo rechaza en picking-records: requireRole admin/supervisor).
+  const canRegisterPicking = worker?.role === 'admin' || worker?.role === 'supervisor';
 
   const { data: recentPayments } = useQuery({
     queryKey: ['recent-payments-badge', worker?.id],
@@ -118,7 +122,7 @@ export default function TabsLayout() {
             </View>
           ),
           tabBarItemStyle: { paddingTop: 0, paddingBottom: 0 },
-          href: isAdmin ? '/(tabs)/register' : null,
+          href: canRegisterPicking ? '/(tabs)/register' : null,
         }}
       />
 

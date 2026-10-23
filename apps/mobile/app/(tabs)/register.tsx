@@ -1,5 +1,6 @@
 import {
   useState, useEffect, useRef } from 'react';
+import { Redirect } from 'expo-router';
 import { View,
   TouchableOpacity,
   FlatList,
@@ -438,6 +439,14 @@ export default function RegisterScreen() {
   function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); scale.clearLog(); }
   function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
 
+  // Guard de rol (defensa en profundidad): registrar la recolección es solo del
+  // admin y el supervisor. El encargado (crew_lead) es externo al cliente y no
+  // registra cosecha; si llega aquí por deep-link, se le redirige a su producción.
+  // El backend igual lo rechaza (picking-records: requireRole admin/supervisor).
+  if (currentWorker && currentWorker.role !== 'admin' && currentWorker.role !== 'supervisor') {
+    return <Redirect href="/(tabs)/production" />;
+  }
+
   if (showScanner) return <QRScanner onScan={handleQRScanned} onClose={() => setShowScanner(false)} />;
   if (showPhoto) return <PhotoCapture onCapture={(uri) => { setPhotoUri(uri); setShowPhoto(false); }} onClose={() => setShowPhoto(false)} />;
 
@@ -805,25 +814,25 @@ const s = StyleSheet.create({
   dividerText: { paddingHorizontal: spacing.md, fontSize: 12, color: colors.textMuted },
   input: { width: '100%', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: 14, fontSize: 16, textAlign: 'center', color: colors.text },
   primaryBtn: { width: '100%', backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center', marginTop: spacing.md },
-  primaryBtnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
+  primaryBtnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold, includeFontPadding: false },
   workerChip: { alignSelf: 'center', backgroundColor: colors.primaryBg, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.full, marginBottom: spacing.sm },
-  workerChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.primaryDark },
+  workerChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.primaryDark, includeFontPadding: false },
   chipRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   blockCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, padding: spacing.lg, borderRadius: radius.lg, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder },
-  blockName: { fontSize: 15, fontWeight: font.semibold, color: colors.text },
-  blockProduct: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  blockName: { fontSize: 15, fontWeight: font.semibold, color: colors.text, includeFontPadding: false },
+  blockProduct: { fontSize: 12, color: colors.textMuted, marginTop: 2, includeFontPadding: false },
   blockArrow: { fontSize: 22, color: colors.textMuted },
   rowHint: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs },
   rowNumberBadge: { minWidth: 26, height: 26, borderRadius: 13, backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   rowNumberText: { fontSize: 12, fontWeight: font.bold, color: colors.primary },
   bigInput: { fontSize: 64, fontWeight: font.extrabold, color: colors.primary, textAlign: 'center', width: '100%', borderBottomWidth: 2, borderBottomColor: colors.primaryMuted, paddingBottom: spacing.sm },
-  unitLabel: { fontSize: 14, color: colors.textMuted, marginTop: spacing.md },
+  unitLabel: { fontSize: 14, color: colors.textMuted, marginTop: spacing.md, includeFontPadding: false },
   bottomRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, paddingBottom: 28, gap: spacing.sm },
   backBtn: { marginHorizontal: spacing.lg, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', backgroundColor: colors.card },
   backBtn2: { flex: 1, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', backgroundColor: colors.card },
-  backBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: font.medium },
+  backBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: font.medium, includeFontPadding: false },
   confirmBtn: { flex: 2, backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center' },
-  confirmBtnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold },
+  confirmBtnText: { color: colors.textWhite, fontSize: 16, fontWeight: font.semibold, includeFontPadding: false },
   empty: { alignItems: 'center', paddingTop: 48 },
   emptyText: { fontSize: 14, color: colors.textMuted },
   // Control de destare (opcional, bajo feature flag)
@@ -851,7 +860,7 @@ const s = StyleSheet.create({
   // Lectura de balanza Bluetooth (solo Android + flag bluetooth_scale)
   scaleBox: { width: '100%', marginTop: spacing.lg, alignItems: 'center' },
   scaleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.primaryMuted, borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: spacing.lg, backgroundColor: colors.primaryBg },
-  scaleBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary },
+  scaleBtnText: { fontSize: 15, fontWeight: font.semibold, color: colors.primary, includeFontPadding: false },
   scaleStatus: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' },
   scaleStatusError: { color: colors.red },
   scaleDebugToggle: { fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline', marginTop: spacing.sm },
