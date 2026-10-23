@@ -128,7 +128,7 @@ export default function ProfileScreen() {
         <AppText style={s.name}>{worker?.full_name || 'Usuario'}</AppText>
         <View style={[s.rolePill, { backgroundColor: (roleColors[worker?.role || ''] || colors.primary) + '15' }]}>
           <View style={[s.roleDot, { backgroundColor: roleColors[worker?.role || ''] || colors.primary }]} />
-          <AppText style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]} numberOfLines={1}>{roleText}</AppText>
+          <AppText style={[s.roleText, { color: roleColors[worker?.role || ''] || colors.primary }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{roleText}</AppText>
         </View>
       </View>
 
@@ -143,7 +143,7 @@ export default function ProfileScreen() {
                 onPress={() => setSelectedPeriod(p.key)}
                 activeOpacity={0.7}
               >
-                <AppText style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{p.label}</AppText>
+                <AppText style={[s.periodChipText, selectedPeriod === p.key && s.periodChipTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{p.label}</AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -152,30 +152,30 @@ export default function ProfileScreen() {
             <View style={s.statsRow}>
               <View style={s.statCard}>
                 <AppText style={s.statValue}>{formatNumber(stats.totalUnits)}</AppText>
-                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Cajas</AppText>
               </View>
               <View style={s.statCard}>
                 <AppText style={[s.statValue, { color: colors.blue }]}>{stats.activeWorkers}</AppText>
-                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Trabajadores</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Trabajadores</AppText>
               </View>
               <View style={s.statCard}>
                 <AppText style={s.statValue}>{formatNumber(stats.avgPerDay)}</AppText>
-                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Prom/día</AppText>
               </View>
             </View>
           ) : (
             <View style={s.statsRow}>
               <View style={s.statCard}>
                 <AppText style={s.statValue}>{formatNumber(stats.totalUnits)}</AppText>
-                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Cajas</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Cajas</AppText>
               </View>
               <View style={s.statCard}>
                 <AppText style={[s.statValue, { color: colors.blue }]}>{stats.daysWorked}</AppText>
-                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Días</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Días</AppText>
               </View>
               <View style={s.statCard}>
                 <AppText style={s.statValue}>{formatNumber(stats.avgPerDay)}</AppText>
-                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Prom/día</AppText>
+                <AppText style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Prom/día</AppText>
               </View>
             </View>
           )}
@@ -228,7 +228,7 @@ export default function ProfileScreen() {
       <View style={s.a11yCard}>
         <View style={s.a11yHeader}>
           <Ionicons name="text-outline" size={18} color={colors.textSecondary} />
-          <AppText style={s.a11yTitle} numberOfLines={1}>Tamaño del texto</AppText>
+          <AppText style={s.a11yTitle} numberOfLines={2}>Tamaño del texto</AppText>
         </View>
         <AppText style={s.a11yHint}>Agranda el texto de toda la app para leerlo mejor.</AppText>
         <View style={s.a11yRow}>
@@ -239,7 +239,7 @@ export default function ProfileScreen() {
               onPress={() => { try { Haptics.selectionAsync(); } catch {} setScale(k); }}
               activeOpacity={0.8}
             >
-              <AppText style={[s.a11yChipText, scale === k && s.a11yChipTextActive]} numberOfLines={1} adjustsFontSizeToFit>{FONT_SCALE_LABELS[k]}</AppText>
+              <AppText style={[s.a11yChipText, scale === k && s.a11yChipTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{FONT_SCALE_LABELS[k]}</AppText>
             </TouchableOpacity>
           ))}
         </View>
@@ -261,7 +261,7 @@ function InfoRow({ label, value, icon, last }: { label: string; value: string; i
       <AppText style={ir.label}>{label}</AppText>
       <View style={ir.valueWrap}>
         {icon && <Ionicons name={icon as any} size={16} color={colors.primary} />}
-        <AppText style={ir.value} numberOfLines={1}>{value}</AppText>
+        <AppText style={ir.value} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>{value}</AppText>
       </View>
     </View>
   );
@@ -270,9 +270,9 @@ function InfoRow({ label, value, icon, last }: { label: string; value: string; i
 const ir = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, paddingVertical: 14, paddingHorizontal: spacing.lg },
   border: { borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
-  label: { fontSize: 14, color: colors.textSecondary, flexShrink: 0 },
+  label: { fontSize: 14, color: colors.textSecondary, flexShrink: 0, includeFontPadding: false },
   valueWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0, justifyContent: 'flex-end' },
-  value: { fontSize: 14, fontWeight: font.medium, color: colors.text, flexShrink: 1, textAlign: 'right' },
+  value: { fontSize: 14, fontWeight: font.medium, color: colors.text, flexShrink: 1, textAlign: 'right', includeFontPadding: false },
 });
 
 const s = StyleSheet.create({
@@ -282,30 +282,30 @@ const s = StyleSheet.create({
   avatar: { width: 72, height: 72, backgroundColor: colors.primaryBg, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   avatarText: { fontSize: 28, fontWeight: font.bold, color: colors.primary },
   name: { fontSize: 20, fontWeight: font.bold, color: colors.text, letterSpacing: -0.3 },
-  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.full, marginTop: 8, maxWidth: '100%', flexShrink: 1 },
+  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.full, marginTop: 8, maxWidth: '100%', flexShrink: 1, minWidth: 0 },
   roleDot: { width: 7, height: 7, borderRadius: 4 },
   roleText: { fontSize: 12, fontWeight: font.semibold, flexShrink: 1, includeFontPadding: false },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   periodRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.xs },
   periodChip: { flex: 1, minWidth: 0, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
   periodChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  periodChipText: { fontSize: 12, fontWeight: font.semibold, color: colors.textSecondary, textAlign: 'center' },
+  periodChipText: { fontSize: 12, fontWeight: font.semibold, color: colors.textSecondary, textAlign: 'center', includeFontPadding: false },
   periodChipTextActive: { color: '#fff' },
   statCard: { flex: 1, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: colors.cardBorder },
   statValue: { fontSize: 22, fontWeight: font.extrabold, color: colors.primary },
-  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2, textAlign: 'center' },
+  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2, textAlign: 'center', includeFontPadding: false },
   infoCard: { backgroundColor: colors.card, borderRadius: radius.xl, marginTop: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder, overflow: 'hidden' },
   logoutBtn: { marginTop: spacing.xxl, backgroundColor: colors.redBg, borderWidth: 1, borderColor: '#fecaca', borderRadius: radius.lg, paddingVertical: 15, alignItems: 'center' },
   logoutText: { fontSize: 15, fontWeight: font.semibold, color: colors.red },
   version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: spacing.lg },
   a11yCard: { backgroundColor: colors.card, borderRadius: radius.xl, marginTop: spacing.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder },
   a11yHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  a11yTitle: { fontSize: 14, fontWeight: font.semibold, color: colors.text, flexShrink: 1 },
+  a11yTitle: { fontSize: 14, fontWeight: font.semibold, color: colors.text, flexShrink: 1, includeFontPadding: false },
   a11yHint: { fontSize: 12, color: colors.textMuted, marginTop: 4, marginBottom: spacing.md },
   a11yRow: { flexDirection: 'row', gap: spacing.sm },
   a11yChip: { flex: 1, minWidth: 0, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
   a11yChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  a11yChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.textSecondary, textAlign: 'center' },
+  a11yChipText: { fontSize: 13, fontWeight: font.semibold, color: colors.textSecondary, textAlign: 'center', includeFontPadding: false },
   a11yChipTextActive: { color: '#fff' },
   adminBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.lg, backgroundColor: colors.primary, borderRadius: radius.lg, paddingVertical: 16, paddingHorizontal: spacing.lg },
   adminBtnText: { flex: 1, fontSize: 15, fontWeight: font.semibold, color: colors.textWhite },

@@ -3,18 +3,8 @@
   "findings": [
     {
       "severity": "non-blocking",
-      "label": "verification.md \"only file I changed\" overstates",
-      "detail": "The note claims the hook is the only file changed, but the working tree also carries unrelated .gitignore and docs/pruebas/vision-general.md edits. Harmless; the claim should be scoped to \"the only code file changed for the feature logic.\""
-    },
-    {
-      "severity": "non-blocking",
-      "label": "Latent nested-Text inheritance override",
-      "detail": "The wrapper injects an absolute fontSize (14x factor when none is set) on every Text, which would override RN parent->child text size inheritance for nested <Text>. No nested <Text><Text> exists in the app today (grep found none), so no current regression; add a code comment for future authors."
-    },
-    {
-      "severity": "non-blocking",
-      "label": "On-device behavior unverified",
-      "detail": "Correctness rests on code reasoning + typecheck + lint; the connected device runs a release APK that cannot hot-reload the new bundle. Honestly disclosed in verification.md. Static evidence (plus independently reproduced writable-default Babel output) is sufficient to approve; run on a dev build or fresh APK to visually confirm Grande ~15% / Extra ~30% and persistence."
+      "label": "Confirmación visual pendiente",
+      "detail": "La verificación fue estática (npx tsc --noEmit + export de bundle release Android, ambos Exit 0); no hubo validación en dispositivo porque el APK release instalado no hot-reloadea el bundle nuevo. Validar en un dev build o APK nuevo que ninguno de los textos del inventario (Hoy, Identificar, Pendiente, Parcial, Agregar, Vaciar, Anotadores, RUT, Teléfono, Tamaño del texto) aparezca cortado ni con '...' en escala Normal y Extra grande."
     }
   ],
   "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.agents/tasks/font-scale-fix/review.md"

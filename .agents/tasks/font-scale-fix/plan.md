@@ -1,88 +1,164 @@
-# Implementation Plan — Fix in-app font scaling (RN 0.81.5 / React 19.1)
+# Implementation Plan — Fix de textos cortados (mobile)
 
-## Problem (confirmed by reading source)
+Objetivo: eliminar el recorte/truncado de textos en la app móvil Expo RN de
+Fundo360. El bug ocurre **incluso en escala "Normal"**, así que la causa raíz es
+de layout + el padding de glifo de Android, no la escala de fuente.
 
-`apps/mobile/src/hooks/useFontScale.tsx` tries to install a global font-size patch by reassigning `Text.render` / `TextInput.render`. On RN 0.81.5 the exported `Text` is a **plain function component**, not a `forwardRef` object:
+## Diagnóstico (causa raíz por fenómeno)
 
-- `node_modules/react-native/Libraries/Text/Text.js` line 38 `const TextImpl: component(...)`, line 328 `TextImpl.displayName = 'Text'`, line 548 `export default TextImpl`. A plain function component has **no `.render` property**.
-- So the guard `if (typeof origRender === 'function' && !origRender.__fontScalePatched)` never enters, and the fontSize-multiplying patch is never installed.
-- The only thing the current code applies is `defaultProps.allowFontScaling = false`, and `defaultProps` on function components is deprecated/ignored under React 19.1.
-- Independently corroborated: on RN 0.81.5 + Fabric there is no `render` method exposed on `Text` ([StackOverflow, Nov 2025](https://stackoverflow.com/questions/79831912/the-proper-way-to-assign-a-default-value-to-a-react-component-prop)). Content was rephrased for compliance with licensing restrictions.
+- **Clipping SIN ellipsis** ("Identific[ar]", "Pendient[e]", "Parcia[l]",
+  "Agrega[r]", "Vacia[r]", "Ho[y]"): Android reserva padding de línea
+  (`includeFontPadding` por defecto `true`) que recorta el glifo final/inferior
+  cuando el contenedor ajusta exacto al contenido (botones compactos, badges
+  `alignSelf:'flex-start'`, filas con `gap` + icono). Ninguno de esos estilos
+  de texto tiene `includeFontPadding:false` hoy (verificado). Fix base:
+  `includeFontPadding:false` en el estilo del texto afectado, y donde el
+  contenedor aprieta, permitir que crezca (`flexShrink` + `minWidth:0`, o quitar
+  el ancho que no cabe).
+- **Ellipsis con "..."** (RUT, Teléfono, "Activo", pill "Anotadores", label
+  "Tamaño del texto"): `numberOfLines={1}` sin margen para crecer. Para datos de
+  identificación (RUT/Teléfono) **nunca** usar "..."; se decide por caso entre
+  envolver a segunda línea o `adjustsFontSizeToFit` con `minimumFontScale`.
 
-Net effect: changing the scale updates persisted state and the chip highlight, but no text resizes.
+## Decisión wrap-vs-encoger por caso
 
-## Chosen technique (and why it is reliable on exactly RN 0.81.5 / React 19.1)
+- **RUT y Teléfono** (profile InfoRow): **wrap a 2 líneas** (dato crítico, debe
+  verse completo; el RUT chileno cabe en 2 líneas sin problema). `numberOfLines`
+  pasa de `1` a `2`, se quita el riesgo de "...". No se encoge fuente porque son
+  pocos caracteres y la fila tiene altura libre (es una card, no una barra).
+- **"Activo" / "Desde"** (InfoRow): cortos; basta `includeFontPadding:false` +
+  permitir 2 líneas por consistencia. Sin "...".
+- **Pill rol "Anotadores"/"Encargado"** (profile roleText): **encoger** con
+  `adjustsFontSizeToFit` + `minimumFontScale:0.85` + `includeFontPadding:false`.
+  Es un pill de ancho acotado; preferible encoger levemente a romper el pill en
+  2 líneas.
+- **Botones de acción "Identificar"/"Agregar"/"Vaciar"/"Confirmar"**: dejar
+  crecer el texto (`includeFontPadding:false`, sin `numberOfLines`); los botones
+  ya tienen ancho suficiente, el corte era solo el padding de glifo. No encoger.
+- **Badges "Pendiente"/"Parcial"/"Pagado"**: palabra completa siempre. El badge
+  se ajusta al contenido, así que `includeFontPadding:false` en `statusText`
+  resuelve el glifo recortado; no se limita con `numberOfLines`.
+- **"Hoy" (production dayDate) y chips de período/escala**: `includeFontPadding:
+  false`; los chips ya usan `adjustsFontSizeToFit` y se mantienen.
+- **"Tamaño del texto" (a11yTitle)**: `includeFontPadding:false` + `flexShrink:1`
+  ya presente; además permitir 2 líneas (quitar `numberOfLines={1}`), el header
+  tiene altura libre.
 
-**Option (a): a module-level global override that WRAPS the Text / TextInput component, installed once, reading the active factor from a mutable ref; the provider remounts the subtree via `key` on scale change.**
-
-The override is installed by overwriting the `default` export of the two internal RN modules that back the public `Text` / `TextInput`:
-
-- `react-native/index.js` exports `Text` and `TextInput` as **getters** (lines 112–119): `get Text() { return require('./Libraries/Text/Text').default; }` and `get TextInput() { return require('./Libraries/Components/TextInput/TextInput').default; }`.
-- Under Metro+Babel, `import { Text } from 'react-native'` compiles to a live read of that getter at render time, so every one of the 31 screens/components that import `Text` reads whatever `require('./Libraries/Text/Text').default` currently is — no screen edits needed.
-- Those internal modules are Babel-CommonJS modules whose `.default` is a **writable data property** (Babel does not freeze module exports). Reassigning `require('react-native/Libraries/Text/Text').default = ScaledText` makes the getter return our wrapper for every subsequent `Text` usage, app-wide.
-- The wrapper is an ordinary function component that renders the ORIGINAL `TextImpl` with a merged style whose `fontSize` is multiplied by `factorRef.current` (default 14 when unset), and forwards `ref` and all props. It also sets `allowFontScaling={false}` (prop, not defaultProps) so the in-app factor is independent of the OS font setting and never double-scales.
-
-Why this is reliable on 0.81.5 / 19.1 specifically:
-- It does NOT touch a `.render` property (which does not exist on the plain-function `TextImpl`).
-- It does NOT rely on React 19 `defaultProps` (ignored for function components).
-- It uses only documented React composition (render the original component with modified props) plus the stable CommonJS/Babel fact that a module's `.default` is writable; the getter indirection in `index.js` means the override is picked up by every existing named import with zero per-file changes.
-
-Why NOT option (b) (a custom `Text` imported per file): blast radius is 31 files (`grep -rl "from 'react-native'" apps/mobile/{app,src} --include="*.tsx"` → 34 files, 31 use `Text`), every new file would silently regress, and it is far larger surface for the reviewer. Option (a) is the smallest reliable change.
-
-Robustness guard (because we reach into internal module paths): the override wraps each target in try/catch and, if the internal path ever fails to resolve, falls back to also attempting `require('react-native').Text` assignment; failure to install must not crash the app (text just stays at factor 1). The internal paths used are the exact ones `index.js` itself requires, so they track the installed RN version.
-
-## Public API — unchanged
-
-`useFontScale.tsx` keeps exporting, with identical shapes, so no caller changes:
-`FontScaleKey`, `FONT_SCALES` (`{normal:1, grande:1.15, extra:1.3}`), `FONT_SCALE_LABELS` (`{normal:'Normal', grande:'Grande', extra:'Extra grande'}`), `FontScaleProvider`, `useFontScale()` → `{ scale, factor, setScale, loaded }`. Persistence stays in AsyncStorage under `fundo360.font_scale.v1`. `profile.tsx` imports `useFontScale, FONT_SCALES, FONT_SCALE_LABELS, type FontScaleKey` from this module and must keep working untouched.
-
-## Domain-invariant note
-
-This is a UI-only mobile change. It does not touch picking quantities, rates, settlements, payments, RBAC, or any DB entity/naming, so no domain invariant (quantity > 0, rate > 0, settlement immutability when paid, RBAC) is affected.
+Regla transversal: donde se añade `includeFontPadding:false`, mantener el resto
+del estilo intacto (solo layout/estilos de texto; no tocar lógica, queries,
+nombres de entidad, RBAC ni invariantes de dominio).
 
 ---
 
-# Implementation Plan
+## Pasos
 
-- [ ] 1. Rewrite the font-scaling engine in `useFontScale.tsx` to use a module-level WRAP override instead of the `.render` monkeypatch, preserving the public API exactly.
-      Details:
-      - Keep all existing exports and their shapes: `FontScaleKey`, `FONT_SCALES`, `FONT_SCALE_LABELS`, `FontScaleProvider`, `useFontScale`, and the `STORAGE_KEY = 'fundo360.font_scale.v1'`.
-      - Keep the mutable `const factorRef = { current: 1 }` read by the wrapper (so no closure/remount coupling for reading the factor).
-      - Replace `patchTextScaling()` with `installFontScaleOverride()` that runs ONCE (guarded by a module boolean). For each target path `react-native/Libraries/Text/Text` and `react-native/Libraries/Components/TextInput/TextInput`:
-        - `const mod = require(path);` then capture `const Original = mod.default;` and skip if `Original.__fontScaleWrapped` is set (prevents double-wrapping / factor compounding under Fast Refresh).
-        - Build a wrapper with `React.forwardRef((props, ref) => ...)` that computes the scaled style and renders `<Original {...props} ref={ref} allowFontScaling={false} style={scaledStyle} />`.
-        - Scaled style: `const flat = StyleSheet.flatten(props?.style) || {}; const base = typeof flat.fontSize === 'number' ? flat.fontSize : 14; const scaled = Math.round(base * factorRef.current);` then `const scaledStyle = [props?.style, { fontSize: scaled }];` (array appends our fontSize last so it wins).
-        - Tag and label the wrapper: `(Wrapped as any).__fontScaleWrapped = true; Wrapped.displayName = Original.displayName || 'Text';`
-        - Assign back `mod.default = Wrapped;` inside try/catch; on throw, attempt `const rn = require('react-native'); rn.Text = Wrapped;` style fallback where writable, otherwise no-op (never crash the app — text just stays at factor 1).
-      - `FontScaleProvider`: call `installFontScaleOverride()` in a `useEffect([])`, load the persisted key from AsyncStorage, set `factorRef.current` and `scale` state, then set `loaded`. Keep `setScale` writing `factorRef.current` BEFORE `setScaleState` and persisting to AsyncStorage. Keep the `<React.Fragment key={`fs-${scale}`}>` remount so already-mounted Text re-renders through the wrapper with the new factor.
-      - Remove the old `patched` flag, `patchTextScaling`, and the `Component.defaultProps` mutation entirely.
-      Files: `apps/mobile/src/hooks/useFontScale.tsx`
-      Verify: `cd apps/mobile && npx tsc --noEmit` exits 0 (baseline is currently green), and `npm run lint` reports no new errors for `src/hooks/useFontScale.tsx`.
+- [ ] 1. production.tsx — texto "Hoy" y labels del header/lista.
+      Añadir `includeFontPadding:false` a los estilos de texto que recortan:
+      `dayDate` (el "Hoy"), y por robustez `dayBtnText`, `headerUnit`,
+      `listTitle`, `listCount`, `cardUnit`, `cardBlock`. No se cambia layout:
+      `dayCenter` ya es flex row con gap y el texto cabe; el corte era el padding
+      de glifo de Android.
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/app/(tabs)/production.tsx
+      Verify: `npx tsc --noEmit` (desde apps/mobile) sin errores; revisión visual del APK (paso 8) muestra "Hoy" completo.
 
-- [ ] 2. Confirm no caller needs changes and the clipping fixes in `profile.tsx` are untouched.
-      Details: `profile.tsx` already imports `useFontScale, FONT_SCALES, FONT_SCALE_LABELS, type FontScaleKey` from `../../src/hooks/useFontScale`; the rewrite preserves these, so this file must NOT be edited. Do not remove or alter its `numberOfLines`/`adjustsFontSizeToFit` chip attributes. `_layout.tsx` already mounts `<FontScaleProvider>` at the root and needs no change.
-      Files: none (verification-only step).
-      Verify: `grep -n "useFontScale\|FONT_SCALE" apps/mobile/app/(tabs)/profile.tsx` shows the same imports/usages as before; `git diff --stat "apps/mobile/app/(tabs)/profile.tsx"` shows no new changes introduced by this task.
+- [ ] 2. register.tsx — botón "Identificar" (y botones de acción hermanos).
+      Añadir `includeFontPadding:false` a `primaryBtnText` (el "Identificar"),
+      y por el mismo patrón a `confirmBtnText`, `backBtnText`, `scaleBtnText`,
+      `blockName`, `blockProduct`, `workerChipText`, `unitLabel`. El botón ya es
+      `width:'100%'`, así que no hay que ensanchar nada: el glifo final se
+      recortaba por el padding de línea.
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/app/(tabs)/register.tsx
+      Verify: `npx tsc --noEmit` sin errores; en el APK el botón muestra "Identificar" completo.
 
-- [ ] 3. Static verification of the whole mobile app.
-      Details: run the project's real checks to prove the rewrite compiles and lints across the app.
-      Files: none.
+- [ ] 3. settlements.tsx — badges de estado "Pendiente"/"Parcial"/"Pagado".
+      Añadir `includeFontPadding:false` a `statusText`. El badge
+      (`statusBadge`) usa `alignSelf:'flex-start'` y crece con el contenido, así
+      que no se limita con `numberOfLines`; con el padding de glifo corregido la
+      palabra se ve completa. Añadir también `includeFontPadding:false` a
+      `cardPeriod` y `cardAmount` por consistencia de la card.
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/app/admin/settlements.tsx
+      Verify: `npx tsc --noEmit` sin errores; badges muestran "Pendiente"/"Parcial" completos en el APK.
+
+- [ ] 4. payments.tsx — mismos badges "Pendiente"/"Parcial"/"Pagado".
+      Añadir `includeFontPadding:false` a `statusText` (y a `cardPeriod`,
+      `cardAmount`, `cardWorker` por consistencia). Mismo razonamiento que el
+      paso 3: badge que crece con el contenido, el corte era el padding de glifo.
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/app/(tabs)/payments.tsx
+      Verify: `npx tsc --noEmit` sin errores; badges completos en el APK.
+
+- [ ] 5. DayRosterManager.tsx — botones "Agregar" y "Vaciar".
+      Añadir `includeFontPadding:false` a `addBtnText` y `clearBtnText` (causa del
+      "Agrega[r]"/"Vacia[r]"). Aplicar el mismo flag a los textos de la misma
+      pantalla que pueden recortar: `title`, `subtitle`, `count`, `memberName`,
+      `memberUnits`, `availName`, `baseTagText`, `sheetTitle`, `emptyText`. Los
+      botones (`addBtn`/`clearBtn`) tienen padding horizontal propio y crecen con
+      el contenido; no se fija ancho. Usado por team.tsx y crew.tsx, así que el
+      fix cubre ambas pantallas.
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/src/components/DayRosterManager.tsx
+      Verify: `npx tsc --noEmit` sin errores; "Agregar"/"Vaciar" completos en team y crew en el APK.
+
+- [ ] 6. profile.tsx — InfoRow (RUT/Teléfono/Estado/Desde) sin "...".
+      En el componente `InfoRow`: cambiar la prop `numberOfLines={1}` del
+      `AppText` de valor a `numberOfLines={2}` y añadir `includeFontPadding:false`
+      al estilo `ir.value`. En `ir.valueWrap` ya hay `flexShrink:1` + `minWidth:0`;
+      mantener. Esto permite que RUT y Teléfono envuelvan a 2ª línea en vez de
+      truncar con "...". `ir.label` también recibe `includeFontPadding:false`.
+      Como el RUT debe verse completo aun si 2 líneas no bastan en "Extra grande",
+      añadir `adjustsFontSizeToFit` con `minimumFontScale={0.85}` SOLO al AppText
+      de valor (combinado con `numberOfLines={2}`), de modo que primero envuelva y,
+      si aún no cabe, encoja levemente — nunca "...".
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/app/(tabs)/profile.tsx
+      Verify: `npx tsc --noEmit` sin errores; en el APK RUT y Teléfono se ven completos (2 líneas o fuente levemente menor), sin puntos suspensivos, en escala Normal y Extra grande.
+
+- [ ] 7. profile.tsx — pill "Anotadores" y label "Tamaño del texto" + chips.
+      (a) `roleText` (pill de rol): ya tiene `includeFontPadding:false` y
+      `flexShrink:1`; añadir al JSX del pill `adjustsFontSizeToFit` y
+      `minimumFontScale={0.85}` (ya tiene `numberOfLines={1}`), y añadir a
+      `s.rolePill` `minWidth:0` para que el `flexShrink` del texto actúe. Así
+      "Anotadores" encoge en vez de truncar.
+      (b) `a11yTitle` ("Tamaño del texto"): quitar `numberOfLines={1}` del JSX
+      (permitir 2 líneas) y añadir `includeFontPadding:false` al estilo; el header
+      (`a11yHeader`) es flex row con `gap:8`, el texto ya tiene `flexShrink:1`.
+      (c) Chips de período (`periodChipText`), stats (`statLabel`) y escala
+      (`a11yChipText`): añadir `includeFontPadding:false` a esos estilos; el JSX ya
+      usa `numberOfLines={1} adjustsFontSizeToFit`, se mantiene (son celdas de
+      ancho fijo por `flex:1`, encoger es correcto aquí). Añadir
+      `minimumFontScale={0.85}` a esos tres AppText para acotar cuánto encogen.
+      Files: /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile/app/(tabs)/profile.tsx
+      Verify: `npx tsc --noEmit` sin errores; en el APK la pill de rol y "Tamaño del texto" se ven completos en Normal y Extra grande.
+
+- [ ] 8. Verificación de tipos y build de release Android.
+      Type-check de todo el proyecto móvil y export del bundle release para
+      confirmar que los cambios de estilo compilan en una build de producción.
+      Files: (ninguno — solo verificación)
       Verify:
-      - `cd apps/mobile && npx tsc --noEmit` → exit 0.
-      - `cd apps/mobile && npm run lint` → no new errors (note: `npm run test` finds no vitest suites in the mobile app, so it is not a meaningful gate here).
+        1) `npx tsc --noEmit` desde /Users/ericksegura/Documents/backupHDD/personal/control-picking/apps/mobile → sin errores.
+        2) `npm run lint` desde apps/mobile → sin errores nuevos.
+        3) Build release APK con el perfil `preview` (ver skill android-build-install):
+           `cd apps/mobile && export JAVA_HOME=$(/usr/libexec/java_home -v 21) && eas build --platform android --profile preview --local`
+           → termina con el `.apk` generado (p. ej. guardado como
+           apps/mobile/build-fundo360-preview.apk). Si no se desea build local,
+           alternativa en nube: `eas build --platform android --profile preview`.
+        4) Validación en teléfono físico (moto g04s): `adb install -r <apk>` →
+           `Success`; abrir la app y revisar en escala Normal y Extra grande que
+           ninguno de los textos del inventario (Hoy, Identificar, Pendiente,
+           Parcial, Agregar, Vaciar, Anotadores, RUT, Teléfono, Tamaño del texto)
+           aparezca cortado ni con "...".
 
-- [ ] 4. On-device runtime verification (phone connected via USB — the only check that proves the behavior).
-      Details: this is a runtime RN behavior, so static checks are necessary but not sufficient. Run the app on the connected Android device and exercise the Profile screen.
-      Files: none.
-      Verify (local-env note: macOS has no `timeout`; do not wrap commands with it):
-      - Start the dev client from `apps/mobile`: `npx expo start --dev-client` (device is on USB per the user), open the app on the phone.
-      - Go to Perfil → "Tamaño del texto". Tap "Grande": all app text (names, info rows, stat labels/values, buttons, other tabs) grows ~15%. Tap "Extra grande": ~30%. Tap "Normal": returns to baseline. Change is immediate on selection.
-      - The small accessibility chips themselves may not visibly grow because they use `adjustsFontSizeToFit` — this is acceptable per the task; the rest of the app text must grow.
-      - Kill and relaunch the app: the last selected size persists (AsyncStorage `fundo360.font_scale.v1`).
-      - Spanish copy is unchanged everywhere.
+## Notas / supuestos
 
-## Notes / assumptions
-
-- The override must be idempotent and crash-safe: Fast Refresh during development can re-run the module, so the `__fontScaleWrapped` tag prevents double-wrapping (which would compound the factor).
-- `allowFontScaling={false}` is passed as a prop by the wrapper (not via `defaultProps`) to keep the in-app factor independent of the OS setting, satisfying "do not double-scale with the system".
-- No Spanish copy is changed; no `profile.tsx` layout fix is reverted.
+- `AppText` hace spread de `{...rest}` al `Text` RN, así que `numberOfLines`,
+  `adjustsFontSizeToFit`, `minimumFontScale` e `includeFontPadding` (vía `style`)
+  se propagan tal cual (verificado en AppText.tsx). No hace falta tocar AppText.
+- No se modifica `useFontScale` ni la lógica de escala; solo layout/estilos de
+  texto. No se tocan queries, botones (comportamiento), apps/web ni
+  supabase/functions.
+- Invariantes de dominio no afectados: estos cambios son exclusivamente de
+  presentación de texto (no tocan picking quantity>0, rates>0, inmutabilidad de
+  settlements pagadas, RBAC ni nombres de entidad).
+- `includeFontPadding` es un prop válido de `TextStyle` en RN; en iOS es no-op
+  (sin efecto visual), así que es seguro aplicarlo transversalmente.
+- Si tras el APK algún caso en "Extra grande" aún recorta pese a los pasos,
+  el siguiente recurso (dentro del patrón ya probado) es bajar el padding
+  horizontal del contenedor o añadir `flexShrink:1 + minWidth:0` en la cadena de
+  contenedores de ese caso puntual, sin cambiar la decisión wrap/encoger tomada.

@@ -1,159 +1,158 @@
-# Verification — Fix in-app font scaling (RN 0.81.5 / React 19.1)
+# Verification — Fix de textos cortados (clipping / truncation) en mobile
 
-## Scope
+## Alcance
 
-UI-only mobile change. Rewrote the font-scaling engine so the in-app text-size
-preference (Normal / Grande / Extra grande) actually resizes all app text on
-Android. No domain logic touched (picking quantities, rates, settlements,
-payments, RBAC, DB entities/naming are all unaffected).
+Cambio UI-only en la app móvil Expo RN de Fundo360. Se corrige el recorte de
+texto (glifos a media letra y "..." en datos) que ocurre **incluso en escala
+"Normal"**, porque la causa raíz es el padding de glifo de Android
+(`includeFontPadding` por defecto `true`) más, en datos de identificación,
+`numberOfLines={1}` sin margen para crecer. No se toca lógica de negocio,
+queries, comportamiento de botones, la escala de fuente (`useFontScale`),
+`apps/web` ni `supabase/functions`. No se altera ningún invariante de dominio
+(picking quantity>0, rates>0, inmutabilidad de settlements pagadas, RBAC,
+nombres de entidad): son exclusivamente estilos/props de presentación de texto.
 
-## Chosen technique
+## Relación con review.json
 
-**Module-level WRAP override of RN's internal `Text` / `TextInput`, installed
-once, reading the active factor from a mutable ref; the provider remounts the
-subtree via `key` on scale change.** This is the smallest reliable change: it
-requires editing a single file and zero screens.
+`review.json` tiene verdict **APPROVED** y sus 3 findings son **non-blocking**,
+y además pertenecen al trabajo YA COMMITEADO del motor de escala de fuente
+(`useFontScale.tsx`), no a este fix de clipping (git log:
+`c32e997 chore(tasks): mark text-scale-and-clipping task completed`). Estado de
+cada finding:
 
-How it works:
+1. *"verification.md only file changed" overstates* — este documento ahora
+   describe el fix de clipping con un recuento archivo-por-archivo preciso
+   (abajo), sin sobre-afirmar. Resuelto a nivel de documentación.
+2. *Latent nested-Text inheritance override* — el `AppText` actual
+   (`src/components/AppText.tsx`) ya NO inyecta un `fontSize` absoluto: escala
+   solo el `fontSize` presente en su propio estilo y deja intacta la herencia de
+   RN cuando está ausente. El archivo ya documenta esta regla en su encabezado
+   ("Regla de Text anidado"). No hay doble aplicación ni override de herencia;
+   finding cubierto por la implementación vigente.
+3. *On-device behavior unverified* — igual que entonces, el equipo físico corre
+   un APK release que no hot-reloadea el bundle nuevo; la verificación aquí es
+   estática (type-check + bundle release). Se declara honestamente abajo.
 
-- `react-native/index.js` exposes `Text` and `TextInput` as **getters** that do
-  a live `require('./Libraries/.../X').default` on every read (verified:
-  `index.js` lines 112–120 — `get Text() { return require('./Libraries/Text/Text').default; }`
-  and `get TextInput() { return require('./Libraries/Components/TextInput/TextInput').default; }`).
-- Under Metro+Babel, `import { Text } from 'react-native'` compiles to a live
-  read of that getter at render time, so every screen that imports `Text` reads
-  whatever `require('./Libraries/Text/Text').default` currently is.
-- Those internal modules are Babel-CommonJS modules whose `.default` is a
-  writable data property. `installFontScaleOverride()` captures the original
-  component, builds a `React.forwardRef` wrapper that renders the original with a
-  merged style whose `fontSize` is multiplied by `factorRef.current`, and
-  reassigns `mod.default = Wrapped`. From then on every `Text` / `TextInput`
-  usage app-wide resolves to the wrapper — no per-file edits.
-- The wrapper passes `allowFontScaling={false}` as a **prop** so the in-app
-  factor is independent of the OS font setting and never double-scales.
-- The provider keeps a `<React.Fragment key={`fs-${scale}`}>` remount so
-  already-mounted Text re-renders through the wrapper with the new factor
-  immediately on selection.
+## Comandos ejecutados y resultado
 
-Idempotency / safety:
-
-- `installed` module boolean + `__fontScaleWrapped` tag on the wrapper prevent
-  double-wrapping (which would compound the factor) under Fast Refresh.
-- Each target is wrapped in try/catch; if an internal path ever fails to
-  resolve, it is skipped (text stays at factor 1) — the app never crashes.
-
-## Why the new mechanism scales text where the old one failed
-
-The old code reassigned `Text.render` / `TextInput.render`, guarded by
-`if (typeof origRender === 'function' && !origRender.__fontScalePatched)`.
-
-- On RN 0.81.5 the exported `Text` (`Libraries/Text/Text.js` → `export default TextImpl`)
-  is a **plain function component**, not a `forwardRef` object with a mutable
-  `.render` property. So `Component.render` was `undefined`, the `if` never
-  entered, and the fontSize-multiplying patch was **never installed**.
-- The only thing the old code applied was `Component.defaultProps.allowFontScaling = false`,
-  and `defaultProps` on a function component is **deprecated/ignored under React 19.1**.
-- Net effect of the old code: scale state + chip highlight updated, but no text resized.
-
-The new mechanism:
-
-- Does **not** touch a `.render` property (which does not exist on the
-  plain-function `TextImpl`).
-- Does **not** rely on React 19 `defaultProps` (ignored for function components).
-- Uses only documented React composition (render the original component with
-  modified props) plus the stable CommonJS/Babel fact that a module's `.default`
-  is writable, combined with the getter indirection in `index.js` that makes
-  every existing named import pick up the override.
-
-Result: selecting Grande makes all app text ~15% larger, Extra ~30% larger,
-immediately on selection (subtree remount via `key`), persisting across restarts
-(AsyncStorage key `fundo360.font_scale.v1`, loaded on provider mount).
-
-## Public API — unchanged
-
-`useFontScale.tsx` still exports, with identical shapes:
-`FontScaleKey`, `FONT_SCALES` (`{normal:1, grande:1.15, extra:1.3}`),
-`FONT_SCALE_LABELS` (`{normal:'Normal', grande:'Grande', extra:'Extra grande'}`),
-`FontScaleProvider`, `useFontScale()` → `{ scale, factor, setScale, loaded }`.
-Persistence stays under `fundo360.font_scale.v1`. No caller needed changes.
-
-## Files changed
-
-- `apps/mobile/src/hooks/useFontScale.tsx` — rewrote the engine (removed the
-  `.render` monkeypatch and `defaultProps` mutation; added the module-level wrap
-  override). **This is the only file I changed.**
-
-Not touched (confirmed):
-- `apps/mobile/app/(tabs)/profile.tsx` — its uncommitted clipping fixes
-  (`numberOfLines` / `adjustsFontSizeToFit` on chips, `flexShrink`/`minWidth`)
-  remain exactly as they were. `git diff` on this file shows only its own
-  pre-existing changes, none introduced by this task.
-- `apps/mobile/app/_layout.tsx` — already mounts `<FontScaleProvider>`; no change.
-- No Spanish copy changed anywhere.
-
-## Commands run and output
-
-### 1. Typecheck
+### 1. Gate de tipos
 
 ```
 $ cd apps/mobile && npx tsc --noEmit
-# (no output)
-EXIT=0
+# (sin salida)
+Exit Code: 0
 ```
+OK — sin errores de tipos.
 
-No TS errors. Baseline was green; still green.
+### 2. Gate de bundle release Android
 
-### 2. Lint
+El `main` de la app es `expo-router/entry` (package.json) — entry confirmado.
+En este monorepo con workspaces, `expo-router` está hoisted a la raíz, y Metro
+resuelve el entry-file desde la raíz del proyecto, por lo que el path exacto del
+plan funciona tal cual:
 
 ```
-$ cd apps/mobile && npm run lint
+$ cd apps/mobile && npx expo export:embed --eager --platform android --dev false \
+    --entry-file node_modules/expo-router/entry.js \
+    --bundle-output /tmp/fundo360-verify.bundle \
+    --assets-dest /tmp/fundo360-verify-assets
 ...
-✖ 97 problems (0 errors, 97 warnings)
-EXIT (eslint) = non-zero only due to pre-existing warnings being counted
+Android Bundled 6712ms node_modules/expo-router/entry.js (2003 modules)
+Writing bundle output to: /tmp/fundo360-verify.bundle
+Copying 31 asset files
+Done writing bundle output
+Exit Code: 0
 ```
+OK — bundle release generado (~10.8 MB, 2003 módulos, 31 assets). Temporales de
+`/tmp` eliminados al terminar (`/tmp/fundo360-verify.bundle`,
+`/tmp/fundo360-verify-assets`).
 
-- **0 errors.** All 97 remaining problems are warnings.
-- The warnings attributable to `useFontScale.tsx` are all
-  `@typescript-eslint/no-explicit-any` (8 of them), which match the pervasive
-  pre-existing style across the mobile app (the original file used `any` the same
-  way, and dozens of other files carry the identical warning).
-- During the first lint run there was **1 NEW error**
-  (`@typescript-eslint/no-require-imports` on the intentional dynamic require,
-  plus an unused `eslint-disable` directive because I had disabled the wrong rule
-  `no-var-requires`). Fixed by scoping the `eslint-disable-next-line` to the
-  correct rule `@typescript-eslint/no-require-imports`. Re-lint confirms 0 errors.
+### Caveat on-device (NO verificado visualmente)
 
-Lint of just the changed file after the fix:
+El equipo físico conectado corre el APK release instalado, que no puede
+hot-reloadear el bundle JS nuevo. La corrección se sustenta en razonamiento de
+layout de RN + los dos gates anteriores. Para confirmación visual: dev build
+(`npx expo start --dev-client`) o un APK nuevo, revisando en escala Normal y
+Extra grande que ninguno de los textos del inventario (Hoy, Identificar,
+Pendiente, Parcial, Agregar, Vaciar, Anotadores, RUT, Teléfono, Tamaño del
+texto) aparezca cortado ni con "...".
 
-```
-$ cd apps/mobile && npx eslint src/hooks/useFontScale.tsx
-   ... 8 warnings (all @typescript-eslint/no-explicit-any)
-✖ 8 problems (0 errors, 8 warnings)
-```
+## Patrón aplicado
 
-Note: `npm run test` finds no vitest suites in the mobile app, so it is not a
-meaningful gate here.
+- `includeFontPadding: false` en el estilo de texto afectado: elimina el padding
+  de línea que Android reserva y que recortaba el glifo final/inferior
+  ("Identific[ar]", "Pendient[e]", "Parcia[l]", "Agrega[r]", "Vacia[r]",
+  "Ho[y]"). En iOS es no-op, seguro aplicarlo transversalmente.
+- Datos de identificación (RUT/Teléfono) nunca con "...": `numberOfLines={2}` +
+  `adjustsFontSizeToFit` + `minimumFontScale={0.85}` (primero envuelve a 2ª
+  línea; si aún no cabe, encoge levemente — jamás trunca).
+- Pills/chips de ancho acotado: `adjustsFontSizeToFit` + `minimumFontScale={0.85}`
+  para encoger en vez de truncar; `minWidth:0` donde el `flexShrink` del texto lo
+  necesitaba para actuar.
+- Botones y badges: dejan crecer el texto con el contenido; el corte era el
+  padding de glifo, así que `includeFontPadding:false` basta.
 
-## On-device caveat (NOT verified visually)
+`AppText` propaga `numberOfLines` / `adjustsFontSizeToFit` / `minimumFontScale`
+vía `{...rest}` y `style` tal cual al `Text` de RN (verificado en AppText.tsx);
+no se duplicó lógica.
 
-A Motorola moto g04s is connected over USB (adb id `ZY22JVK6NH`), but the
-installed app is the **RELEASE APK** `com.fundo360.app`, which **cannot
-hot-reload the JS bundle**. Therefore this change **cannot be verified on that
-running APK**, and no on-device visual verification is claimed.
+## Resumen archivo por archivo
 
-To verify visually, the app must be run from either:
-- a dev build / dev client: `npx expo start --dev-client` (from `apps/mobile`), or
-- a freshly rebuilt APK.
+### apps/mobile/app/(tabs)/production.tsx — "Hoy"
+- `dayDate` (el "Hoy"), `dayBtnText` ("‹ Ayer"/"Mañana ›"), `headerUnit`,
+  `listTitle`, `listCount`, `cardBlock`, `cardUnit`: `+ includeFontPadding:false`.
+- Decisión: **no wrap, no encoger** — el texto cabe en su contenedor
+  (`dayCenter` es flex row con gap; el header y la lista tienen ancho de sobra);
+  el único corte era el padding de glifo de Android. Se corrige solo eso.
 
-Expected on-device behavior once running a dev build or new APK:
-- Perfil → "Tamaño del texto": tap "Grande" → all app text ~15% larger; "Extra
-  grande" → ~30%; "Normal" → baseline; change immediate on selection.
-- The small accessibility chips may not visibly grow (they use
-  `adjustsFontSizeToFit`) — acceptable per the task; the rest of the app text grows.
-- Kill + relaunch: last selected size persists.
+### apps/mobile/app/(tabs)/register.tsx — "Identificar"
+- `primaryBtnText` ("Identificar"), y por el mismo patrón `confirmBtnText`,
+  `backBtnText`, `scaleBtnText`, `blockName`, `blockProduct`, `workerChipText`,
+  `unitLabel`: `+ includeFontPadding:false`.
+- Decisión: **no encoger** — los botones son `width:'100%'` (o crecen con el
+  contenido), había espacio; el glifo final se recortaba por el padding de línea.
 
-This verification relies on **code reasoning + typecheck + lint**, as stated.
+### apps/mobile/app/admin/settlements.tsx — badges "Pendiente"/"Parcial"
+- `statusText` (la palabra del badge) + `cardPeriod`, `cardAmount` por
+  consistencia de la card: `+ includeFontPadding:false`.
+- Decisión: **badge crece con el contenido** (`alignSelf:'flex-start'`), sin
+  `numberOfLines`; con el padding de glifo corregido la palabra se ve completa.
+
+### apps/mobile/app/(tabs)/payments.tsx — badges "Pendiente"/"Parcial"
+- `statusText` + `cardPeriod`, `cardWorker`, `cardAmount`:
+  `+ includeFontPadding:false`. Mismo razonamiento que settlements.
+
+### apps/mobile/src/components/DayRosterManager.tsx — "Agregar"/"Vaciar"
+- `addBtnText` ("Agregar"), `clearBtnText` ("Vaciar"), y textos hermanos de la
+  pantalla: `title`, `subtitle`, `count`, `memberName`, `memberUnits`,
+  `availName`, `baseTagText`, `sheetTitle`, `emptyText`:
+  `+ includeFontPadding:false`.
+- Decisión: **los botones crecen con el contenido** (padding horizontal propio,
+  sin ancho fijo); el corte era el padding de glifo. Cubre team.tsx y crew.tsx.
+
+### apps/mobile/app/(tabs)/profile.tsx — RUT/Teléfono/Estado/Desde, pill, label, chips
+- **InfoRow (RUT / Teléfono / Estado / Desde)**: el `AppText` de valor pasa de
+  `numberOfLines={1}` a `numberOfLines={2}` + `adjustsFontSizeToFit` +
+  `minimumFontScale={0.85}`; `ir.value` e `ir.label` reciben
+  `includeFontPadding:false`. `ir.valueWrap` ya traía `flexShrink:1`+`minWidth:0`.
+  Decisión: **wrap a 2ª línea** para datos de identificación (RUT chileno cabe en
+  2 líneas) y, como red de seguridad en "Extra grande", **encoger levemente**
+  (0.85) antes que cualquier "...". Nunca truncar.
+- **Pill de rol "Anotadores"/"Encargado"** (`roleText`): el pill gana
+  `minWidth:0` (para que el `flexShrink:1` del texto actúe) y el AppText gana
+  `adjustsFontSizeToFit` + `minimumFontScale={0.85}` (ya tenía
+  `numberOfLines={1}` e `includeFontPadding:false`).
+  Decisión: **encoger** (hasta 0.85) en vez de romper el pill en 2 líneas.
+- **"Tamaño del texto"** (`a11yTitle`): se quita `numberOfLines={1}` → `{2}`
+  (permitir 2ª línea; el header tiene altura libre) y el estilo gana
+  `includeFontPadding:false`.
+  Decisión: **wrap a 2ª línea** (no se encoge: es un título, prefiere envolver).
+- **Chips de período, stats y escala** (`periodChipText`, `statLabel`,
+  `a11yChipText`): estilos ganan `includeFontPadding:false`; los AppText ganan
+  `minimumFontScale={0.85}` (ya tenían `numberOfLines={1} adjustsFontSizeToFit`).
+  Decisión: **encoger acotado a 0.85** — son celdas de ancho fijo (`flex:1`),
+  encoger es lo correcto; el 0.85 limita cuánto para no volverse ilegible.
 
 ## Git
 
-All changes left in the working tree. Nothing committed.
+Cambios dejados en el working tree. Nada committeado (según instrucción).
