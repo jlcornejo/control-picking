@@ -198,7 +198,7 @@ export default function ProductionScreen() {
           <AppText style={s.dayBtnText}>‹ Ayer</AppText>
         </TouchableOpacity>
         <View style={s.dayCenter}>
-          <AppText style={s.dayDate}>{isToday ? 'Hoy' : selectedDate}</AppText>
+          <AppText style={s.dayDate} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{isToday ? 'Hoy' : selectedDate}</AppText>
           {isToday && <View style={s.liveDot} />}
         </View>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDayOffset(Math.min(0, dayOffset + 1)); }} disabled={isToday} style={[s.dayBtn, isToday && { opacity: 0.3 }]} activeOpacity={0.7}>
@@ -371,10 +371,13 @@ const s = StyleSheet.create({
   headerUnit: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2, includeFontPadding: false },
   headerDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
   dayNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  dayBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+  // Los botones laterales pueden ceder ancho (flexShrink:1) para que el centro
+  // ("Hoy"/fecha) nunca se recorte horizontalmente al ampliar la fuente.
+  dayBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, flexShrink: 1 },
   dayBtnText: { fontSize: 13, color: colors.textSecondary, fontWeight: font.medium, includeFontPadding: false },
-  dayCenter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dayDate: { fontSize: 14, fontWeight: font.semibold, color: colors.text, includeFontPadding: false },
+  // flexShrink:0 => el centro conserva su ancho; nunca se corta "Hoy".
+  dayCenter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, flexShrink: 0, flexGrow: 0 },
+  dayDate: { fontSize: 14, fontWeight: font.semibold, color: colors.text, includeFontPadding: false, flexShrink: 0 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md, marginTop: spacing.sm },
   listTitle: { fontSize: 14, fontWeight: font.semibold, color: colors.text, includeFontPadding: false },
