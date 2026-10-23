@@ -1,0 +1,7 @@
+{
+  "task_id": "task-mobile-admin-parity",
+  "task_description": "Dar al rol Administrador en la app movil (Expo) la paridad funcional de la web mediante navegacion hibrida (tabs de terreno intactos + drawer solo-admin) y las capacidades G1 (generar liquidaciones), G2 (historico de registros + correccion auditada), G4 (configuracion de la organizacion), G5 (export CSV/PDF) y G3 (guias de despacho, disenada pero diferida a stub bajo flag). No se toca backend; preserva los flujos de supervisor (team.tsx) y encargado (crew.tsx).",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005", "FEAT-006"],
+  "blocked_reason": null
+}

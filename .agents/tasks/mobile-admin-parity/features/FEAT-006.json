@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-006",
+  "type": "feat",
+  "description": "feat(export+dispatch): Export de informes (G5) + Guias de despacho diferidas (G3). Integra CSV en Registros y PDF por liquidacion en Liquidaciones con gating por report_export/disable_pdf_export y REPORTS_EXPORT, y deja la entrada de Guias de despacho en el drawer tras el flag dispatch_guides apuntando a una pantalla provisional (G3 implementacion diferida). Depende de FEAT-001 (expo-print/sharing/file-system, Envelope), FEAT-004 (settlements.tsx) y FEAT-005 (records.tsx). Export es solo lectura: no muta picking_records, settlements ni rates. No toca backend ni los flujos de supervisor/encargado.",
+  "status": "pending",
+  "steps": [
+    "Crear apps/mobile/src/hooks/useReportExport.ts: usa useFeatureFlag('report_export'), useFeatureFlag('disable_pdf_export') y usePermissions().has(CAPABILITIES.REPORTS_EXPORT); retorna { showCsv: report_export && has(REPORTS_EXPORT), showPdf: report_export && !disable_pdf_export && has(REPORTS_EXPORT) }. El kill-switch disable_pdf_export oculta solo el PDF, no el CSV (G5-AC1, AC4).",
+    "Crear apps/mobile/src/lib/export/csv.ts: funcion pura toCSV (sin DOM) replicando columnas y encabezados LITERALES de la web (handleExportCsv de records/page.tsx): Fecha, Trabajador, RUT, Pano, Producto, Variedad, Cantidad, Unidad (Kilo/Caja), Peso neto (kg), Tarifa, Monto estimado, Tipo (original/correccion). Escaping CSV correcto. Tipar CsvColumn<T> sin any.",
+    "En apps/mobile/app/admin/records.tsx anadir boton Exportar CSV visible si useReportExport().showCsv: exporta el set COMPLETO del periodo filtrado (misma query de FEAT-005, no la pagina visible); escribe con FileSystem.writeAsStringAsync(FileSystem.cacheDirectory + produccion-from_to.csv, content) y comparte con Sharing.shareAsync(uri, { mimeType:'text/csv' }). Si 0 registros, deshabilitar o avisar (G5-AC5); try/catch con alerta espanol (G5-AC6).",
+    "Crear apps/mobile/src/lib/export/settlement-pdf.ts: settlementHtml(data) (tabla HTML + estilos inline que reproduce el SettlementPDF web: beneficiario worker/crew, periodo, registros del periodo, resumen por unidad, total, pagos) y printSettlement(data) que hace Print.printToFileAsync({ html }) + Sharing.shareAsync(uri, { mimeType:'application/pdf' }). Datos desde supabase.functions.invoke<Envelope<SettlementDetail>>('settlements/:id') leyendo data.data (sobre) y mensaje de error de data.error.message. Tipar SettlementPdfData sin any.",
+    "En apps/mobile/app/admin/settlements.tsx anadir accion PDF por liquidacion visible si useReportExport().showPdf: obtiene el detalle via settlements/:id y llama printSettlement. Si el breakdown tiene 0 lineas, deshabilitar o avisar (G5-AC5); try/catch con alerta espanol (G5-AC6).",
+    "Confirmar que los stubs de G3 (apps/mobile/app/admin/dispatch-guides/index.tsx y [id].tsx creados en FEAT-002) muestran EmptyState Guias de despacho en preparacion envueltos en AdminGuard y que la entrada del drawer solo aparece con useFeatureFlag('dispatch_guides') activo (G3-AC1, AC8). No implementar la logica completa de G3 (diferida; design seccion 7).",
+    "Unit tests (vitest) para funciones puras nuevas: toCSV (columnas, encabezado literal Peso neto (kg), escaping) y settlementHtml (presencia de totales y filas). Ubicar en apps/mobile junto a src/lib/export o en __tests__."
+  ],
+  "acceptance_criteria": [
+    "CSV en Registros con columnas y encabezados literales de la web, exportando el set completo del periodo filtrado y compartido via expo-sharing (G5-AC2).",
+    "PDF por liquidacion equivalente al SettlementPDF web, generado con expo-print desde settlements/:id (G5-AC3).",
+    "Gating: showCsv/showPdf por report_export + REPORTS_EXPORT; disable_pdf_export oculta solo PDF (G5-AC1, AC4).",
+    "Sin datos: boton deshabilitado o aviso en espanol, sin archivo vacio (G5-AC5); fallos muestran alerta espanol sin bloquear (G5-AC6).",
+    "Entrada Guias de despacho visible solo con dispatch_guides activo; abre pantalla provisional sin romper build ni navegacion (G3-AC1, AC8).",
+    "Unit tests de toCSV y settlementHtml pasan."
+  ],
+  "verification": [
+    "Desde apps/mobile del worktree: npx tsc --noEmit (0 errores), npm run lint (0 errores nuevos, sin any), npm run test (unit de toCSV y settlementHtml pasan).",
+    "Verificar en runtime (dev client recompilado): CSV compartido con columnas correctas; PDF por liquidacion; disable_pdf_export oculta solo PDF; botones deshabilitados sin datos; con dispatch_guides activo aparece la entrada y abre la pantalla provisional, sin el flag no aparece.",
+    "Integral de cierre: revisar que team.tsx, crew.tsx, resto de app/admin/*, Edge Functions y apps/web/* no fueron tocados (no regresion)."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

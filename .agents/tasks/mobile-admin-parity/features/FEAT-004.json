@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "feat(settlements): Liquidaciones con generacion en movil (G1). Reemplaza el stub de settlements por una pantalla que lista las liquidaciones (patron de payments.tsx, paginado) y permite generar por rango de fechas delegando 100% en la Edge Function settlements/generate (nunca insert desde cliente). Depende de FEAT-001 (Envelope) y FEAT-002 (ruta settlements). INVARIANTE preservado: una liquidacion pagada nunca se modifica; la clasificacion worker/crew y payee_type las fija el backend. No toca payments.tsx ni crew.tsx.",
+  "status": "pending",
+  "steps": [
+    "Crear apps/mobile/src/hooks/useSettlements.ts con useSettlementsList({ page, limit }) (default 20, clamp max 100, orden generated_at desc, join manual del beneficiario worker/crew como payments.tsx). queryKey: ['settlements', page, limit]. Tipar sin any.",
+    "Reemplazar el stub apps/mobile/app/admin/settlements.tsx por la pantalla real, envuelta en AdminGuard: lista paginada con useSettlements y boton Generar liquidaciones visible solo si usePermissions().has(CAPABILITIES.SETTLEMENTS_MANAGE) (G1-AC6).",
+    "Modal de generacion (patron RNModal de production.tsx): TextInput Desde y Hasta (AAAA-MM-DD). Validacion cliente (G1-AC2): ambos requeridos, regex de fecha AAAA-MM-DD, period_start <= period_end; en error showAlert Rango invalido con mensaje espanol y NO invocar backend.",
+    "Generacion (G1-AC3): supabase.functions.invoke<Envelope<GenerateSettlementsResponse>>('settlements/generate', { method:'POST', body:{ period_start, period_end } }). Leer el SOBRE: result = data.data tras validar (si error o data.success === false lanzar Error con data.error.message o fallback espanol). Type guard sobre data.data (Array.isArray(settlements) y typeof total_amount === number). Tipar GenerateSettlementsResponse { settlements: GeneratedSettlement[]; total_amount: number; units_by_unit: { box: number; kg: number } }.",
+    "Resultado (G1-AC4): si settlements.length === 0 y total_amount === 0 => showAlert Sin produccion; si length === 0 y total_amount > 0 => showAlert Nada nuevo que generar; si length > 0 => showAlert Listo con N liquidaciones. Tras exito invalidar ['settlements'], ['my-balance'], ['my-settlements'] (claves de la tab Pagos).",
+    "Error (G1-AC5): onError de la mutacion hace showAlert Error con el mensaje EN ESPANOL del backend (data.error.message), no el generico de FunctionsHttpError. No se crean liquidaciones parciales desde el cliente.",
+    "NOTA de integracion: la accion PDF por liquidacion (G5 PDF) pertenece a FEAT-006 (usa useReportExport y settlement-pdf.ts). Esta feature implementa solo lista + generacion y deja el punto de integracion documentado para no crear dependencia circular."
+  ],
+  "acceptance_criteria": [
+    "settlements.tsx lista liquidaciones paginadas (default 20, max 100) con beneficiario resuelto (G1-AC1).",
+    "El boton Generar valida el rango en cliente y, si es invalido, no invoca el backend (G1-AC2).",
+    "La generacion llama settlements/generate (POST) y lee el sobre; nunca inserta en settlements desde el cliente (G1-AC3).",
+    "Mensajes de exito distinguen sin produccion / nada nuevo / N generadas e invalidan las 3 queries (G1-AC4).",
+    "Errores del backend se muestran en espanol sin romper la pantalla; sin inserciones parciales (G1-AC5).",
+    "Generar se gatea por SETTLEMENTS_MANAGE (G1-AC6); payments.tsx y crew.tsx intactos (G1-AC7, AC8)."
+  ],
+  "verification": [
+    "Desde apps/mobile del worktree: npx tsc --noEmit (0 errores) y npm run lint (0 errores nuevos, sin any).",
+    "Verificar en runtime (dev client): generar un rango valido muestra N generadas y refresca lista + tab Pagos; rango invalido no invoca backend; periodo vacio => Sin produccion; periodo ya generado => Nada nuevo que generar; error de backend muestra mensaje espanol; la tab Pagos sigue pagando igual (no regresion).",
+    "Confirmar contra supabase/functions/settlements/index.ts que POST /settlements/generate responde el sobre con { settlements, total_amount, units_by_unit }."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

@@ -1,0 +1,20 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": "NIT-1",
+      "severity": "NIT",
+      "location": "design.md §2.4 (Botón hamburguesa en el header de los tabs, NAV-AC1)",
+      "problem": "NAV-AC1 pide que el icono hamburguesa 'abra el drawer'. El diseño, por una limitación real de Expo Router (no se puede llamar openDrawer() desde fuera del NavigationContainer del drawer), hace router.push('/admin') y aterriza en admin/index con el drawer accesible por gesto/botón; hay un paso intermedio frente a la redacción literal del AC.",
+      "fix": "Dejarlo así documentando que 'abrir el drawer' se cumple vía navegación a la sección admin con el drawer accesible; o, para apertura en un toque, pasar router.push('/admin?open=1') y que admin/index invoque navigation.openDrawer() en su primer render usando el navigation del Drawer."
+    },
+    {
+      "id": "NIT-2",
+      "severity": "NIT",
+      "location": "design.md §4.4, §2.3, §7.6 vs packages/shared/src/constants/index.ts",
+      "problem": "El catálogo FEATURE_FLAGS de @fundo360/shared no lista report_export, disable_pdf_export ni configurable_rbac. No es un defecto: useFeatureFlag(key:string) resuelve cualquier string contra platform_feature_flags/organization_feature_flags en la DB, y la web ya usa esos literales. Es una observación de completitud del catálogo.",
+      "fix": "Opcional (higiene): añadir REPORT_EXPORT:'report_export', DISABLE_PDF_EXPORT:'disable_pdf_export', CONFIGURABLE_RBAC:'configurable_rbac' a FEATURE_FLAGS y referenciarlas por constante en vez de literal para evitar typos. No bloquea."
+    }
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.agents/tasks/mobile-admin-parity/design-review.md"
+}

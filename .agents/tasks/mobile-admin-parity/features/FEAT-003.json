@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "feat(settings): Configuracion de la organizacion (G4) — reemplaza el stub de settings por una pantalla real con 4 secciones (Marca, Modo Capataz, Melgas, Etiquetas de rol) sobre la tabla organizations via Supabase (sin nueva Edge Function). Migra useBranding (emisor DeviceEventEmitter para re-aplicar marca) y useOrgSettings (a useQuery conservando API y recarga por sesion). Depende de FEAT-002. RBAC preservado: gating por CAPABILITIES.SETTINGS_MANAGE; las etiquetas de rol son solo presentacion y NO alteran la jerarquia ni la seguridad.",
+  "status": "pending",
+  "steps": [
+    "Reemplazar el stub apps/mobile/app/admin/settings.tsx por la pantalla real, envuelta en AdminGuard y gateada por usePermissions().has(CAPABILITIES.SETTINGS_MANAGE). Lectura: supabase.from('organizations').select('id, name, logo_url, brand_primary_color, brand_secondary_color, crew_mode_enabled, rows_enabled, role_labels').limit(1).maybeSingle(). Mutacion: update(patch).eq('id', org.id).",
+    "Seccion Marca (G4-AC3): nombre (requerido, trim no vacio), logo_url (opcional), color primario y secundario con HEX_RE = ^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$ via TextInput hex + chips preset (no hay color picker nativo en RN). Color o nombre invalido muestra error inline en espanol y NO guarda. Tras update exitoso emitir DeviceEventEmitter.emit('branding:updated').",
+    "Seccion Modo Capataz (G4-AC4): Switch sobre crew_mode_enabled; al cambiar persiste de inmediato (update) y tras exito invalidar ['org-settings'] para refrescar la visibilidad de Cuadrillas en el drawer.",
+    "Seccion Melgas (G4-AC5): Switch sobre rows_enabled por query directa a organizations (rows_enabled NO forma parte de OrgSettings; se lee/escribe en settings.tsx).",
+    "Seccion Etiquetas de rol (G4-AC6): 4 TextInput (admin/supervisor/crew_lead/worker); saneo igual que la web: guardar solo las no vacias, las vacias caen al default. No altera RBAC.",
+    "Toggles optimistas con rollback en onError (G4-AC8): si la escritura falla, revertir el estado local y showAlert('Error', mensaje en espanol).",
+    "En apps/mobile/app/admin/index.tsx: el modulo settings pasa a available:true + requiresCapability: CAPABILITIES.SETTINGS_MANAGE; eliminar el estado Proximamente.",
+    "Migrar apps/mobile/src/hooks/useBranding.ts: extraer el cuerpo del useEffect a una funcion load() reutilizable; anadir DeviceEventEmitter.addListener('branding:updated', () => load()) junto a onAuthStateChange, con cleanup sub.remove(). Cambio aditivo: conservar DEFAULT_BRANDING, el fallback y la recarga por onAuthStateChange. NO introducir invalidateQueries(['branding']) (seria inerte; useBranding no usa React Query).",
+    "Migrar apps/mobile/src/hooks/useOrgSettings.ts a useQuery(['org-settings']) conservando la API publica (settings, roleLabel, crewModeEnabled, loading) y PRESERVANDO la recarga por onAuthStateChange (callback que invalida/refetch ['org-settings']). El queryFn es la misma lectura de organizations (crew_mode_enabled, role_labels). Verificar que admin/index.tsx y AdminDrawerContent siguen compilando con la nueva implementacion."
+  ],
+  "acceptance_criteria": [
+    "settings.tsx muestra 4 secciones y lee/escribe organizations via Supabase (G4-AC1, AC2); RLS acota a la organizacion del usuario.",
+    "Marca valida hex y nombre; invalido no guarda; al guardar re-aplica branding via evento branding:updated (G4-AC3).",
+    "Modo Capataz y Melgas persisten de inmediato; Cuadrillas aparece/desaparece del drawer segun crew_mode_enabled (G4-AC4, AC5).",
+    "Etiquetas de rol se sanean (solo no vacias) y no cambian la seguridad (G4-AC6).",
+    "Gating por SETTINGS_MANAGE (G4-AC7); errores revierten toggles y avisan en espanol (G4-AC8).",
+    "useOrgSettings conserva API publica y recarga por sesion (sin cache del tenant anterior); useBranding re-aplica por evento."
+  ],
+  "verification": [
+    "Desde apps/mobile del worktree: npx tsc --noEmit (0 errores) y npm run lint (0 errores nuevos, sin any en codigo nuevo).",
+    "Unit (vitest) opcional para la validacion hex y el saneo de role_labels como funciones puras: npm run test.",
+    "Verificar en runtime (dev client): guardar marca con hex valido re-pinta la app (evento dispara load() y ThemeProvider re-monta por key); hex invalido bloquea; toggles revierten al fallar; cambiar de sesion recarga useOrgSettings sin cache del tenant anterior."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

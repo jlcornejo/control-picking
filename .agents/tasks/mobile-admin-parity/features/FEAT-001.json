@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Infra nativa + sobre de Edge Functions. Instala el stack nativo del Drawer (@react-navigation/drawer, react-native-gesture-handler, react-native-reanimated) y las dependencias de export (expo-print, expo-sharing, expo-file-system), configura el plugin de Babel de Reanimated, envuelve la raiz en GestureHandlerRootView y crea el tipo compartido Envelope<T> para leer el sobre { success, data } de las Edge Functions. Prerequisito de todas las demas features.",
+  "status": "done",
+  "steps": [
+    "Si falta node_modules en el worktree, correr `npm install` en la raiz del monorepo /Users/ericksegura/Documents/backupHDD/personal/control-picking/.worktrees/mobile-admin-parity antes de nada.",
+    "Desde apps/mobile del worktree: `npx expo install @react-navigation/drawer react-native-gesture-handler react-native-reanimated expo-print expo-sharing expo-file-system` para fijar versiones compatibles con Expo SDK 54. Verificar que apps/mobile/package.json queda con esas 6 dependencias.",
+    "Editar apps/mobile/babel.config.js (hoy exporta function(api){ api.cache(true); return { presets:['babel-preset-expo'] }; }) para anadir plugins:['react-native-reanimated/plugin'] DENTRO del objeto retornado y AL FINAL del array. Ver design.md seccion 2.5 para el snippet exacto.",
+    "Editar apps/mobile/app/_layout.tsx: importar GestureHandlerRootView de react-native-gesture-handler y envolver el arbol bajo SafeAreaProvider con GestureHandlerRootView style flex:1. No alterar la logica de AuthGate/QueryClient/persistencia.",
+    "Crear apps/mobile/src/lib/edge.ts con export interface Envelope<T> { success: boolean; data?: T; error?: { code: string; message: string; details?: Record<string, unknown> }; meta?: { page: number; total: number; limit: number }; } (design.md seccion 4). Sin any."
+  ],
+  "acceptance_criteria": [
+    "apps/mobile/package.json declara @react-navigation/drawer, react-native-gesture-handler, react-native-reanimated, expo-print, expo-sharing y expo-file-system con versiones fijadas por expo install.",
+    "babel.config.js incluye react-native-reanimated/plugin como ultimo elemento de plugins dentro del objeto retornado por la funcion.",
+    "app/_layout.tsx envuelve el arbol en GestureHandlerRootView sin cambiar el comportamiento de AuthGate.",
+    "src/lib/edge.ts exporta Envelope<T> y compila sin any.",
+    "npx tsc --noEmit y npm run lint pasan sin errores nuevos desde apps/mobile."
+  ],
+  "verification": [
+    "Desde /Users/ericksegura/Documents/backupHDD/personal/control-picking/.worktrees/mobile-admin-parity/apps/mobile : npx tsc --noEmit (0 errores).",
+    "npm run lint (0 errores nuevos).",
+    "Confirmar en findings si expo-router/drawer resuelve; si no en 6.0.24, registrar que FEAT-002 usara el fallback createDrawerNavigator (design 2.3). Anotar que los modulos nativos requieren recompilar el dev client (no verificable por typecheck)."
+  ],
+  "blocked_reason": null,
+  "findings": "DONE. npm install at worktree root (node_modules was missing) then `npx expo install @react-navigation/drawer react-native-gesture-handler react-native-reanimated expo-print expo-sharing expo-file-system` fixed SDK54-compatible versions: @react-navigation/drawer ^7.14.4, react-native-gesture-handler ~2.28.0, react-native-reanimated ~4.1.1, expo-print ~15.0.8, expo-sharing ~14.0.8, expo-file-system ~19.0.24. babel.config.js: added plugins:['react-native-reanimated/plugin'] as the last entry inside the returned object. app/_layout.tsx: wrapped the tree in <GestureHandlerRootView style={{flex:1}}> under SafeAreaProvider; AuthGate/QueryClient/persistence logic untouched. Created src/lib/edge.ts exporting Envelope<T> (no any). VERIFIED: `expo-router/drawer` RESOLVES in expo-router 6.0.24 (node require.resolve OK), so FEAT-002 can use the Expo Router Drawer directly; the createDrawerNavigator fallback (design 2.3) is NOT needed. `react-native-reanimated/plugin` also resolves (reanimated 4 re-exports it; react-native-worklets/plugin is NOT present, so keep react-native-reanimated/plugin as specified). npx tsc --noEmit = 0 errors. npm run lint = 0 errors (98 pre-existing warnings in untouched files; 0 new). PENDING MANUAL ON-DEVICE: native modules (gesture-handler, reanimated) require recompiling the dev client; not verifiable by typecheck/lint."
+}

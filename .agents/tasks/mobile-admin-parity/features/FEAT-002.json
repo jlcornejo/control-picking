@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "feat(nav): navegacion hibrida — convierte el grupo app/admin de Stack a Drawer solo-admin con guard de rol compartido, contenido de drawer en dos secciones (Datos maestros / Administracion) con gating por capability y flag replicado de admin/index.tsx, y un boton hamburguesa en el header de los tabs visible solo para role admin. Registra las rutas nuevas (settings, settlements, records, dispatch-guides) como stubs minimos para no romper build; las features siguientes las implementan. Depende de FEAT-001. NO cambia los tabs ni los flujos de supervisor/encargado/worker (RBAC se preserva: el gating de UI no sustituye RLS/backend).",
+  "status": "pending",
+  "steps": [
+    "Crear apps/mobile/src/components/admin/AdminGuard.tsx: componente que envuelve contenido y, si useAuth().worker.role !== admin, renderiza EmptyState icon lock-closed-outline, title Acceso restringido, iconColor colors.amber (misma copia que admin/index.tsx). Reusar EmptyState y colors de theme.",
+    "Refactorizar apps/mobile/app/admin/index.tsx para envolver su contenido con AdminGuard (mantener su UI de tarjetas intacta; NAV-AC6). No cambiar aun el modulo settings (lo hace FEAT-003).",
+    "Crear apps/mobile/src/components/admin/AdminDrawerContent.tsx usando DrawerContentScrollView de @react-navigation/drawer. Replicar VERBATIM la lista y logica de visibilidad de admin/index.tsx (requiresCapability con usePermissions().has, requiresCrewMode con useOrgSettings().crewModeEnabled, requiresTareFlag con useFeatureFlag box_tare_control, requiresRbacFlag con useFeatureFlag configurable_rbac; permission-profiles SOLO por configurable_rbac SIN capability). Extender con items transaccionales: settings (CAPABILITIES.SETTINGS_MANAGE), settlements (CAPABILITIES.SETTLEMENTS_MANAGE), records (solo rol), dispatch-guides/index (useFeatureFlag dispatch_guides). Dos secciones con encabezado: Datos maestros y Administracion. Navegar con props.navigation.navigate(routeName); resaltar activo con props.state.",
+    "Convertir apps/mobile/app/admin/_layout.tsx de Stack a Drawer de expo-router/drawer con drawerContent AdminDrawerContent y screenOptions (headerShown true, headerStyle colors.card, headerTintColor colors.text, drawerType front). Registrar Drawer.Screen para: index, workers, fields/index, fields/[id] (drawerItemStyle display none), products, box-types, crews, supervisors, permission-profiles, settings, settlements, records, dispatch-guides/index, dispatch-guides/[id] (drawerItemStyle display none). Si expo-router/drawer no resuelve (ver FEAT-001 findings), usar fallback createDrawerNavigator de @react-navigation/drawer sin cambiar el diseno de rutas (design 2.3).",
+    "Crear STUBS minimos que compilen para las rutas aun no implementadas: apps/mobile/app/admin/settings.tsx, apps/mobile/app/admin/settlements.tsx, apps/mobile/app/admin/records.tsx, apps/mobile/app/admin/dispatch-guides/index.tsx, apps/mobile/app/admin/dispatch-guides/[id].tsx — cada uno exporta un componente default envuelto en AdminGuard con un EmptyState En preparacion. Las features FEAT-003..006 reemplazan estos stubs.",
+    "Editar apps/mobile/app/(tabs)/_layout.tsx: en screenOptions anadir headerRight que, SOLO si worker role admin, renderice TouchableOpacity con Ionicons name menu y onPress router.push('/admin'); para otros roles headerRight devuelve null. NO modificar el href gating de las tabs ni su estructura (NAV-AC5)."
+  ],
+  "acceptance_criteria": [
+    "app/admin/_layout.tsx usa Drawer (o fallback createDrawerNavigator) y registra todas las screens; fields/[id] y dispatch-guides/[id] no se listan como items del drawer.",
+    "AdminDrawerContent muestra dos secciones con el gating por capability/flag identico al de admin/index.tsx y los nuevos items transaccionales.",
+    "El header de las tabs muestra la hamburguesa solo para role admin y navega a /admin; para otros roles no se renderiza (NAV-AC1).",
+    "AdminGuard devuelve Acceso restringido para rol distinto de admin (NAV-AC7); admin/index.tsx conserva su UI de tarjetas (NAV-AC6).",
+    "team.tsx, crew.tsx y la navegacion de worker no cambian (NAV-AC5)."
+  ],
+  "verification": [
+    "Desde apps/mobile del worktree: npx tsc --noEmit (0 errores) y npm run lint (0 errores nuevos).",
+    "npx expo start: /admin monta el Drawer con dos grupos; las rutas /admin/settings, /admin/settlements, /admin/records, /admin/dispatch-guides resuelven (stubs); fields/[id] y dispatch-guides/[id] NO aparecen como items.",
+    "Verificar en runtime (dev client recompilado por FEAT-001): hamburguesa visible solo para admin; worker/supervisor/crew_lead sin drawer ni cambios en tabs; deep-link no-admin a una ruta admin da Acceso restringido."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

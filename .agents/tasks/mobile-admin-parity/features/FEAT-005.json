@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "feat(records): Vista de Registros historica con filtros y correccion auditada (G2). Reemplaza el stub de records por una pantalla admin que lista picking_records del periodo filtrado (una lectura con tope duro 1000 + paginacion en cliente), muestra resumen agregado por unidad, y corrige con auditoria solo el dia actual. Extrae la mutacion de correccion de production.tsx a un hook compartido usePickingCorrection sin cambio funcional. Depende de FEAT-002. INVARIANTES preservados: picking quantity > 0; correccion solo del dia actual; soft-update con original_record_id sin tocar rate_amount_snapshot ni payment_unit.",
+  "status": "pending",
+  "steps": [
+    "Crear apps/mobile/src/hooks/usePickingCorrection.ts extrayendo la mutacion de correccion de app/(tabs)/production.tsx VERBATIM en su logica: online = inserta snapshot con valores viejos + original_record_id y luego update in-place del original (quantity para caja; paid_quantity_kg a 3 decimales para kg), sin tocar rate_amount_snapshot ni payment_unit; valida nueva cantidad mayor que 0; offline = useConnectivity + enqueue type picking_correction. En onSuccess invalidar AMBAS familias: queryClient.invalidateQueries(['production']) y queryClient.invalidateQueries(['records']) (hallazgo 2). El hook expone SOLO la mutacion; NO decide visibilidad del boton.",
+    "Modificar app/(tabs)/production.tsx para usar usePickingCorrection en lugar de la mutacion inline, SIN cambio funcional, conservando canCorrect = admin|supervisor|crew_lead y la condicion selectedRecord.work_day === localDate(0). Verificar que el comportamiento (online/offline, mensajes) es identico.",
+    "Reemplazar el stub apps/mobile/app/admin/records.tsx por la pantalla real, envuelta en AdminGuard (acceso solo admin). Lectura unica del periodo filtrado: supabase.from('picking_records') acotado por rango de fechas (default ultimos 7 dias) + worker_id/block_id opcionales, .order('recorded_at', { ascending:false }), LIMIT duro 1000. select ampliado respecto a production.tsx para incluir national_id del worker, net_weight_kg, producto y variedad (necesarios para el CSV de FEAT-006) resolviendo nombres con joins manuales como production.tsx. queryKey: ['records', dateFrom, dateTo, workerId, blockId].",
+    "Paginacion en cliente (NFR4): FlatList muestra pageSize 20 recortando el array ya cargado (records.slice(0, page*pageSize)) con boton Cargar mas; cambiar cualquier filtro reinicia page a 1. Si la query alcanza 1000 filas, mostrar aviso en espanol (Mostrando los primeros 1000 registros; acota el periodo).",
+    "Filtros (G2-AC2): rango Desde/Hasta (default ultimos 7 dias), trabajador (select) y pano/block (select), cargados con queries auxiliares. Lista excluye original_record_id no nulo del conteo original; badge Correccion cuando se muestren (G2-AC3).",
+    "Correccion (G2-AC4..AC6): boton Corregir solo si work_day === localDate(0); usa usePickingCorrection; nueva cantidad/kg mayor que 0 (si no, error espanol y no persiste).",
+    "Resumen agregado (G2-AC7): tarjetas (registros, total cajas, total kg si aplica, total $) usando pickingPayableBase/pickingSubtotal de @fundo360/shared, segmentado por unidad (nunca mezcla cajas y kg), calculado sobre el set completo del periodo (no la pagina visible)."
+  ],
+  "acceptance_criteria": [
+    "records.tsx lista picking_records del periodo con nombre de trabajador y pano resueltos; paginacion en cliente 20 (G2-AC1).",
+    "Filtros de fecha/trabajador/pano reinician la paginacion y refrescan (G2-AC2); correcciones marcadas con badge (G2-AC3).",
+    "Correccion solo del dia actual (G2-AC4), soft-update auditado sin tocar rate_amount_snapshot/payment_unit (G2-AC5), nueva cantidad mayor que 0 (G2-AC6).",
+    "Resumen agregado coherente por unidad usando shared sobre el set completo (G2-AC7).",
+    "Correccion respeta conectividad (online directo / offline encolado) e invalida ['production'] y ['records'] (G2-AC8).",
+    "production.tsx conserva su comportamiento exacto tras extraer el hook (no regresion)."
+  ],
+  "verification": [
+    "Desde apps/mobile del worktree: npx tsc --noEmit (0 errores) y npm run lint (0 errores nuevos, sin any en codigo nuevo).",
+    "Verificar en runtime (dev client): filtros y paginacion funcionan; correccion del dia actual online y offline refresca Produccion y Registros (ambas keys); dias previos no ofrecen Corregir; valor menor o igual a 0 bloqueado con error espanol; resumen coherente por unidad.",
+    "Confirmar que production.tsx mantiene identico comportamiento (correccion online/offline, mensajes) tras usar el hook."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
