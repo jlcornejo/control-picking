@@ -32,6 +32,7 @@ export default function WorkersPage() {
       const { data, error } = await supabase
         .from('workers')
         .select('id, full_name, national_id, phone, role, status, qr_badge_url, created_at')
+        .is('auth_user_id', null)
         .order('full_name');
       if (error) throw error;
       return data;

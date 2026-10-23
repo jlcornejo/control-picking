@@ -16,7 +16,7 @@ interface SidebarProps {
 
 import {
   LayoutDashboard, MapPin, Package, Users, FileText,
-  ClipboardList, Wallet, UserCog, Truck, Send, Settings, Menu, X
+  ClipboardList, Wallet, UserCog, Truck, Send, Settings, Menu, X, ShieldCheck
 } from 'lucide-react';
 
 export function Sidebar({ workerName, role }: SidebarProps) {
@@ -45,6 +45,9 @@ export function Sidebar({ workerName, role }: SidebarProps) {
         { href: '/settlements', label: 'Liquidaciones', icon: FileText },
         { href: '/payments', label: 'Pagos', icon: Wallet },
         { href: '/supervisors', label: 'Supervisores', icon: UserCog },
+        // "Usuarios" es admin-only (gestión de cuentas de login). Guard explícito y
+        // separado del de "Supervisores" (que SÍ es visible para supervisor).
+        ...(role === 'admin' ? [{ href: '/usuarios', label: 'Usuarios', icon: ShieldCheck }] : []),
         ...(role === 'admin' ? [{ href: '/settings', label: 'Configuración', icon: Settings }] : []),
       ];
 

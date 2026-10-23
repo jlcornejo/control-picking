@@ -65,6 +65,7 @@ export default function AdminWorkersScreen() {
       const { data, error } = await supabase
         .from('workers')
         .select('id, full_name, national_id, phone, role, status, qr_badge_url, permission_profile_id')
+        .is('auth_user_id', null)
         .order('full_name');
       if (error) throw error;
       return data as WorkerRow[];

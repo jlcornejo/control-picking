@@ -61,6 +61,31 @@ export const createPermissionProfileSchema = z.object({
     .min(1, 'Selecciona al menos una capacidad'),
 });
 
+/**
+ * Roles que pueden tener login (excluye 'worker', que es cosechero sin acceso).
+ * Se declaran como tupla de literales de string `as const` para que `z.enum`
+ * los acepte directamente (z.enum exige `[string, ...string[]]`, no miembros de
+ * enum de TS). Los literales coinciden con WorkerRole.ADMIN/SUPERVISOR/CREW_LEAD.
+ */
+export const LOGIN_USER_ROLES = ['admin', 'supervisor', 'crew_lead'] as const;
+
+/** Crear usuario de login (sección "Usuarios"). La contraseña la genera el backend. */
+export const createLoginUserSchema = z.object({
+  full_name: z.string().min(1, 'Nombre completo es requerido').max(150),
+  email: z.string().email('Email inválido').max(255),
+  role: z.enum(LOGIN_USER_ROLES, {
+    required_error: 'Seleccione un rol',
+  }),
+});
+export type CreateLoginUserInput = z.infer<typeof createLoginUserSchema>;
+
+/** Editar usuario de login (solo nombre y rol; email no es editable en esta fase). */
+export const updateLoginUserSchema = z.object({
+  full_name: z.string().min(1).max(150).optional(),
+  role: z.enum(LOGIN_USER_ROLES).optional(),
+});
+export type UpdateLoginUserInput = z.infer<typeof updateLoginUserSchema>;
+
 /** Validation: Create a new worker */
 export const createWorkerSchema = z.object({
   full_name: z.string().min(1, 'Nombre completo es requerido').max(150),

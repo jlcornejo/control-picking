@@ -1,4 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
+import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { AdminDrawerContent } from '../../src/components/admin/AdminDrawerContent';
 import { colors, font } from '../../src/constants/theme';
 
@@ -12,7 +13,7 @@ import { colors, font } from '../../src/constants/theme';
 export default function AdminLayout() {
   return (
     <Drawer
-      drawerContent={(props) => <AdminDrawerContent {...props} />}
+      drawerContent={(props: DrawerContentComponentProps) => <AdminDrawerContent {...props} />}
       screenOptions={{
         headerShown: true,
         headerStyle: { backgroundColor: colors.card },
@@ -31,6 +32,7 @@ export default function AdminLayout() {
       <Drawer.Screen name="box-types" options={{ title: 'Tipos de Caja' }} />
       <Drawer.Screen name="crews" options={{ title: 'Cuadrillas' }} />
       <Drawer.Screen name="supervisors" options={{ title: 'Supervisores' }} />
+      <Drawer.Screen name="users" options={{ title: 'Usuarios' }} />
       <Drawer.Screen name="permission-profiles" options={{ title: 'Perfiles de Permisos' }} />
       {/* Administración / transaccional (G1, G2, G4, G3) */}
       <Drawer.Screen name="settings" options={{ title: 'Configuración' }} />

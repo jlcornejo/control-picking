@@ -67,6 +67,7 @@ export function AdminDrawerContent(props: DrawerContentComponentProps) {
     { route: 'box-types', title: 'Tipos de Caja', icon: 'cube', color: colors.blue, section: 'master', requiresTareFlag: true, requiresCapability: CAPABILITIES.BOX_TYPES_MANAGE },
     { route: 'crews', title: 'Cuadrillas', icon: 'car', color: colors.amber, section: 'master', requiresCrewMode: true, requiresCapability: CAPABILITIES.CREWS_MANAGE },
     { route: 'supervisors', title: 'Supervisores', icon: 'shield-checkmark', color: colors.orange, section: 'master', requiresCapability: CAPABILITIES.SUPERVISORS_MANAGE },
+    { route: 'users', title: 'Usuarios', icon: 'person-circle', color: colors.violet, section: 'master', requiresCapability: CAPABILITIES.WORKERS_MANAGE },
     { route: 'permission-profiles', title: 'Perfiles de Permisos', icon: 'shield-checkmark', color: colors.violet, section: 'master', requiresRbacFlag: true },
     // Administración / transaccional (G1, G2, G4, G3).
     { route: 'settings', title: 'Configuración', icon: 'settings', color: colors.textSecondary, section: 'admin', requiresCapability: CAPABILITIES.SETTINGS_MANAGE },

@@ -1,0 +1,34 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "location": "§3 and §4.3",
+      "problem": "The design cites 20260829000007_multitenant_rls.sql and quotes the admin_all_workers policy as 'is_platform_admin() OR (is_admin() AND organization_id = current_org_id())', labeling it 'verified'. That body was dropped and recreated in 20260927000003_rbac_phase_b_rls.sql, which adds a has_permission('workers.manage') conjunct. The cited policy text does not match the deployed schema.",
+      "fix": "Update §3 and §4.3 to cite 20260927000003_rbac_phase_b_rls.sql as the current definition and quote the real body (is_platform_admin() OR (is_admin() AND has_permission('workers.manage') AND organization_id = current_org_id())). Add a sentence noting the extra has_permission conjunct gates admin access wholesale and never restricts the role value an admin may set, so the server-side anti-degradation guard in handlePut is still required."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "location": "§4.3",
+      "problem": "The anti-degradation guard's placement relative to the existing handlePut single-update is unspecified. handlePut today runs one update(updates).eq('id', workerId) with the request (RLS) client and never resolves the row; an implementer could add an unconditional service-client read or run the guard after the update.",
+      "fix": "State that the guard runs only inside the 'if (body.role !== undefined)' branch, specifically when body.role === 'worker', and before the existing update(updates) call; for any other role no service-client lookup occurs and handlePut behaves as today."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "location": "§4.4 and §9 (Desactivar row)",
+      "problem": "The added crew-debt check (crews WHERE crew_lead_id = :id, then settlements payee_type='crew' count) has no specified behavior when either query returns a DB error vs. zero rows. handlePatchStatus today has no error branch for the count query.",
+      "fix": "Specify that a DB error on either the crews lookup or the crew-settlements count returns VALIDATION_ERROR 400 (consistent with the existing query-error pattern), and that a null/zero count proceeds to the normal status update."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "location": "§6",
+      "problem": "generateTempPassword uses a floor of 12 and is robust by construction, but the design does not state the invariant that the generated length must remain >= any target project's minimum_password_length; a future lowering of len below the remote policy would fail only at runtime.",
+      "fix": "Add a one-line note in §6 that len must stay >= the highest minimum_password_length of any target project and that 12 is chosen as a safe floor. No code change required."
+    }
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.agents/tasks/client-user-management/design-review.md"
+}
