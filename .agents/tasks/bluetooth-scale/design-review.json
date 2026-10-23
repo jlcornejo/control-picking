@@ -1,0 +1,20 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "title": "RC-pinned native dependency vs. prefer-stable convention",
+      "where": "design.md §1 Dependency — react-native-bluetooth-classic 1.73.0-rc.12",
+      "problem": "Pins a release-candidate while the project convention favors pinned stable versions. The design already instructs the implementer to verify and prefer a non-RC stable at install time, so the risk is owned.",
+      "fix": "At install, run `npm view react-native-bluetooth-classic versions --json`, pick the highest stable (non-rc/beta) release that supports RN 0.81 / New Architecture, fall back to 1.73.0-rc.12 only if no stable exists, keep the exact pin, and record the resolved version in the PR."
+    },
+    {
+      "severity": "NIT",
+      "title": "app.json plugin option key is version-dependent and unverified",
+      "where": "design.md §1 (a) Register the config plugin — bluetoothAlwaysPermission option key",
+      "problem": "Exact plugin option keys depend on the installed plugin version. The design flags this and provides a bare-string fallback, so it is a to-confirm step, not a reasoning gap.",
+      "fix": "After npm install, confirm accepted option keys against node_modules/react-native-bluetooth-classic/app.plugin.js; if the plugin injects descriptions automatically, use the bare \"react-native-bluetooth-classic\" string form."
+    }
+  ],
+  "reviewDoc": "/Users/ericksegura/Documents/backupHDD/personal/control-picking/.agents/tasks/bluetooth-scale/design-review.md"
+}

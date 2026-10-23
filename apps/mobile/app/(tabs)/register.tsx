@@ -1,5 +1,5 @@
 import {
-  useState } from 'react';
+  useState, useEffect, useRef } from 'react';
 import { View,
   TouchableOpacity,
   FlatList,
@@ -398,6 +398,43 @@ export default function RegisterScreen() {
     }
   }
 
+  // Auto-conexión: al llegar al paso de cantidad con balanza aplicable y aún
+  // sin conectar, se conecta sola para que el anotador no tenga que pulsar nada.
+  // El botón "Leer balanza" queda como reintento manual si la conexión falla.
+  useEffect(() => {
+    if (scaleApplies && step === 'quantity' && scale.status === 'idle') {
+      void scale.connect();
+    }
+    // Solo depende del contexto de aplicabilidad y del paso; connect es estable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scaleApplies, step, scale.status]);
+
+  // Auto-relleno al estabilizarse el peso: cuando la balanza reporta una lectura
+  // ESTABLE (> 0), se vuelca en el input de kilos sin pulsar "Leer balanza". Un
+  // ref recuerda el último valor estable ya aplicado para (a) no re-escribir el
+  // mismo valor en bucle y (b) actualizar cuando llega un peso estable DISTINTO
+  // (p. ej. una caja nueva). El input sigue editable: esto no lo bloquea, solo
+  // lo rellena; una edición manual se respeta hasta que llegue un peso estable
+  // distinto. Nunca escribe 0 ni negativos (se preserva quantity/kg > 0).
+  const lastAutoKgRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!scaleApplies || step !== 'quantity') return;
+    if (scale.lastStable !== true) return;
+    const kg = scale.lastWeightKg;
+    if (kg === null || !Number.isFinite(kg) || kg <= 0) return;
+    const rounded = round3(kg);
+    if (lastAutoKgRef.current === rounded) return; // mismo peso estable ya aplicado
+    lastAutoKgRef.current = rounded;
+    setManualKg(String(rounded));
+    Haptics.selectionAsync();
+  }, [scaleApplies, step, scale.lastStable, scale.lastWeightKg]);
+
+  // Al salir del paso de cantidad se olvida el último auto-valor, de modo que el
+  // próximo registro vuelva a auto-capturar aunque el peso coincida.
+  useEffect(() => {
+    if (step !== 'quantity') lastAutoKgRef.current = null;
+  }, [step]);
+
   function resetForSameBlock() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedRow(null); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); scale.clearLog(); }
   function resetForm() { setStep('scan'); setQrInput(''); setShowScanner(false); setSelectedWorker(null); setSelectedBlock(null); setSelectedRow(null); setRowChoices([]); setQuantity(''); setManualKg(''); setSelectedBoxType(null); setGrossWeight(''); setPhotoUri(null); setShowPhoto(false); }
 
@@ -585,6 +622,9 @@ export default function RegisterScreen() {
                 El input de arriba sigue editable siempre como respaldo manual. */}
             {scaleApplies && (
               <View style={s.scaleBox}>
+                {/* La captura es AUTOMÁTICA al estabilizarse el peso. Este botón
+                    es solo un reintento manual (reconectar / forzar lectura) por
+                    si la conexión falla; el input de arriba sigue editable. */}
                 <TouchableOpacity
                   style={[s.scaleBtn, s.chipRow, scale.status === 'connecting' && { opacity: 0.6 }]}
                   onPress={handleReadScale}
@@ -592,17 +632,19 @@ export default function RegisterScreen() {
                   activeOpacity={0.85}
                 >
                   <Ionicons name="bluetooth" size={18} color={colors.primary} />
-                  <AppText style={s.scaleBtnText}>Leer balanza</AppText>
+                  <AppText style={s.scaleBtnText}>
+                    {scale.status === 'connected' ? 'Volver a leer' : 'Reconectar balanza'}
+                  </AppText>
                 </TouchableOpacity>
 
                 <AppText style={[s.scaleStatus, scale.status === 'error' && s.scaleStatusError]}>
                   {scale.status === 'connecting'
                     ? 'Conectando…'
                     : scale.status === 'connected'
-                      ? `Balanza conectada${scale.lastWeightKg !== null ? ` · ${round3(scale.lastWeightKg)} kg` : ''}`
+                      ? `Balanza conectada · captura automática${scale.lastWeightKg !== null ? ` · ${round3(scale.lastWeightKg)} kg${scale.lastStable === true ? ' (estable)' : scale.lastStable === false ? ' (midiendo…)' : ''}` : ''}`
                       : scale.status === 'error'
                         ? scale.error ?? 'Sin conexión con la balanza'
-                        : 'Balanza desconectada'}
+                        : 'Conectando con la balanza…'}
                 </AppText>
 
                 <TouchableOpacity onPress={() => setShowScaleDebug((v) => !v)} activeOpacity={0.7}>
